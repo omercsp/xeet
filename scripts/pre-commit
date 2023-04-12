@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "Running pre commit codestyle check"
+# Find all Python files in the commit. ACM is for "added, created, modifieyd"
+# First find all the cached files, than all the unchaced files
+python_files=($(git diff --cached --name-only --diff-filter=ACM -- '*.py'))
+python_files+=($(git diff --name-only --diff-filter=ACM -- '*.py'))
+[[ ${#python_files[*]} -eq 0 ]] && exit 0
+
+#Remove duplicates from the list
+python_files=$(echo ${python_files[*]} | tr ' ' '\n' | sort | uniq | tr '\n' ' ')
+
+# Run pycodestyle on each Python file
+if ! pycodestyle $python_files; then
+    echo "ERROR: some files aren't styled proprely"
+    exit 1
+fi
+
+exit 0
