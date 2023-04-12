@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import os
+import shutil
+
+
+def _venv_activate(venv_path):
+    windows = os.name == "nt"
+    # Get the paths to the virtual environment's directories
+    venv_bin = os.path.join(venv_path, "Scripts") if windows else os.path.join(venv_path, "bin")
+    venv_lib = os.path.join(venv_path, "lib")
+
+    # Path to the virtual environment's `site-packages`
+    site_packages = None
+    if windows:
+        site_packages = os.path.join(venv_bin, "Lib", "site-packages")
+    else:
+        site_packages = os.path.join(venv_lib,
+                                     f"python{sys.version_info.major}.{sys.version_info.minor}",
+                                     "site-packages")
+
+    if not os.path.exists(site_packages):
+        raise FileNotFoundError(
+            f"Could not find site-packages in the virtual environment at: {site_packages}")
+
+    # Update sys.path to include the virtual environment's site-packages
+    sys.path.insert(0, site_packages)
+
+    # Update PATH to prioritize the virtual environment's executables
+    os.environ["PATH"] = os.pathsep.join([venv_bin, os.environ.get("PATH", "")])
+
+    # Optional: Set VIRTUAL_ENV environment variable (used by some tools)
+    os.environ["VIRTUAL_ENV"] = venv_path
+
+
+def _run():
+    proj_root = os.path.dirname(os.path.abspath(__file__))
+
+    # Check if USE_SYSTEM_XEET is set, default to 0
+    use_system_xeet = os.environ.get("USE_SYSTEM_XEET", "0")
+
+    if use_system_xeet == "1":
+        # Check if we're in a virtual environment
+        if os.environ.get("VIRTUAL_ENV"):
+            raise RuntimeError("Cannot use system xeet while in a virtual environment")
+
+    else:
+        # If not using system xeet, ensure a virtual environment is active
+        if not os.environ.get("VIRTUAL_ENV"):
+            # Determine virtual environment path
+            venv_path = os.environ.get("XEET_PKG_VENV_PATH") or os.path.join(proj_root, ".venv")
+            _venv_activate(venv_path)
+
+    # Check if xeet is available in the PATH
+    if not shutil.which("xeet"):
+        raise FileNotFoundError("'xeet' command is not available in current path")
+
+    # Run xeet command
+    xeet_cmd = ["xeet"] + sys.argv[1:]
+    ret = subprocess.run(xeet_cmd)
+    sys.exit(ret.returncode)
+
+
+if __name__ == '__main__':
+    try:
+        _run()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
