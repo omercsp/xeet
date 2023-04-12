@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=72", "setuptools_scm[toml]>=8.0.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xeet"
+dynamic = ["version"]
+description = "End to end testing framework and orchestrator"
+authors = [
+    {name = "Omer Caspi", email = "omer.caspi@gmail.com"},
+]
+readme = "README.md"
+classifiers = [
+    "Operating System :: OS Independent",
+    "Topic :: Utilities",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+dependencies = [
+	"argcomplete>=2.0.0",
+	"pydantic>=2.9",
+        "pyyaml>=5.4.1",
+	"jsonpath-ng>=1.7",
+	"rich>=13"
+]
+requires-python = ">=3.10,<4"
+
+[project.optional-dependencies]
+devel = [
+	"setuptools>=72",
+	"setuptools_scm>8.1"
+]
+publish = [
+	"build>=1.2",
+	"twine>=5.1"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/omercsp/xeet"
+
+[project.scripts]
+xeet = "xeet.__main__:xrun"
+
+[tool.setuptools]
+packages = ["xeet"]
+package-dir = {'' = "src"}
+
+[tool.setuptools_scm]
+local_scheme = "dirty-tag"
+version_file = "src/xeet/_version.py"
