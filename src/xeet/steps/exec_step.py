@@ -1,0 +1,397 @@
+from xeet.common import (text_file_tail, in_windows, FileTailer, yes_no_str, StrFilterData,
+                         filter_str)
+from xeet.pr import pr_info
+from xeet.core.step import Step, StepModel, StepResult
+from xeet import XeetException
+from pydantic import field_validator, ValidationInfo, model_validator, Field
+from enum import Enum
+from io import TextIOWrapper
+from dataclasses import dataclass
+from typing import Any
+import shlex
+import os
+import subprocess
+import signal
+import difflib
+import json
+
+
+class _OutputBehavior(str, Enum):
+    Unify = "unify"
+    Split = "split"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class ExecStepModel(StepModel):
+    timeout: float | None = Field(None, ge=0)
+    shell_path: str | None = None
+    cmd: str | None = None
+    use_shell: bool = False
+    output_behavior: _OutputBehavior = _OutputBehavior.Unify
+    cwd: str | None = None
+    env: dict[str, str] | None = None
+    env_file: str | None = None
+    use_os_env: bool = False
+    allowed_rc: list[int] | str = [0]
+    stdout_file: str | None = None
+    stderr_file: str | None = None
+    expected_stdout: str | None = None
+    expected_stderr: str | None = None
+    expected_stdout_file: str | None = None
+    expected_stderr_file: str | None = None
+    debug_new_line: bool = False
+    output_filters: list[StrFilterData] = Field(default_factory=list)
+
+    @field_validator('allowed_rc')
+    @classmethod
+    def check_rc_value(cls, v: str | list[int], _: ValidationInfo) -> list[int] | str:
+        if isinstance(v, str):
+            assert v == "*", "Only '*' is allowed"
+        return v
+
+    @model_validator(mode='after')
+    def check_expected_output(self) -> "ExecStepModel":
+        if self.expected_stdout and self.expected_stdout_file:
+            raise ValueError("Only one of 'expected_stdout' and 'expected_stdout_file' can be set")
+        if self.expected_stderr and self.expected_stderr_file:
+            raise ValueError("Only one of 'expected_stderr' and 'expected_stderr_file' can be set")
+        return self
+
+
+@dataclass
+class ExecStepResult(StepResult):
+    stdout_file: str = ""
+    stderr_file: str = ""
+    duration: float | None = None
+    timeout_period: float | None = None
+    output_behavior: _OutputBehavior = _OutputBehavior.Unify
+    os_error: OSError | None = None
+    rc: int | None = None
+    allowed_rc: list[int] | str = ""
+    rc_ok: bool = False
+    stdout_diff: str = ""
+    stderr_diff: str = ""
+
+
+class ExecStep(Step):
+    @staticmethod
+    def model_class() -> type[StepModel]:
+        return ExecStepModel
+
+    @staticmethod
+    def result_class() -> type[StepResult]:
+        return ExecStepResult
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.exec_model: ExecStepModel = kwargs["model"]
+        self.shell_path = ""
+        self.cmd = ""
+        self.cwd = ""
+        self.env = {}
+        self.env_file = ""
+        self.output_behavior = _OutputBehavior.Unify
+        self.expected_stdout = ""
+        self.expected_stderr = ""
+        self.expected_stdout_file = ""
+        self.expected_stderr_file = ""
+        self.stdout_file = ""
+        self.stderr_file = ""
+        self.output_behavior = self.exec_model.output_behavior
+
+    def setup(self, **kwargs) -> None:  # type: ignore
+        super().setup(**kwargs)
+        NoneType = type(None)
+        self.shell_path = self.xvars.expand(self.exec_model.shell_path)
+        if not self.shell_path:
+            self.shell_path, _ = self.rti.config_ref("settings.exec_step.default_shell_path")
+
+        self.cmd = self.xvars.expand(self.exec_model.cmd, [str])
+        if not self.cmd:
+            raise XeetException("Command is empty")
+
+        self.use_shell = (not in_windows()) and self.exec_model.use_shell
+        self.cwd = self.xvars.expand(self.exec_model.cwd)
+        if self.cwd:
+            self.log_info(f"Working directory will be set to '{self.cwd}'")
+        else:
+            self.log_info(f"Using current working directory '{os.getcwd()}'")
+        self.env = self.xvars.expand(self.exec_model.env, [dict, NoneType])
+        self.env_file = self.xvars.expand(self.exec_model.env_file)
+
+        if self.exec_model.env_file:
+            self.env_file = self.xvars.expand(self.env_file)
+        if self.exec_model.env is not None:
+            for k, v in self.exec_model.env.items():
+                name = k.strip()
+                if not name:
+                    continue
+                self.env[k] = self.xvars.expand(v)
+
+        #  Output files
+        if self.exec_model.stdout_file:
+            stdout_name = self.xvars.expand(self.exec_model.stdout_file)
+        else:
+            stdout_name = "stdout"
+        self.stdout_file = self._output_file(stdout_name)
+        if self.output_behavior == _OutputBehavior.Unify:
+            self.log_info(f"Unified output will be written to '{self.stdout_file}'")
+        else:
+            if self.exec_model.stderr_file:
+                stderr_name = self.xvars.expand(self.exec_model.stderr_file)
+            else:
+                stderr_name = "stderr"
+            self.stderr_file = self._output_file(stderr_name)
+            self.log_info(f"Stdout will be written to '{self.stdout_file}'")
+            self.log_info(f"Stderr will be written to '{self.stderr_file}'")
+
+        #  Expected output
+        self.expected_stdout = self.xvars.expand(self.exec_model.expected_stdout)
+        self.expected_stderr = self.xvars.expand(self.exec_model.expected_stderr)
+        self.expected_stdout_file = self.xvars.expand(self.exec_model.expected_stdout_file)
+        self.expected_stderr_file = self.xvars.expand(self.exec_model.expected_stderr_file)
+
+    def _io_descriptors(self) -> tuple[TextIOWrapper, TextIOWrapper]:
+        out_file = open(self.stdout_file, "w")
+        if self.output_behavior == _OutputBehavior.Unify:
+            err_file = out_file
+        else:
+            err_file = open(self.stderr_file, "w")
+        return out_file, err_file
+
+    def _read_env_vars(self) -> dict:
+        ret = {}
+        if self.exec_model.has_key("use_os_env") and self.exec_model.use_os_env:
+            use_os_env = self.exec_model.use_os_env
+        else:
+            use_os_env, _ = self.rti.config_ref("settings.exec_step.use_os_env")
+        if use_os_env:
+            ret.update(os.environ)
+        if self.env_file:
+            self.log_info(f"reading env file '{self.env_file}'")
+            with open(self.env_file, "r") as f:
+                data = json.load(f)
+                #  err = validate_env_schema(data)
+                #  if err:
+                #      raise XeetRunException(f"Error reading env file - {err}")
+                ret.update(data)
+        if self.env:
+            ret.update(self.env)
+        return ret
+
+    def _run(self, res: ExecStepResult) -> bool:  # type: ignore
+        try:
+            env = self._read_env_vars()
+        except OSError as e:
+            res.err_summary = f"Error reading env file: {e}"
+            self.log_warn(res.err_summary)
+            return False
+
+        subproc_args: dict = {
+            "env": env,
+            "cwd": self.cwd if self.cwd else None,
+            "shell": self.use_shell,
+            "executable": self.shell_path if self.shell_path and self.use_shell else None,
+        }
+        self.log_info(f"Running command (shell: {self.use_shell}):\n{self.cmd}")
+        command = self.cmd
+        if not self.use_shell and isinstance(command, str):
+            try:
+                command = shlex.split(command)
+            except ValueError as e:
+                res.err_summary = f"Error splitting command: {e}"
+                return False
+        subproc_args["args"] = command
+
+        res.stdout_file = self.stdout_file
+        res.stderr_file = self.stderr_file
+        res.output_behavior = self.output_behavior
+        res.allowed_rc = self.exec_model.allowed_rc
+        timeout = self.exec_model.timeout
+
+        p = None
+        out_file, err_file = self._io_descriptors()
+        subproc_args["stdout"] = out_file
+        subproc_args["stderr"] = err_file
+        tails: list[FileTailer] = []
+        if self.debug_mode:
+            tails.append(FileTailer(self.stdout_file))
+            if self.output_behavior == _OutputBehavior.Split:
+                tails.append(FileTailer(self.stderr_file))
+        try:
+            self.pr_debug(" output start ".center(33, "-"))
+            p = subprocess.Popen(**subproc_args)
+            for tail in tails:
+                tail.start()
+            res.rc = p.wait(timeout)
+            for tail in tails:
+                tail.stop()
+            if self.exec_model.debug_new_line:
+                self.pr_debug("")
+        except OSError as e:
+            for tail in tails:
+                tail.stop(kill=True)
+            res.os_error = e
+            res.err_summary = str(e)
+            self.log_info(res.err_summary)
+            return False
+        except subprocess.TimeoutExpired as e:
+            assert p is not None
+            try:
+                for tail in tails:
+                    tail.stop(kill=True)
+                p.kill()
+                p.wait()
+            except OSError as kill_e:
+                self.log_error(f"Error killing process - {kill_e}")
+            self.log_info(str(e))
+            res.timeout_period = timeout
+            res.err_summary = f"Timeout expired after {timeout}s"
+            return False
+        except KeyboardInterrupt:
+            if p and not self.debug_mode:
+                p.send_signal(signal.SIGINT)  # type: ignore
+                p.wait()  # type: ignore
+            res.err_summary = "User interrupt"
+            return False
+        finally:
+            self.pr_debug(" output end ".center(33, "-"))
+            if isinstance(out_file, TextIOWrapper):
+                out_file.close()
+            if isinstance(err_file, TextIOWrapper):
+                err_file.close()
+        self.log_info(f"Command finished with return code {res.rc}")
+        self._verify_rc(res)
+        self._verify_output(res)
+        return True
+
+    def _verify_rc(self, res: ExecStepResult) -> None:
+        self.log_info("Verifying rc", dbg_pr=False)
+
+        res.rc_ok = isinstance(self.exec_model.allowed_rc, str) or \
+            res.rc in self.exec_model.allowed_rc
+        if res.rc_ok:
+            self.log_info("Return code is valid")
+            return
+        res.failed = True
+
+        #  RC error
+        allowed_str = ",".join([str(x) for x in self.exec_model.allowed_rc])
+        err = f"retrun code {res.rc} not in allowed return codes ({allowed_str})"
+        self.log_info(f"failed: {err}")
+        if self.debug_mode:
+            pr_info(f"RC verification failed: {err}")
+
+        res.err_summary = err
+        if self.output_behavior == _OutputBehavior.Unify:
+            stdout_title = "output"
+        else:
+            stdout_title = "stdout"
+        stdout_tail = text_file_tail(res.stdout_file)
+        if stdout_tail:
+            res.err_summary += f"\n{stdout_title} tail:\n------\n{stdout_tail}\n------"
+        else:
+            res.err_summary += f"\nempty {stdout_title}"
+        if self.output_behavior == _OutputBehavior.Unify:
+            return
+        stderr_tail = text_file_tail(res.stderr_file)
+        if stderr_tail:
+            res.err_summary += f"\nstderr tail:\n------\n{stderr_tail}\n------"
+        else:
+            res.err_summary += "\nempty stderr"
+
+    def _verify_output(self, res: ExecStepResult) -> None:
+        def _expected_text(string, file_path) -> list[str] | None:
+            if string:
+                return string.split("\n")
+            if file_path:
+                with open(file_path, "r") as f:
+                    return f.read().split("\n")
+            return None
+
+        def _compare_std_file(name, file_path, expected):
+            with open(file_path, "r") as f:
+                content = f.read()
+                if self.exec_model.output_filters:
+                    content = filter_str(content, self.exec_model.output_filters)
+                    with open(f"{file_path}.filtered", "w") as filtered_f:
+                        filtered_f.write(content)
+                content = content.split("\n")
+            diff = difflib.unified_diff(
+                content,  # List of lines from file1
+                expected,  # List of lines from file2
+                fromfile=file_path,
+                tofile=f"expected_{name}",
+                lineterm=''  # Suppress extra newlines
+            )
+            return '\n'.join(diff)
+
+        self.log_info("verifying output", dbg_pr=False)
+        if res.failed:
+            self.log_info("Skipping output verification, prior step failed")
+            return
+
+        expected_stdout = _expected_text(self.expected_stdout, self.expected_stdout_file)
+        expected_stderr = _expected_text(self.expected_stderr, self.expected_stderr_file)
+        if not expected_stdout and not expected_stderr:
+            self.log_info("No output verification is required")
+            return
+
+        if expected_stdout:
+            res.stdout_diff = _compare_std_file("stdout", res.stdout_file, expected_stdout)
+            if res.stdout_diff:
+                res.failed = True
+                self.log_info("stdout differs from expected", dbg_pr=False)
+                res.err_summary = f"stdout differs from expected\n{res.stdout_diff}"
+                self.pr_debug(res.err_summary)
+                return
+
+        if expected_stderr:
+            if self.output_behavior == _OutputBehavior.Unify:
+                self.log_warn("expected_stderr is ignored when output_behavior is 'unify'")
+                return
+            res.stderr_diff = _compare_std_file("stderr", res.stderr_file, expected_stderr)
+            if res.stderr_diff:
+                res.failed = True
+                self.log_info("stderr differs from expected", dbg_pr=False)
+                res.err_summary = f"stderr differs from expected\n{res.stderr_diff}"
+                self.pr_debug(res.err_summary)
+        if not res.failed:
+            self.log_info("Output is verified")
+            return
+
+    def _detail_value(self, key: str, printable: bool, setup: bool = False, **_) -> Any:
+        if key == "env":
+            env = self.env if setup else self.exec_model.env
+            if not env:
+                return super()._detail_value(key, printable)
+            if not printable:
+                return env
+            return "\n".join([f"{k}='{v}'" for k, v in env.items()])
+        if not setup:
+            return super()._detail_value(key, printable)
+        setup_keys = {"cmd", "cwd", "use_shell", "shell_path", "env_file",
+                      "expected_stdout", "expected_stderr", " expected_stdout_file",
+                      "expected_stderr_file"}
+        if key not in setup_keys:
+            return super()._detail_value(key, printable)
+        try:
+            value = getattr(self, key)
+            if key == "use_shell" and printable:
+                return yes_no_str(value)
+            return value
+        except AttributeError:
+            return f"[Unknown attribute - {key}]"
+
+    def _printable_field_name(self, name: str) -> str:
+        if name == "allowed_rc":
+            return "Allowed return codes"
+        if name == "cmd":
+            return "Command"
+        if name == "cwd":
+            return "Working directory"
+        if name == "env":
+            return "Environment variables"
+        return super()._printable_field_name(name)
