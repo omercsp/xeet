@@ -1,0 +1,16 @@
+Starting run
+Running groups: passing
+
+Running 001_pass                                             .......[Passed ]
+Running 007 with spaces                                      .......[Passed ]
+Running 008b_inherits_bad_command_to_good                    .......[Passed ]
+Running 009_env_pass                                         .......[Passed ]
+Running 012_filtered_output                                  .......[Passed ]
+Running 013_multi_rc_passing                                 .......[Passed ]
+Running 014_show_auto_vars                                   .......[Passed ]
+Running 015a_pre_command_ok                                  .......[Passed ]
+Running 015d_post_command_verify                             .......[Passed ]
+
+Finished iteration (#0/0)
+Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015d_post_command_verify
+

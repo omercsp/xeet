@@ -1,0 +1,58 @@
+Starting run
+Running tests: 001_pass, 002_fail, 003_skip, 004_bad_desc, 005_expected_fail, 006_unexpected_success, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 010_timeout, 011_bad_output, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015b_pre_command_fail, 015c_post_command_fail, 015d_post_command_verify
+
+Running 001_pass                                             .......[Passed ]
+Running 002_fail                                             .......[Failed ] rc=1, allowed=2
+Full output file: XEET_DIR/sanity/xeet.out/002_fail
+
+Running 003_skip                                             .......[Skipped] marked as skip
+Running 004_bad_desc                                         .......[Not Run]
+Schema validation error: Additional properties are not allowed ('blat' was unexpected)
+
+Running 005_expected_fail                                    .......[xFailed]
+Running 006_unexpected_success                               .......[uxPass ]
+Full output file: XEET_DIR/sanity/xeet.out/006_unexpected_success
+
+Running 007 with spaces                                      .......[Passed ]
+Running 008a_bad_command_not_run                             .......[Not Run]
+[Errno 2] No such file or directory: 'no'
+
+Running 008b_inherits_bad_command_to_good                    .......[Passed ]
+Running 009_env_pass                                         .......[Passed ]
+Running 010_timeout                                          .......[Failed ]
+Command '['sleep', '5']' timed out after 1 seconds
+Full output file: XEET_DIR/sanity/xeet.out/010_timeout
+
+Running 011_bad_output                                       .......[Failed ] Output mismatch
+Diff head:
+>>>>>
+--- XEET_DIR/sanity/xeet.expected/011_bad_output
++++ XEET_DIR/sanity/xeet.out/011_bad_output
+@@ -1 +1 @@
+-good output
++bad output
+<<<<<
+Full diff file: XEET_DIR/sanity/xeet.out/011_bad_output.diff
+Full output file: XEET_DIR/sanity/xeet.out/011_bad_output
+
+Running 012_filtered_output                                  .......[Passed ]
+Running 013_multi_rc_passing                                 .......[Passed ]
+Running 014_show_auto_vars                                   .......[Passed ]
+Running 015a_pre_command_ok                                  .......[Passed ]
+Running 015b_pre_command_fail                                .......[Not Run] Pre run command returned: 1
+Running 015c_post_command_fail                               .......[Failed ] post run failed
+Post run command returned: 1
+Post run stderr:
+
+Full output file: XEET_DIR/sanity/xeet.out/015c_post_command_fail
+
+Running 015d_post_command_verify                             .......[Passed ]
+
+Finished iteration (#0/0)
+Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015d_post_command_verify
+Expectedly failed: 005_expected_fail
+Failed: 002_fail, 010_timeout, 011_bad_output, 015c_post_command_fail
+Unexpectedly passed: 006_unexpected_success
+Skipped: 003_skip
+Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail
+

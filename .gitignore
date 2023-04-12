@@ -1,0 +1,20 @@
+*.swp
+pyrightconfig.json
+.vimspector.json
+.idea/
+__pycache__/
+xeet.out/
+
+# Virtual Environments
+.env/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Packaging
+build/
+dist/
+*egg-info**

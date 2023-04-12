@@ -1,0 +1,10 @@
+Starting run
+Running tests: 002_fail
+
+Running 002_fail                                             .......[Failed ] rc=1, allowed=2
+Full output file: XEET_DIR/sanity/xeet.out/002_fail
+
+
+Finished iteration (#0/0)
+Failed: 002_fail
+
