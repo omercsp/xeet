@@ -1,0 +1,168 @@
+{
+    "$defs": {
+        "NonEmptyStr": {
+            "minLength": 1,
+            "title": "NonEmptyStr",
+            "type": "string"
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "title": "$Schema"
+        },
+        "include": {
+            "items": {
+                "$ref": "#/$defs/NonEmptyStr"
+            },
+            "title": "Include",
+            "type": "array"
+        },
+        "tests": {
+            "items": {
+                "$defs": {
+                    "StepsInheritType": {
+                        "enum": [
+                            "prepend",
+                            "append",
+                            "replace"
+                        ],
+                        "title": "StepsInheritType",
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "title": "Name",
+                        "type": "string"
+                    },
+                    "base": {
+                        "default": "",
+                        "title": "Base",
+                        "type": "string"
+                    },
+                    "abstract": {
+                        "default": false,
+                        "title": "Abstract",
+                        "type": "boolean"
+                    },
+                    "short_desc": {
+                        "default": "",
+                        "maxLength": 75,
+                        "title": "Short Desc",
+                        "type": "string"
+                    },
+                    "long_desc": {
+                        "default": "",
+                        "title": "Long Desc",
+                        "type": "string"
+                    },
+                    "groups": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "title": "Groups",
+                        "type": "array"
+                    },
+                    "pre_run": {
+                        "items": {},
+                        "title": "Pre Run",
+                        "type": "array"
+                    },
+                    "run": {
+                        "items": {},
+                        "title": "Run",
+                        "type": "array"
+                    },
+                    "post_run": {
+                        "items": {},
+                        "title": "Post Run",
+                        "type": "array"
+                    },
+                    "expected_failure": {
+                        "default": false,
+                        "title": "Expected Failure",
+                        "type": "boolean"
+                    },
+                    "skip": {
+                        "default": false,
+                        "title": "Skip",
+                        "type": "boolean"
+                    },
+                    "skip_reason": {
+                        "default": "",
+                        "title": "Skip Reason",
+                        "type": "string"
+                    },
+                    "var_map": {
+                        "title": "Var Map",
+                        "type": "object"
+                    },
+                    "inherit_variables": {
+                        "default": true,
+                        "title": "Inherit Variables",
+                        "type": "boolean"
+                    },
+                    "pre_run_inheritance": {
+                        "$ref": "#/$defs/StepsInheritType",
+                        "default": "replace"
+                    },
+                    "run_inheritance": {
+                        "$ref": "#/$defs/StepsInheritType",
+                        "default": "replace"
+                    },
+                    "post_run_inheritance": {
+                        "$ref": "#/$defs/StepsInheritType",
+                        "default": "replace"
+                    },
+                    "error": {
+                        "default": "",
+                        "title": "Error",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "title": "TestModel",
+                "type": "object"
+            },
+            "title": "Tests",
+            "type": "array"
+        },
+        "variables": {
+            "title": "Variables",
+            "type": "object"
+        },
+        "settings": {
+            "additionalProperties": {
+                "type": "object"
+            },
+            "title": "Settings",
+            "type": "object"
+        },
+        "root_dir": {
+            "title": "Root Dir",
+            "type": "string"
+        },
+        "test_names": {
+            "additionalProperties": {
+                "type": "object"
+            },
+            "title": "Test Names",
+            "type": "object"
+        }
+    },
+    "title": "XeetModel",
+    "type": "object"
+}
