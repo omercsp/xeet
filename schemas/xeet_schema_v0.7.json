@@ -1,0 +1,173 @@
+{
+    "$defs": {
+        "StepsInheritType": {
+            "enum": [
+                "prepend",
+                "append",
+                "replace"
+            ],
+            "title": "StepsInheritType",
+            "type": "string"
+        },
+        "TestModel": {
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "minLength": 1,
+                    "pattern": "^[a-zA-Z0-9_-]*$",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "base": {
+                    "default": "",
+                    "minLength": 1,
+                    "pattern": "^[a-zA-Z0-9_-]*$",
+                    "title": "Base",
+                    "type": "string"
+                },
+                "abstract": {
+                    "default": false,
+                    "title": "Abstract",
+                    "type": "boolean"
+                },
+                "short_desc": {
+                    "default": "",
+                    "maxLength": 75,
+                    "title": "Short Desc",
+                    "type": "string"
+                },
+                "long_desc": {
+                    "default": "",
+                    "title": "Long Desc",
+                    "type": "string"
+                },
+                "groups": {
+                    "items": {
+                        "minLength": 1,
+                        "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+                        "type": "string"
+                    },
+                    "title": "Groups",
+                    "type": "array"
+                },
+                "pre_run": {
+                    "items": {},
+                    "title": "Pre Run",
+                    "type": "array"
+                },
+                "run": {
+                    "items": {},
+                    "title": "Run",
+                    "type": "array"
+                },
+                "post_run": {
+                    "items": {},
+                    "title": "Post Run",
+                    "type": "array"
+                },
+                "expected_failure": {
+                    "default": false,
+                    "title": "Expected Failure",
+                    "type": "boolean"
+                },
+                "skip": {
+                    "default": false,
+                    "title": "Skip",
+                    "type": "boolean"
+                },
+                "skip_reason": {
+                    "default": "",
+                    "title": "Skip Reason",
+                    "type": "string"
+                },
+                "var_map": {
+                    "patternProperties": {
+                        "^[a-zA-Z_][a-zA-Z0-9_]*$": {}
+                    },
+                    "propertyNames": {
+                        "minLength": 1
+                    },
+                    "title": "Var Map",
+                    "type": "object"
+                },
+                "inherit_variables": {
+                    "default": true,
+                    "title": "Inherit Variables",
+                    "type": "boolean"
+                },
+                "pre_run_inheritance": {
+                    "$ref": "#/$defs/StepsInheritType",
+                    "default": "replace"
+                },
+                "run_inheritance": {
+                    "$ref": "#/$defs/StepsInheritType",
+                    "default": "replace"
+                },
+                "post_run_inheritance": {
+                    "$ref": "#/$defs/StepsInheritType",
+                    "default": "replace"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "title": "TestModel",
+            "type": "object"
+        }
+    },
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null,
+            "title": "$Schema"
+        },
+        "include": {
+            "items": {
+                "minLength": 1,
+                "type": "string"
+            },
+            "title": "Include",
+            "type": "array"
+        },
+        "tests": {
+            "items": {
+                "$ref": "#/$defs/TestModel"
+            },
+            "title": "Tests",
+            "type": "array"
+        },
+        "variables": {
+            "patternProperties": {
+                "^[a-zA-Z_][a-zA-Z0-9_]*$": {}
+            },
+            "propertyNames": {
+                "minLength": 1
+            },
+            "title": "Variables",
+            "type": "object"
+        },
+        "settings": {
+            "patternProperties": {
+                "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "additionalProperties": true,
+                    "type": "object"
+                }
+            },
+            "propertyNames": {
+                "minLength": 1
+            },
+            "title": "Settings",
+            "type": "object"
+        }
+    },
+    "title": "_XeetFullModel",
+    "type": "object"
+}
