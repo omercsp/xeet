@@ -1,0 +1,10 @@
+Starting run
+Running tests: 002_fail
+
+002_fail                                                     ....... [Failed ] rc=1, allowed=0
+Test stdout/stderr: (Empty stdout), (Empty stderr)
+
+
+Finished iteration (#0/0)
+Failed: 002_fail
+

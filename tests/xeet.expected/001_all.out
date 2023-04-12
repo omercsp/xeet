@@ -1,0 +1,54 @@
+Starting run
+Running tests: 001_pass, 002_fail, 003_skip, 004_bad_desc, 005_expected_fail, 006_unexpected_success, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 010_timeout, 011_bad_output, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015b_pre_command_fail, 015c_post_command_fail, 015d_post_command_verify
+
+001_pass                                                     ....... [Passed ]
+002_fail                                                     ....... [Failed ] rc=1, allowed=0
+Test stdout/stderr: (Empty stdout), (Empty stderr)
+
+003_skip                                                     ....... [Skipped] marked as skip
+004_bad_desc                                                 ....... [Not Run]
+Schema validation error: Additional properties are not allowed ('blat' was unexpected)
+
+005_expected_fail                                            ....... [xFailed]
+006_unexpected_success                                       ....... [uxPass ]
+Test stdout/stderr: (Empty stdout), (Empty stderr)
+
+007 with spaces                                              ....... [Passed ]
+008a_bad_command_not_run                                     ....... [Not Run]
+[Errno 2] No such file or directory: 'no'
+
+008b_inherits_bad_command_to_good                            ....... [Passed ]
+009_env_pass                                                 ....... [Passed ]
+010_timeout                                                  ....... [Failed ]
+Command '['sleep', '5']' timed out after 1 seconds
+Test stdout/stderr: (Empty stdout), (Empty stderr)
+
+011_bad_output                                               ....... [Failed ] stdout mismatch
+Diff head:
+>>>>>
+--- XEET_DIR/sanity/xeet.expected/011_bad_output.out
++++ XEET_DIR/sanity/xeet.out/011_bad_output.out
+@@ -1 +1 @@
+-good output
++bad output
+<<<<<
+Full diff file: XEET_DIR/sanity/xeet.out/011_bad_output.out.diff
+
+012_filtered_output                                          ....... [Passed ]
+013_multi_rc_passing                                         ....... [Passed ]
+014_show_auto_vars                                           ....... [Passed ]
+015a_pre_command_ok                                          ....... [Passed ]
+015b_pre_command_fail                                        ....... [Not Run] Pre run command RC=1
+015c_post_command_fail                                       ....... [Failed ] Post run failed
+Post run command = 1, no post run output
+
+015d_post_command_verify                                     ....... [Passed ]
+
+Finished iteration (#0/0)
+Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015d_post_command_verify
+Expectedly failed: 005_expected_fail
+Failed: 002_fail, 010_timeout, 011_bad_output, 015c_post_command_fail
+Unexpectedly passed: 006_unexpected_success
+Skipped: 003_skip
+Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail
+

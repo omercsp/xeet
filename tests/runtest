@@ -1,0 +1,16 @@
+#!/bin/bash
+# This is confusing as hell, as we use xeet to test itself. The idea is to have a stable
+# version of xeet outside the virtual environment, and use it to test the development
+# version of xeet inside the virtual environment.
+
+SCRIPT_FILE="$(readlink -f ${BASH_SOURCE[0]})"
+SCRIPT_DIR="$(dirname $SCRIPT_FILE)"
+
+# shellcheck disable=SC2164
+cd ${SCRIPT_DIR}
+if type xeet &> /dev/null; then
+	xeet_cmd=xeet
+else
+	xeet_cmd=../xeetrun.sh
+fi
+${xeet_cmd} run -c xeet_qa.json --log-file=/tmp/xeet_qa.log "$@"

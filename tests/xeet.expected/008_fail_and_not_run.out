@@ -1,0 +1,14 @@
+Starting run
+Running tests: 002_fail, 004_bad_desc
+
+002_fail                                                     ....... [Failed ] rc=1, allowed=0
+Test stdout/stderr: (Empty stdout), (Empty stderr)
+
+004_bad_desc                                                 ....... [Not Run]
+Schema validation error: Additional properties are not allowed ('blat' was unexpected)
+
+
+Finished iteration (#0/0)
+Failed: 002_fail
+Not ran: 004_bad_desc
+

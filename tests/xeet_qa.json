@@ -1,0 +1,129 @@
+{
+	"variables":{
+		"base_cmd": "./xeetrun.sh --no-colors --no-splash",
+		"run_cmd": "{{base_cmd}} run",
+		"sanity_cmd": "{{run_cmd}} -c tests/sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
+		"output_test_cmd": "{{run_cmd}} -c tests/out_bhv/xeet.json --log-file=/tmp/xeet_sanity.log",
+		"list_cmd": "{{base_cmd}} list -c tests/for_list_and_info.json"
+	},
+	"tests": [
+		{
+			"name": "sanity_base",
+			"cwd": "{{__xroot__}}/..",
+			"output_filter": ["sed", "-i", "-e", "s,{{__cwd__}},XEET_DIR,", "{{__output_file__}}"],
+			"abstract": true
+		},
+		{
+			"name": "001_all",
+			"base": "sanity_base",
+			"short_desc": "Test sanity for development code",
+			"command": "{{sanity_cmd}}",
+			"allowed_return_codes": [1],
+			"groups": ["sanity", "multi", "failing"]
+		},
+		{
+			"name": "002_single-test-pass",
+			"base": "sanity_base",
+			"short_desc": "Test single group,passing",
+			"command": "{{sanity_cmd}} -t 001_pass",
+			"groups": ["sanity", "single", "passing"]
+		},
+		{
+			"base": "sanity_base",
+			"name": "003_single-test-fail",
+			"short_desc": "Test single group,passing",
+			"command": "{{sanity_cmd}} -t 002_fail",
+			"allowed_return_codes": [1],
+			"groups": ["sanity", "single", "failing"]
+		},
+		{
+			"name": "004_single-group-passing",
+			"base": "sanity_base",
+			"short_desc": "Test single group,passing",
+			"command": "{{sanity_cmd}} -g passing",
+			"groups": ["sanity", "group", "passing"]
+		},
+		{
+			"name": "005_single-group-not-run",
+			"base": "sanity_base",
+			"short_desc": "Test single group, not running",
+			"command": "{{sanity_cmd}} -g not_run",
+			"allowed_return_codes": [1],
+			"groups": ["sanity", "group", "not-run"]
+		},
+		{
+			"name": "006_single-group-failing",
+			"base": "sanity_base",
+			"short_desc": "Test single group, failing",
+			"command": "{{sanity_cmd}} -g failing",
+			"allowed_return_codes": [1],
+			"groups": ["sanity", "group"]
+		},
+		{
+			"name": "007_pass_and_skip",
+			"base": "sanity_base",
+			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
+			"command": "{{sanity_cmd}} -t 001_pass -t 003_skip",
+			"groups": ["sanity", "passing"]
+		},
+		{
+			"name": "008_fail_and_not_run",
+			"base": "sanity_base",
+			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
+			"command": "{{sanity_cmd}} -t 002_fail -t 004_bad_desc",
+			"allowed_return_codes": [1],
+			"groups": ["sanity", "group"]
+		},
+		{
+			"name": "009_pass_and_not_run_groups",
+			"base": "sanity_base",
+			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
+			"command": "{{sanity_cmd}} -g passing -g not_run",
+			"allowed_return_codes": [1],
+			"groups": ["sanity", "group"]
+		},
+		{
+			"name": "100_output_passing",
+			"cwd": "{{__xroot__}}/..",
+			"short_desc": "Test output behviour, passing",
+			"command": "{{output_test_cmd}} -g passing",
+			"groups": ["output", "group"]
+		},
+		{
+			"name": "101_output_failing",
+			"cwd": "{{__xroot__}}/..",
+			"short_desc": "Test output behviour, failing",
+			"command": "{{output_test_cmd}} -g failing",
+			"allowed_return_codes": [1],
+			"groups": ["output", "group"]
+		},
+		{
+			"name": "200_list_tests",
+			"cwd": "{{__xroot__}}/..",
+			"short_desc": "Test output behviour, failing",
+			"command": "{{list_cmd}}",
+			"groups": ["list"]
+		},
+		{
+			"name": "201_list_tests_all",
+			"cwd": "{{__xroot__}}/..",
+			"short_desc": "Test output behviour, failing",
+			"command": "{{list_cmd}} -a",
+			"groups": ["list"]
+		},
+		{
+			"name": "202_list_tests_group",
+			"cwd": "{{__xroot__}}/..",
+			"short_desc": "Test output behviour, failing",
+			"command": "{{list_cmd}} -g AB",
+			"groups": ["list"]
+		},
+		{
+			"name": "203_list_tests_2groups",
+			"cwd": "{{__xroot__}}/..",
+			"short_desc": "Test output behviour, failing",
+			"command": "{{list_cmd}} -g AB -g CD",
+			"groups": ["list"]
+		}
+	]
+}

@@ -1,0 +1,151 @@
+{
+	"tests": [
+		{
+			"name": "001_pass",
+			"short_desc": "echoes Hello World!",
+			"command": "echo 'Hello World!'",
+			"groups": ["group1", "group2", "passing"]
+		},
+		{
+			"name": "002_fail",
+			"short_desc": "runs false",
+			"command": "false",
+			"groups": ["group1", "group3", "failing"]
+		},
+		{
+			"name": "003_skip",
+			"short_desc": "expected to be skipped",
+			"command": "false",
+			"allowed_return_codes": [2],
+			"groups": ["group1", "group2", "group4", "skipped"],
+			"skip": true
+		},
+		{
+			"name": "004_bad_desc",
+			"short_desc": "bad test descriptor",
+			"allowed_return_codes": [2],
+			"blat": "blat",
+			"groups": ["not_run"]
+		},
+		{
+			"name": "005_expected_fail",
+			"short_desc": "runs false but expected to fail",
+			"command": "false",
+			"expected_failure": true
+		},
+		{
+			"name": "006_unexpected_success",
+			"short_desc": "runs true but expected to fail",
+			"command": "true",
+			"expected_failure": true
+		},
+		{
+			"name": "007 with spaces",
+			"short_desc": "test name with spaces",
+			"command": "true",
+			"groups": ["passing"]
+		},
+		{
+			"name": "008a_bad_command_not_run",
+			"short_desc": "bad command (should not run)",
+			"command": "no such thing",
+			"groups": ["group5", "not_run"]
+		},
+		{
+			"name": "008b_inherits_bad_command_to_good",
+			"base": "008a_bad_command_not_run",
+			"short_desc": "inherits a bad command test, but replaces it with a good one",
+			"command": "true",
+			"inherit_groups": false,
+			"groups": ["passing"]
+		},
+		{
+			"name": "009_env_pass",
+			"short_desc": "prints environment variable",
+			"env" : {
+				"TEST_ENV_VAR": "test value"
+			},
+			"command": "printenv TEST_ENV_VAR",
+			"inherit_groups": true,
+			"groups": ["passing"]
+		},
+		{
+			"name": "010_timeout",
+			"short_desc": "timeout test",
+			"command": "sleep 5",
+			"timeout": 1,
+			"groups": ["failing"]
+		},
+		{
+			"name": "011_bad_output",
+			"short_desc": "Bad output test",
+			"command": "echo 'bad output'",
+			"groups": ["failing"]
+		},
+		{
+			"name": "012_filtered_output",
+			"short_desc": "Filtered output test",
+			"command": "echo 'original output'",
+			"output_filter": ["sed", "-i", "-e", "s/original output/filtered output/", "{{__output_file__}}"],
+			"groups": ["passing"]
+		},
+		{
+			"name": "013_multi_rc_passing",
+			"short_desc": "Multiple return codes, shoudld pass",
+			"command": "rc=$(( ${RANDOM} % 5 + 1 )); echo 'return code: ${rc}'; exit ${rc}",
+			"shell": true,
+			"allowed_return_codes": [1, 2, 3, 4, 5],
+			"compare_output": "none",
+			"groups": ["passing"]
+		},
+		{
+			"name": "014_show_auto_vars",
+			"short_desc": "Test auto variables",
+			"command": "echo {{__xname__}}",
+			"shell": true,
+			"compare_output": "none",
+			"groups": ["passing"]
+		},
+		{
+			"name": "015a_pre_command_ok",
+			"short_desc": "Test with valid pre-run command",
+			"pre_command": "true",
+			"command": "echo {{__xname__}}",
+			"compare_output": "none",
+			"groups": ["passing"]
+		},
+		{
+			"name": "015b_pre_command_fail",
+			"short_desc": "Test with invalid pre-run command",
+			"base": "015a_pre_command_ok",
+			"pre_command": "false",
+			"groups": ["not_run"]
+		},
+		{
+			"name": "015c_post_command_fail",
+			"short_desc": "Test with invalid post-run command",
+			"base": "015a_pre_command_ok",
+			"post_command": "false",
+			"groups": ["failing"]
+		},
+		{
+			"name": "015d_post_command_verify",
+			"short_desc": "Post command verification check",
+			"variables": {
+				"output_file": "{{__output_dir__}}/{{__xname__}}.txt",
+				"verification_file": "{{__xroot__}}/aux/{{__xname__}}_compare.txt"
+
+			},
+			"command": "echo 'Silence is golden' > {{output_file}}",
+			"shell": true,
+			"compare_output": "none",
+			"post_command": "diff -u {{output_file}} {{verification_file}}",
+			"groups": ["passing"]
+		},
+		{
+			"short_desc": "Abstract test",
+			"name": "900_pass",
+			"abstract": true
+		}
+	]
+}

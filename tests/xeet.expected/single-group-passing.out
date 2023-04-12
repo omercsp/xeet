@@ -1,0 +1,14 @@
+Xeet, v0.1.0
+============
+
+Starting run
+Running groups: passing
+
+Running '001_pass'                                           .......[Passed ]
+Running '007 with spaces'                                    .......[Passed ]
+Running '008.a_inherits_bad_command_to_good'                 .......[Passed ]
+Running '009_env_pass'                                       .......[Passed ]
+
+Finished iteration (#0/0)
+Passed: 001_pass, 007 with spaces, 008.a_inherits_bad_command_to_good, 009_env_pass
+
