@@ -2,7 +2,7 @@ from xeet.xtest import (XTEST_NOT_RUN, XTEST_FAILED, XTEST_SKIPPED, XTEST_EXPECT
                         XTEST_UNEXPECTED_PASS)
 
 
-class XIterationInfo(object):
+class IterInfo(object):
     def __init__(self) -> None:
         self.failed_tests = []
         self.skipped_tests = []
@@ -12,10 +12,10 @@ class XIterationInfo(object):
         self.unexpected_pass = []
 
 
-class XeetRunInfo(object):
+class RunInfo(object):
     def __init__(self, iterations: int) -> None:
         self.iterations: int = iterations
-        self.itearations_info = [XIterationInfo() for _ in range(iterations)]
+        self.itearations_info = [IterInfo() for _ in range(iterations)]
         self.__failed = False
 
     def add_test_result(self, test_name: str, iteration: int, result: int) -> None:
@@ -39,5 +39,5 @@ class XeetRunInfo(object):
     def failed(self) -> bool:
         return self.__failed
 
-    def XiterInfo(self, iteration: int) -> XIterationInfo:
+    def XiterInfo(self, iteration: int) -> IterInfo:
         return self.itearations_info[iteration]

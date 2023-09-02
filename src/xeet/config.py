@@ -10,7 +10,7 @@ import argparse
 import logging
 
 
-class XTestDesc(object):
+class TestDesc(object):
     def __init__(self, raw_desc: dict) -> None:
         self.name = raw_desc[NAME]
         self.error: str = ""
@@ -52,7 +52,7 @@ CONFIG_SCHEMA = {
 }
 
 
-class XeetConfig(object):
+class Config(object):
     def __init__(self, args: argparse.Namespace, expand: bool) -> None:
         self.args: argparse.Namespace = args
         self.expand_task = expand
@@ -80,20 +80,20 @@ class XeetConfig(object):
         if conf_err:
             raise XeetException(f"Invalid configuration file '{conf_path}': {conf_err}")
 
-        raw_xdescs = self.conf.get(_TESTS, [])
-        self.raw_xtests_map = {}
-        for raw_desc in raw_xdescs:
+        raw_descs = self.conf.get(_TESTS, [])
+        self.raw_tests_map = {}
+        for raw_desc in raw_descs:
             name = raw_desc.get(NAME, None)
             if not name:
                 log_info("Ignoring nameless test")
                 continue
-            self.raw_xtests_map[name] = raw_desc
-        self.xdescs = []
-        for raw_xdesc in raw_xdescs:
-            xdesc = XTestDesc(raw_xdesc)
-            self._solve_desc_inclusions(xdesc)
-            self.xdescs.append(xdesc)
-        self.xdescs_map = {xdesc.name: xdesc for xdesc in self.xdescs}
+            self.raw_tests_map[name] = raw_desc
+        self.descs = []
+        for raw_xdesc in raw_descs:
+            desc = TestDesc(raw_xdesc)
+            self._solve_desc_inclusions(desc)
+            self.descs.append(desc)
+        self.xdescs_map = {desc.name: desc for desc in self.descs}
 
         set_xeet_vars(self.conf.get(VARIABLES, {}))
 
@@ -122,7 +122,7 @@ class XeetConfig(object):
         return self.arg("schema")
 
     @property
-    def xtest_name_arg(self) -> Any:
+    def test_name_arg(self) -> Any:
         return self.arg("test_name")
 
     @property
@@ -146,8 +146,8 @@ class XeetConfig(object):
 
     def all_groups(self) -> set[str]:
         ret = set()
-        for xdesc in self.xdescs:
-            ret.update(xdesc.target_desc_property(GROUPS, []))
+        for desc in self.descs:
+            ret.update(desc.target_desc_property(GROUPS, []))
         return ret
 
     def _read_configuration(self, file_path: str, read_files: set) -> dict:
@@ -158,7 +158,7 @@ class XeetConfig(object):
             raise XeetException(f"Error parsing {file_path} - {e}")
         includes = orig_conf.get(_INCLUDE, [])
         conf = {}
-        xtests = []
+        tests = []
         variables = {}
 
         log_info(f"Configuration file includes: {includes}")
@@ -169,7 +169,7 @@ class XeetConfig(object):
             if f in read_files:
                 raise XeetException(f"Include loop detected - '{f}'")
             included_conf = self._read_configuration(f, read_files)
-            xtests += included_conf[_TESTS]  # TODO
+            tests += included_conf[_TESTS]  # TODO
             variables.update(included_conf[VARIABLES])
             conf.update(included_conf)
         read_files.remove(file_path)
@@ -177,8 +177,8 @@ class XeetConfig(object):
             conf.pop(_INCLUDE)
 
         conf.update(orig_conf)
-        xtests += (orig_conf.get(_TESTS, []))
-        conf[_TESTS] = xtests  # TODO
+        tests += (orig_conf.get(_TESTS, []))
+        conf[_TESTS] = tests  # TODO
         variables.update(orig_conf.get(VARIABLES, {}))
         conf[VARIABLES] = variables
         return conf
@@ -186,22 +186,22 @@ class XeetConfig(object):
     def default_shell_path(self) -> Optional[str]:
         return self.setting(_DFLT_SHELL_PATH, None)
 
-    def runnable_xtest_names(self) -> list[str]:
-        return [desc.name for desc in self.xdescs
+    def runnable_test_names(self) -> list[str]:
+        return [desc.name for desc in self.descs
                 if not desc.raw_desc.get(ABSTRACT, False)]
 
-    def runnable_xdescs(self) -> list[XTestDesc]:
-        return [desc for desc in self.xdescs
+    def runnable_descs(self) -> list[TestDesc]:
+        return [desc for desc in self.descs
                 if not desc.raw_desc.get(ABSTRACT, False)]
 
     #  Return anything. Types is forced by schema validations.
     def setting(self, path: str, default=None) -> Any:
         return dict_value(self.conf, path, default=default)
 
-    def get_xtest_desc(self, name: str) -> Optional[XTestDesc]:
+    def get_test_desc(self, name: str) -> Optional[TestDesc]:
         return self.xdescs_map.get(name, None)
 
-    def _solve_desc_inclusions(self, desc: XTestDesc) -> None:
+    def _solve_desc_inclusions(self, desc: TestDesc) -> None:
         base_desc_name = desc.raw_desc.get(BASE, None)
         if not base_desc_name:
             desc.target_desc = desc.raw_desc
@@ -212,7 +212,7 @@ class XeetConfig(object):
             if base_desc_name in inclusions:
                 desc.error = f"Ihneritance loop detected for '{base_desc_name}'"
                 return
-            raw_base_desc = self.raw_xtests_map.get(base_desc_name, None)
+            raw_base_desc = self.raw_tests_map.get(base_desc_name, None)
             if not raw_base_desc:
                 desc.error = f"no such base test '{base_desc_name}'"
                 return

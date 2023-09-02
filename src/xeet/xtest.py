@@ -1,5 +1,5 @@
 from io import TextIOWrapper
-from xeet.config import XeetConfig, XTestDesc
+from xeet.config import Config, TestDesc
 from xeet.common import (XeetException, StringVarExpander, parse_assignment_str,
                          validate_json_schema, NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV,
                          INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC, VARIABLES)
@@ -23,7 +23,7 @@ XTEST_EXPECTED_FAILURE = 4
 XTEST_UNEXPECTED_PASS = 5
 
 
-class XTestResult(object):
+class TestResult(object):
     def __init__(self) -> None:
         super().__init__()
         self.status = XTEST_UNDEFINED
@@ -135,13 +135,13 @@ class XTest(object):
         #  kwargs['extra_frames'] = 1
         log_info(f"{self.name}: {msg}", *args, **kwargs)
 
-    def __init__(self, xdesc: XTestDesc, config: XeetConfig) -> None:
+    def __init__(self, desc: TestDesc, config: Config) -> None:
         super().__init__()
-        self.name = xdesc.name
+        self.name = desc.name
         self._log_info("initializing test")
 
-        assert xdesc is not None
-        task_descriptor = xdesc.target_desc
+        assert desc is not None
+        task_descriptor = desc.target_desc
         self.init_err = validate_json_schema(task_descriptor, TEST_SCHEMA)
         if self.init_err:
             log_info(f"Error in test descriptor: {self.init_err}")
@@ -283,7 +283,7 @@ class XTest(object):
             err_file = out_file
         return out_file, err_file
 
-    def _run_cmd(self, res: XTestResult) -> XTestResult:
+    def _run_cmd(self, res: TestResult) -> TestResult:
         self._log_info("running command:")
         log_raw(self.command)
         p = None
@@ -347,7 +347,7 @@ class XTest(object):
         res.run_ok = res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE
         return res
 
-    def _filter_output(self, res: XTestResult) -> None:
+    def _filter_output(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
             return
         if not self.output_filter or self.debug_mode:
@@ -376,7 +376,7 @@ class XTest(object):
             res.extra_comments.append(str(e))
             res.filter_ok = False
 
-    def _compare_file(self, res: XTestResult, src_file: str, expected_file: str, diff_file: str,
+    def _compare_file(self, res: TestResult, src_file: str, expected_file: str, diff_file: str,
                       stream_name: str) -> bool:
 
         file_exists = self._valid_file(src_file)
@@ -443,7 +443,7 @@ class XTest(object):
             res.extra_comments.append("Output comparison skipped")
         return False
 
-    def _compare_output(self, res: XTestResult) -> None:
+    def _compare_output(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
             return
         if self.compare_output == _NOTHING or self.debug_mode:
@@ -479,7 +479,7 @@ class XTest(object):
         if not res.compare_stderr_ok or not res.compare_stdout_ok:
             res.status = XTEST_FAILED
 
-    def _post_run(self, res: XTestResult) -> None:
+    def _post_run(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
             return
         if not self.post_command:
@@ -513,7 +513,7 @@ class XTest(object):
             res.short_comment = "Post run error:"
             res.extra_comments.append(str(e))
 
-    def _pre_run(self, res: XTestResult) -> None:
+    def _pre_run(self, res: TestResult) -> None:
         if not self.pre_command:
             return
         pre_cmd_map = {}
@@ -537,7 +537,7 @@ class XTest(object):
             res.status = XTEST_NOT_RUN
             res.short_comment = f"Error running pre run command- {e}"
 
-    def run(self, res: XTestResult) -> None:
+    def run(self, res: TestResult) -> None:
         if self.init_err:
             res.status = XTEST_NOT_RUN
             res.extra_comments.append(self.init_err)

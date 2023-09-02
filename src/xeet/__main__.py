@@ -1,5 +1,5 @@
 from xeet import XEET_BASE_VERSION
-from xeet.config import XeetConfig
+from xeet.config import Config
 from xeet.common import XeetException, XEET_NO_TOKEN, XEET_YES_TOKEN
 from xeet.log import init_logging, log_error
 from xeet.pr import pr_bright, set_no_color_print, XEET_RESET, XEET_RED
@@ -126,19 +126,19 @@ def xrun() -> int:
             return 0
 
         expand = cmd_name == RUN_CMD or (cmd_name == INFO_CMD and args.expand)
-        config = XeetConfig(args, expand)
+        config = Config(args, expand)
         if config.main_cmd == RUN_CMD:
-            return actions.run_xtest_list(config)
+            return actions.run_test_list(config)
         elif config.main_cmd == LIST_CMD:
-            actions.list_xtests(config)
+            actions.list_tests(config)
         elif config.main_cmd == GROUPS_CMD:
             actions.list_groups(config)
         elif config.main_cmd == INFO_CMD:
-            actions.show_xtest_info(config)
+            actions.show_test_info(config)
         elif config.main_cmd == DUMP_CONFIG_CMD:
             actions.dump_config(config)
         elif config.main_cmd == DUMP_XTEST_CMD:
-            actions.dump_xtest(args.test_name, config)
+            actions.dump_test(args.test_name, config)
 
     except XeetException as e:
         print(f"{XEET_RESET}{XEET_RED}", end='', file=sys.stderr)

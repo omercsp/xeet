@@ -1,58 +1,58 @@
 from xeet.pr import XEET_GREEN, XEET_RED, XEET_YELLOW, XEET_WHITE, XEET_RESET, xeet_color_enabled
-from xeet.xtest import (XTest, XTestResult, XTEST_NOT_RUN, XTEST_PASSED, XTEST_FAILED,
+from xeet.xtest import (XTest, TestResult, XTEST_NOT_RUN, XTEST_PASSED, XTEST_FAILED,
                         XTEST_SKIPPED, XTEST_EXPECTED_FAILURE, XTEST_UNEXPECTED_PASS, GROUPS,
                         ABSTRACT, SHORT_DESC)
 
-from xeet.config import XeetConfig, XTestDesc
+from xeet.config import Config, TestDesc
 from xeet.common import print_dict, XeetException
 from xeet.log import log_blank, log_info, start_raw_logging, stop_raw_logging
-from xeet.xrun_info import XeetRunInfo
+from xeet.runtime import RunInfo
 import textwrap
 import sys
 from typing import Optional
 
 
-def _prepare_xtests_list(config: XeetConfig, runable: bool) -> list[XTestDesc]:
-    names = config.xtest_name_arg
-    runnable_xtest_names = set(config.runnable_xtest_names())
+def _prepare_tests_list(config: Config, runable: bool) -> list[TestDesc]:
+    names = config.test_name_arg
+    runnable_test_names = set(config.runnable_test_names())
     if names:
         ret = []
         for name in names:
-            if name not in runnable_xtest_names:
-                possible_names = [x for x in runnable_xtest_names if x.startswith(name)]
+            if name not in runnable_test_names:
+                possible_names = [x for x in runnable_test_names if x.startswith(name)]
                 if len(possible_names) == 0:
                     raise XeetException(f"No tests match '{name}'")
                 if len(possible_names) > 1:
                     names_str = ", ".join(possible_names)
                     raise XeetException(f"Multiple tests match '{name}': {names_str}")
                 name = possible_names[0]
-            xtest_desc = config.get_xtest_desc(name)
-            ret.append(xtest_desc)
+            test_desc = config.get_test_desc(name)
+            ret.append(test_desc)
         return ret
     include_groups = config.include_groups
     require_groups = config.require_groups
     exclude_groups = config.exclude_groups
     if runable:
-        ret = config.runnable_xdescs()
+        ret = config.runnable_descs()
     else:
-        ret = config.xdescs
+        ret = config.descs
     if include_groups or require_groups or exclude_groups:
-        def filter_desc(desc: XTestDesc) -> bool:
-            xtest_groups = desc.target_desc.get(GROUPS, [])
-            if not xtest_groups:
+        def filter_desc(desc: TestDesc) -> bool:
+            test_groups = desc.target_desc.get(GROUPS, [])
+            if not test_groups:
                 return False
-            if include_groups and not include_groups.intersection(xtest_groups):
+            if include_groups and not include_groups.intersection(test_groups):
                 return False
-            if require_groups and not require_groups.issubset(xtest_groups):
+            if require_groups and not require_groups.issubset(test_groups):
                 return False
-            if exclude_groups and exclude_groups.intersection(xtest_groups):
+            if exclude_groups and exclude_groups.intersection(test_groups):
                 return False
             return True
-        ret = [xdesc for xdesc in ret if filter_desc(xdesc)]
+        ret = [desc for desc in ret if filter_desc(desc)]
     return ret
 
 
-def _show_xtest(xtest: XTest, full_details: bool) -> None:
+def _show_test(test: XTest, full_details: bool) -> None:
     def print_val(title: str, value) -> None:
         print(f"{title:<24}{value:<}")
 
@@ -73,55 +73,55 @@ def _show_xtest(xtest: XTest, full_details: bool) -> None:
                     continue
                 print_val("", in_line)
 
-    def _xtest_str(cmd_str: str) -> str:
+    def _test_str(cmd_str: str) -> str:
         if len(cmd_str.strip()) == 0:
             return "[n/a - empty string)]"
         return cmd_str
 
-    print_val("Test name:", xtest.name)
-    if xtest.short_desc:
-        print_val("Short description:", xtest.short_desc)
+    print_val("Test name:", test.name)
+    if test.short_desc:
+        print_val("Short description:", test.short_desc)
     if full_details:
-        if xtest.long_desc:
-            print_blob("Description:", xtest.long_desc)
-        print_bool("Abstract:", xtest.abstract)
-    print_bool("Use shell: ", xtest.shell)
-    if xtest.shell:
+        if test.long_desc:
+            print_blob("Description:", test.long_desc)
+        print_bool("Abstract:", test.abstract)
+    print_bool("Use shell: ", test.shell)
+    if test.shell:
         shell_title = "Shell path:"
-        if xtest.shell_path:
-            print_val(shell_title, xtest.shell_path)
+        if test.shell_path:
+            print_val(shell_title, test.shell_path)
         else:
             print_val(shell_title, "/usr/bin/sh")
 
-    print_bool("Inherit environment", xtest.env_inherit)
-    if xtest.env:
+    print_bool("Inherit environment", test.env_inherit)
+    if test.env:
         print("Environment:")
-        for count, (k, v) in enumerate(xtest.env.items()):
+        for count, (k, v) in enumerate(test.env.items()):
             print_blob(f"     [{count}]", f"{k}={v}")
-    if xtest.cwd:
-        print_blob("Working directory:", _xtest_str(xtest.cwd))
+    if test.cwd:
+        print_blob("Working directory:", _test_str(test.cwd))
 
-    if xtest.command:
-        print_blob("Command (joined):", _xtest_str(" ".join(xtest.command)))
-
-
-def show_xtest_info(config: XeetConfig) -> None:
-    xtest_name = config.xtest_name_arg
-    if not xtest_name:
-        raise XeetException("No xtest name was specified")
-    xdesc = config.get_xtest_desc(xtest_name)
-    if xdesc is None:
-        raise XeetException(f"No such xtest: {xtest_name}")
-    xtest = XTest(xdesc, config)
-    _show_xtest(xtest, True)
+    if test.command:
+        print_blob("Command (joined):", _test_str(" ".join(test.command)))
 
 
-def list_groups(config: XeetConfig) -> None:
+def show_test_info(config: Config) -> None:
+    test_name = config.test_name_arg
+    if not test_name:
+        raise XeetException("No test name was specified")
+    desc = config.get_test_desc(test_name)
+    if desc is None:
+        raise XeetException(f"No such xtest: {test_name}")
+    test = XTest(desc, config)
+    _show_test(test, True)
+
+
+def list_groups(config: Config) -> None:
     for g in config.all_groups():
         print(g)
 
 
-def list_xtests(config: XeetConfig) -> None:
+def list_tests(config: Config) -> None:
     def _display_token(token: Optional[str], max_len: int) -> str:
         if not token:
             return ""
@@ -134,9 +134,9 @@ def list_xtests(config: XeetConfig) -> None:
     # 2 for spaces between description and flags
     _error_max_str_len = _max_desc_print_len + 2
     show_all: bool = config.args.all
-    xdescs = _prepare_xtests_list(config, runable=not show_all)
+    descs = _prepare_tests_list(config, runable=not show_all)
     names_only: bool = config.args.names_only
-    log_info(f"Listing xtests show_all={show_all} names_only={names_only}")
+    log_info(f"Listing tests show_all={show_all} names_only={names_only}")
     #  This is hard to decipher, but '{{}}' is a way to escape a '{}'
     print_fmt = f"{{:<{_max_name_print_len}}}  {{}}"
     err_print_fmt = f"{{:<{_max_name_print_len}}}  {{}}"
@@ -144,21 +144,21 @@ def list_xtests(config: XeetConfig) -> None:
     if not names_only:
         print(print_fmt.format("Name", "Description"))
         print(print_fmt.format("----", "-----------"))
-    for xdesc in xdescs:
-        if xdesc.error:
-            error_str = _display_token(f"<error: {xdesc.error}>", _error_max_str_len)
-            name_str = _display_token(xdesc.name, _max_name_print_len)
+    for desc in descs:
+        if desc.error:
+            error_str = _display_token(f"<error: {desc.error}>", _error_max_str_len)
+            name_str = _display_token(desc.name, _max_name_print_len)
             print(err_print_fmt.format(name_str, error_str))
             continue
-        abstract = xdesc.raw_desc.get(ABSTRACT, False)
+        abstract = desc.raw_desc.get(ABSTRACT, False)
         if not show_all and abstract:
             continue
         if names_only:
-            print(xdesc.name, end=' ')
+            print(desc.name, end=' ')
             continue
 
-        short_desc = xdesc.raw_desc.get(SHORT_DESC, None)
-        print(print_fmt.format(_display_token(xdesc.name, _max_name_print_len),
+        short_desc = desc.raw_desc.get(SHORT_DESC, None)
+        print(print_fmt.format(_display_token(desc.name, _max_name_print_len),
               _display_token(short_desc, _max_desc_print_len)))
 
 
@@ -180,7 +180,7 @@ def _reset_color():
     return XEET_RESET if xeet_color_enabled() else ""
 
 
-def _pre_run_print(name: str, config: XeetConfig) -> None:
+def _pre_run_print(name: str, config: Config) -> None:
     if config.debug_mode:
         return
     if len(name) > 40:
@@ -204,7 +204,7 @@ __status_str_map = {
 }
 
 
-def _post_run_print(res: XTestResult, config: XeetConfig) -> None:
+def _post_run_print(res: TestResult, config: Config) -> None:
     if config.debug_mode:
         print("".center(50, '-'))
         if res.short_comment:
@@ -227,7 +227,7 @@ def _post_run_print(res: XTestResult, config: XeetConfig) -> None:
         print()
 
 
-def _summarize_iter(run_info: XeetRunInfo, iter_n: int,
+def _summarize_iter(run_info: RunInfo, iter_n: int,
                     show_succesful: bool = False) -> None:
     def summarize_test_list(suffix: str, test_names: list[str], color: str = "") -> None:
         title = f"{suffix}"
@@ -263,23 +263,23 @@ def _summarize_iter(run_info: XeetRunInfo, iter_n: int,
     print()
 
 
-def _run_single_xtest(desc: XTestDesc, config: XeetConfig) -> XTestResult:
-    ret = XTestResult()
+def _run_single_test(desc: TestDesc, config: Config) -> TestResult:
+    ret = TestResult()
     if desc.error:
         ret.status = XTEST_NOT_RUN
         ret.short_comment = desc.error
         return ret
 
-    xtest = XTest(desc, config)
+    test = XTest(desc, config)
     if config.args.show_summary:
-        _show_xtest(xtest, full_details=False)
+        _show_test(test, full_details=False)
         sys.stdout.flush()
-    xtest.run(ret)
+    test.run(ret)
     return ret
 
 
-def run_xtest_list(config: XeetConfig) -> int:
-    descs = _prepare_xtests_list(config, runable=True)
+def run_test_list(config: Config) -> int:
+    descs = _prepare_tests_list(config, runable=True)
     if not descs:
         raise XeetException("No tests to run")
     iterations = config.args.repeat
@@ -303,14 +303,14 @@ def run_xtest_list(config: XeetConfig) -> int:
     log_blank()
     print()
 
-    run_info = XeetRunInfo(iterations=iterations)
+    run_info = RunInfo(iterations=iterations)
 
     for iter_n in range(iterations):
         if iterations > 1:
             log_info(f">>> Iteration {iter_n}/{iterations - 1}", pr=True)
         for desc in descs:
             _pre_run_print(desc.name, config)
-            test_res = _run_single_xtest(desc, config)
+            test_res = _run_single_test(desc, config)
             _post_run_print(test_res, config)
             run_info.add_test_result(desc.name, iter_n, test_res.status)
             log_blank()
@@ -320,15 +320,15 @@ def run_xtest_list(config: XeetConfig) -> int:
     return 1 if run_info.failed else 0
 
 
-def dump_xtest(name: str, config: XeetConfig) -> None:
-    xdesc = config.get_xtest_desc(name)
-    if xdesc is None:
-        raise XeetException(f"No such xtest: {name}")
+def dump_test(name: str, config: Config) -> None:
+    desc = config.get_test_desc(name)
+    if desc is None:
+        raise XeetException(f"No such test: {name}")
     print(f"Test '{name}' descriptor:")
-    print_dict(xdesc.target_desc)
+    print_dict(desc.target_desc)
 
 
-def dump_config(config: XeetConfig) -> None:
+def dump_config(config: Config) -> None:
     print_dict(config.conf)
 
 
