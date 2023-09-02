@@ -1,8 +1,8 @@
 from io import TextIOWrapper
 from xeet.config import XeetConfig, XTestDesc
-from xeet.schemas import CompareOutputKeys, XTestKeys, OutputBehaviorValues, XTEST_SCHEMA
 from xeet.common import (XeetException, StringVarExpander, parse_assignment_str,
-                         validate_json_schema)
+                         validate_json_schema, NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV,
+                         INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC)
 from xeet.log import (log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO)
 from typing import Optional
 import shlex
@@ -47,6 +47,90 @@ class XTestResult(object):
         return self.post_run_rc == 0 or self.post_run_rc is None
 
 
+_SHELL = "shell"
+_SHELLPATH = "shell_path"
+_INHERIT_OS_ENV = "inherit_os_env"
+_CWD = "cwd"
+_SKIP = "skip"
+_SKIP_REASON = "skip_reason"
+_LONG_DESC = "description"
+_COMMAND = "command"
+_ALLOWED_RC = "allowed_return_codes"
+_EXPECTED_FAILURE = "expected_failure"
+_COMPARE_OUTPUT = "compare_output"
+_OUTPUT_FILTER = "output_filter"
+_PRE_COMMAND = "pre_command"
+_POST_COMMAND = "post_command"
+_VARIABLES = "variables"
+_OUTPUT_BEHAVIOR = "output_behavior"
+_TIMEOUT = "timeout"
+
+# Output behavior values
+_UNIFY = "unify"
+_SPLIT = "split"
+
+# compare output keys
+_STDOUT = "stdout"
+_STDERR = "stderr"
+_ALL = "all"
+_NOTHING = "none"
+
+_COMMAND_SCHEMA = {
+    "anyOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "array", "items": {"type": "string", "minLength": 1}}
+    ]
+}
+
+TEST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        NAME: {"type": "string", "minLength": 1},
+        BASE: {"type": "string", "minLength": 1},
+        SHORT_DESC: {"type": "string", "maxLength": 75},
+        _LONG_DESC: {"type": "string"},
+        GROUPS: {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+        },
+        _COMMAND: _COMMAND_SCHEMA,
+        _ALLOWED_RC: {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 0, "maximum": 255}
+        },
+        _TIMEOUT: {
+            "type": "integer",
+            "minimum": 0
+        },
+        _COMPARE_OUTPUT: {"type": "string", "enum": [_ALL, _STDOUT, _STDERR, _NOTHING]},
+        _OUTPUT_FILTER: _COMMAND_SCHEMA,
+        _PRE_COMMAND: _COMMAND_SCHEMA,
+        _POST_COMMAND: _COMMAND_SCHEMA,
+        _EXPECTED_FAILURE: {"type": "boolean"},
+        _OUTPUT_BEHAVIOR: {"enum": [_UNIFY, _SPLIT]},
+        _CWD: {"type": "string", "minLength": 1},
+        _SHELL: {"type": "boolean"},
+        _SHELLPATH: {"type": "string", "minLength": 1},
+        ENV: {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        _INHERIT_OS_ENV: {"type": "boolean"},
+        INHERIT_ENV: {"type": "boolean"},
+        ABSTRACT: {"type": "boolean"},
+        _SKIP: {"type": "boolean"},
+        _SKIP_REASON: {"type": "string"},
+        _VARIABLES: {"type": "object"},
+        INHERIT_VARIABLES: {"type": "boolean"},
+        INHERIT_GROUPS: {"type": "boolean"}
+    },
+    "additionalProperties": False,
+    "required": [NAME]
+}
+
+
 class XTest(object):
     def _log_info(self, msg: str, *args, **kwargs) -> None:
         #  kwargs['extra_frames'] = 1
@@ -59,52 +143,52 @@ class XTest(object):
 
         assert xdesc is not None
         task_descriptor = xdesc.target_desc
-        self.init_err = validate_json_schema(task_descriptor, XTEST_SCHEMA)
+        self.init_err = validate_json_schema(task_descriptor, TEST_SCHEMA)
         if self.init_err:
             log_info(f"Error in test descriptor: {self.init_err}")
             return
         self.debug_mode = config.debug_mode
         self.xeet_root = config.xeet_root
 
-        self.short_desc = task_descriptor.get(XTestKeys.ShortDesc, None)
-        self.long_desc = task_descriptor.get(XTestKeys.LongDesc, None)
+        self.short_desc = task_descriptor.get(SHORT_DESC, None)
+        self.long_desc = task_descriptor.get(_LONG_DESC, None)
 
-        self.cwd = task_descriptor.get(XTestKeys.Cwd, None)
-        self.shell = task_descriptor.get(XTestKeys.Shell, False)
+        self.cwd = task_descriptor.get(_CWD, None)
+        self.shell = task_descriptor.get(_SHELL, False)
         self.shell_path = task_descriptor.get(
-            XTestKeys.ShellPath, config.default_shell_path())
-        self.command = task_descriptor.get(XTestKeys.Command, [])
+            _SHELLPATH, config.default_shell_path())
+        self.command = task_descriptor.get(_COMMAND, [])
 
-        self.env_inherit = task_descriptor.get(XTestKeys.InheritOsEnv, True)
-        self.env = task_descriptor.get(XTestKeys.Env, {})
-        self.abstract = task_descriptor.get(XTestKeys.Abstract, False)
-        self.skip = task_descriptor.get(XTestKeys.Skip, False)
-        self.skip_reason = task_descriptor.get(XTestKeys.SkipReason, None)
-        self.allowed_rc = task_descriptor.get(XTestKeys.AllowedRc, [0])
-        self.timeout = task_descriptor.get(XTestKeys.Timeout, None)
-        self.expected_failure = task_descriptor.get(XTestKeys.ExpectedFailure, False)
-        self.output_behavior = task_descriptor.get(XTestKeys.OutputBehavior,
-                                                   OutputBehaviorValues.Split)
+        self.env_inherit = task_descriptor.get(_INHERIT_OS_ENV, True)
+        self.env = task_descriptor.get(ENV, {})
+        self.abstract = task_descriptor.get(ABSTRACT, False)
+        self.skip = task_descriptor.get(_SKIP, False)
+        self.skip_reason = task_descriptor.get(_SKIP_REASON, None)
+        self.allowed_rc = task_descriptor.get(_ALLOWED_RC, [0])
+        self.timeout = task_descriptor.get(_TIMEOUT, None)
+        self.expected_failure = task_descriptor.get(_EXPECTED_FAILURE, False)
+        self.output_behavior = task_descriptor.get(_OUTPUT_BEHAVIOR,
+                                                   _SPLIT)
         self.output_dir = config.output_dir
         self.out_base_name = f"{config.output_dir}/{self.name}"
         self.stdout_file = f"{self.out_base_name}.out"
         log_info(f"stdout file: {self.stdout_file}")
-        if self.output_behavior == OutputBehaviorValues.Split:
+        if self.output_behavior == _SPLIT:
             self.stderr_file = f"{self.out_base_name}.err"
             log_info(f"stderr file: {self.stderr_file}")
         else:
             self.stderr_file = None
 
-        self.compare_output: str = task_descriptor.get(XTestKeys.CompareOutput,
-                                                       CompareOutputKeys.All)
-        if self.compare_output in (CompareOutputKeys.Stderr, CompareOutputKeys.All) and \
-                self.output_behavior == OutputBehaviorValues.Unify:
+        self.compare_output: str = task_descriptor.get(_COMPARE_OUTPUT,
+                                                       _ALL)
+        if self.compare_output in (_STDERR, _ALL) and \
+                self.output_behavior == _UNIFY:
             self._log_info(("stderr comparison is not supported with unified output,"
                             " normalizing to 'stdout'"))
-            self.compare_output = CompareOutputKeys.Stdout
+            self.compare_output = _STDOUT
 
         log_info(f"compare_output={self.compare_output}")
-        self.output_filter: list = task_descriptor.get(XTestKeys.OutputFilter, [])
+        self.output_filter: list = task_descriptor.get(_OUTPUT_FILTER, [])
         if isinstance(self.output_filter, str):
             self.output_filter = self.output_filter.split()
         if self.compare_output:
@@ -118,15 +202,15 @@ class XTest(object):
             self.out_diff_file: str = None  # type: ignore
             self.err_diff_file: str = None  # type: ignore
 
-        self.post_command: list = task_descriptor.get(XTestKeys.PostCommand, [])
+        self.post_command: list = task_descriptor.get(_POST_COMMAND, [])
         if isinstance(self.post_command, str):
             self.post_command = self.post_command.split()
 
-        self.pre_command: list = task_descriptor.get(XTestKeys.PreCommand, [])
+        self.pre_command: list = task_descriptor.get(_PRE_COMMAND, [])
         if isinstance(self.pre_command, str):
             self.pre_command = self.pre_command.split()
 
-        self.vars_map = task_descriptor.get(XTestKeys.Variables, {})
+        self.vars_map = task_descriptor.get(_VARIABLES, {})
         self.vars_map['__xname__'] = self.name
 
         #  Handle CLI arguments override
@@ -196,7 +280,7 @@ class XTest(object):
         out_file = open(self.stdout_file, "w")
         if self.stderr_file:
             err_file = open(self.stderr_file, "w")
-        elif self.output_behavior == OutputBehaviorValues.Unify:
+        elif self.output_behavior == _UNIFY:
             err_file = out_file
         return out_file, err_file
 
@@ -363,13 +447,13 @@ class XTest(object):
     def _compare_output(self, res: XTestResult) -> None:
         if res.status != XTEST_PASSED:
             return
-        if self.compare_output == CompareOutputKeys.Nothing or self.debug_mode:
+        if self.compare_output == _NOTHING or self.debug_mode:
             res.compare_stderr_ok = True
             res.compare_stdout_ok = True
             return
 
         # Compare stdout
-        if self.compare_output == CompareOutputKeys.Stderr:
+        if self.compare_output == _STDERR:
             self._log_info("skipping stdout comparison")
             res.compare_stdout_ok = True
         else:
@@ -379,7 +463,7 @@ class XTest(object):
                                                        "stdout")
 
         # Compare stderr
-        if self.compare_output == CompareOutputKeys.Stdout:
+        if self.compare_output == _STDOUT:
             self._log_info("skipping stderr comparison")
             res.compare_stderr_ok = True
         else:
@@ -486,7 +570,7 @@ class XTest(object):
                     log_raw(f"{k}={v}")
 
         self._create_output_dir()
-        log_verbose("Command is '{}'", self.command)
+        log_verbose("_COMMAND is '{}'", self.command)
         self._pre_run(res)
         if not res.pre_run_ok:
             return
@@ -497,7 +581,7 @@ class XTest(object):
         self._post_run(res)
 
         if not res.run_ok and res.status != XTEST_NOT_RUN and not self.debug_mode:
-            if self.output_behavior == OutputBehaviorValues.Unify:
+            if self.output_behavior == _UNIFY:
                 output_msg = ("Unfified stdout/stderr:"
                               f"{os.path.relpath(self.stdout_file, self.xeet_root)}")
             else:

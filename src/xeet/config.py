@@ -1,8 +1,8 @@
 from xeet import XEET_BASE_VERSION
-from xeet.schemas import AutoVarsKeys, GlobalKeys, XTestKeys, XEET_CONFIG_SCHEMA
 from xeet.common import (XeetException, StringVarExpander, set_xeet_var, set_xeet_vars,
                          validate_json_schema, dump_defualt_vars, dict_value,
-                         XEET_NO_TOKEN, XEET_YES_TOKEN)
+                         XEET_NO_TOKEN, XEET_YES_TOKEN, NAME, GROUPS, ABSTRACT, BASE, ENV,
+                         INHERIT_ENV, INHERIT_VARIABLES, INHERIT_GROUPS)
 from xeet.log import log_info, logging_enabled_for
 import os
 import json
@@ -118,13 +118,45 @@ def parse_arguments() -> argparse.Namespace:
 
 class XTestDesc(object):
     def __init__(self, raw_desc: dict) -> None:
-        self.name = raw_desc[XTestKeys.Name]
+        self.name = raw_desc[NAME]
         self.error: str = ""
         self.raw_desc = raw_desc if raw_desc else {}
         self.target_desc = {}
 
     def target_desc_property(self, target: str, default=None) -> Any:
         return self.target_desc.get(target, default)
+
+
+_SCHEMA = "$schema"
+_INCLUDE = "include"
+_TESTS = "tests"
+_VARIABLES = "variables"
+_DFLT_SHELL_PATH = "default_shell_path"
+
+
+CONFIG_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        _SCHEMA: {
+            "type": "string",
+            "minLength": 1
+        },
+        _INCLUDE: {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+        },
+        _TESTS: {
+            "type": "array",
+            "items": {"type": "object"}
+        },
+        _VARIABLES: {"type": "object"},
+        _DFLT_SHELL_PATH: {
+            "type": "string",
+            "minLength": 1
+        },
+    }
+}
 
 
 class XeetConfig(object):
@@ -143,20 +175,20 @@ class XeetConfig(object):
 
         #  Populate some variables early so they are available in
         self.xeet_root = os.path.dirname(conf_path)
-        set_xeet_var(AutoVarsKeys.CWD, os.getcwd(), allow_system=True)
-        set_xeet_var(AutoVarsKeys.XROOT, self.xeet_root, allow_system=True)
-        set_xeet_var(AutoVarsKeys.OUT_DIR, self.output_dir, allow_system=True)
+        set_xeet_var("__cwd__", os.getcwd(), allow_system=True)
+        set_xeet_var("__xroot__",  self.xeet_root, allow_system=True)
+        set_xeet_var("__output_dir__", self.output_dir, allow_system=True)
 
         self.conf = {}
         self.conf = self._read_configuration(conf_path, set())
-        conf_err = validate_json_schema(self.conf, XEET_CONFIG_SCHEMA)
+        conf_err = validate_json_schema(self.conf, CONFIG_SCHEMA)
         if conf_err:
             raise XeetException(f"Invalid configuration file '{conf_path}': {conf_err}")
 
-        raw_xdescs = self.conf.get(GlobalKeys.XTests, [])
+        raw_xdescs = self.conf.get(_TESTS, [])
         self.raw_xtests_map = {}
         for raw_desc in raw_xdescs:
-            name = raw_desc.get(XTestKeys.Name, None)
+            name = raw_desc.get(NAME, None)
             if not name:
                 log_info("Ignoring nameless test")
                 continue
@@ -168,7 +200,7 @@ class XeetConfig(object):
             self.xdescs.append(xdesc)
         self.xdescs_map = {xdesc.name: xdesc for xdesc in self.xdescs}
 
-        set_xeet_vars(self.conf.get(GlobalKeys.Variables, {}))
+        set_xeet_vars(self.conf.get(_VARIABLES, {}))
 
         if logging_enabled_for(logging.DEBUG):
             dump_defualt_vars()
@@ -224,7 +256,7 @@ class XeetConfig(object):
     def all_groups(self) -> set[str]:
         ret = set()
         for xdesc in self.xdescs:
-            ret.update(xdesc.target_desc_property(XTestKeys.Groups, []))
+            ret.update(xdesc.target_desc_property(GROUPS, []))
         return ret
 
     def _read_configuration(self, file_path: str, read_files: set) -> dict:
@@ -233,7 +265,7 @@ class XeetConfig(object):
             orig_conf: dict = json.load(open(file_path, 'r'))
         except (IOError, TypeError, ValueError) as e:
             raise XeetException(f"Error parsing {file_path} - {e}")
-        includes = orig_conf.get(GlobalKeys.Include, [])
+        includes = orig_conf.get(_INCLUDE, [])
         conf = {}
         xtests = []
         variables = {}
@@ -246,18 +278,18 @@ class XeetConfig(object):
             if f in read_files:
                 raise XeetException(f"Include loop detected - '{f}'")
             included_conf = self._read_configuration(f, read_files)
-            xtests += included_conf[GlobalKeys.XTests]  # TODO
-            variables.update(included_conf[GlobalKeys.Variables])
+            xtests += included_conf[_TESTS]  # TODO
+            variables.update(included_conf[_VARIABLES])
             conf.update(included_conf)
         read_files.remove(file_path)
-        if GlobalKeys.Include in conf:
-            conf.pop(GlobalKeys.Include)
+        if _INCLUDE in conf:
+            conf.pop(_INCLUDE)
 
         conf.update(orig_conf)
-        xtests += (orig_conf.get(GlobalKeys.XTests, []))
-        conf[GlobalKeys.XTests] = xtests  # TODO
-        variables.update(orig_conf.get(GlobalKeys.Variables, {}))
-        conf[GlobalKeys.Variables] = variables
+        xtests += (orig_conf.get(_TESTS, []))
+        conf[_TESTS] = xtests  # TODO
+        variables.update(orig_conf.get(_VARIABLES, {}))
+        conf[_VARIABLES] = variables
         return conf
 
     @staticmethod
@@ -278,15 +310,15 @@ class XeetConfig(object):
         return None
 
     def default_shell_path(self) -> Optional[str]:
-        return self.setting(GlobalKeys.DfltShellPath, None)
+        return self.setting(_DFLT_SHELL_PATH, None)
 
     def runnable_xtest_names(self) -> list[str]:
         return [desc.name for desc in self.xdescs
-                if not desc.raw_desc.get(XTestKeys.Abstract, False)]
+                if not desc.raw_desc.get(ABSTRACT, False)]
 
     def runnable_xdescs(self) -> list[XTestDesc]:
         return [desc for desc in self.xdescs
-                if not desc.raw_desc.get(XTestKeys.Abstract, False)]
+                if not desc.raw_desc.get(ABSTRACT, False)]
 
     #  Return anything. Types is forced by schema validations.
     def setting(self, path: str, default=None) -> Any:
@@ -296,7 +328,7 @@ class XeetConfig(object):
         return self.xdescs_map.get(name, None)
 
     def _solve_desc_inclusions(self, desc: XTestDesc) -> None:
-        base_desc_name = desc.raw_desc.get(XTestKeys.Base, None)
+        base_desc_name = desc.raw_desc.get(BASE, None)
         if not base_desc_name:
             desc.target_desc = desc.raw_desc
             return
@@ -312,28 +344,28 @@ class XeetConfig(object):
                 return
             inclusions[base_desc_name] = raw_base_desc
             inclusions_order.insert(0, base_desc_name)
-            base_desc_name = raw_base_desc.get(XTestKeys.Base, None)
+            base_desc_name = raw_base_desc.get(BASE, None)
 
         for name in inclusions_order:
             raw_desc = inclusions[name]
             for k, v in raw_desc.items():
-                if k == XTestKeys.Env and desc.target_desc.get(XTestKeys.InheritEnv, False):
+                if k == ENV and desc.target_desc.get(INHERIT_ENV, False):
                     desc.target_desc[k].update(v)
                     continue
-                if k == XTestKeys.Variables and \
-                        desc.target_desc.get(XTestKeys.InheritVariables, False):
+                if k == _VARIABLES and \
+                        desc.target_desc.get(INHERIT_VARIABLES, False):
                     desc.target_desc[k].update(v)
                     continue
-                if k == XTestKeys.Groups and desc.target_desc.get(XTestKeys.InheritGroups, False):
-                    groups = set(desc.target_desc.get(XTestKeys.Groups, []))
-                    groups.update(raw_desc.get(XTestKeys.Groups, []))
+                if k == GROUPS and desc.target_desc.get(INHERIT_GROUPS, False):
+                    groups = set(desc.target_desc.get(GROUPS, []))
+                    groups.update(raw_desc.get(GROUPS, []))
                     desc.target_desc[k] = list(groups)
                     continue
-                if k == XTestKeys.InheritEnv or k == XTestKeys.InheritVariables or \
-                        k == XTestKeys.Abstract:
+                if k == INHERIT_ENV or k == INHERIT_VARIABLES or \
+                        k == ABSTRACT:
                     continue
                 desc.target_desc[k] = v
 
-        for k in (XTestKeys.InheritEnv, XTestKeys.InheritVariables, XTestKeys.InheritGroups):
+        for k in (INHERIT_ENV, INHERIT_VARIABLES, INHERIT_GROUPS):
             if k in desc.target_desc:
                 del desc.target_desc[k]

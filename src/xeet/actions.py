@@ -1,7 +1,7 @@
 from xeet.pr import XEET_GREEN, XEET_RED, XEET_YELLOW, XEET_WHITE, XEET_RESET, xeet_color_enabled
-from xeet.schemas import XTestKeys
 from xeet.xtest import (XTest, XTestResult, XTEST_NOT_RUN, XTEST_PASSED, XTEST_FAILED,
-                        XTEST_SKIPPED, XTEST_EXPECTED_FAILURE, XTEST_UNEXPECTED_PASS)
+                        XTEST_SKIPPED, XTEST_EXPECTED_FAILURE, XTEST_UNEXPECTED_PASS, GROUPS,
+                        ABSTRACT, SHORT_DESC)
 
 from xeet.config import (XeetConfig, XTestDesc, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA,
                          DUMP_UNIFIED_SCHEMA)
@@ -39,7 +39,7 @@ def _prepare_xtests_list(config: XeetConfig, runable: bool) -> list[XTestDesc]:
         ret = config.xdescs
     if include_groups or require_groups or exclude_groups:
         def filter_desc(desc: XTestDesc) -> bool:
-            xtest_groups = desc.target_desc.get(XTestKeys.Groups, [])
+            xtest_groups = desc.target_desc.get(GROUPS, [])
             if not xtest_groups:
                 return False
             if include_groups and not include_groups.intersection(xtest_groups):
@@ -151,14 +151,14 @@ def list_xtests(config: XeetConfig) -> None:
             name_str = _display_token(xdesc.name, _max_name_print_len)
             print(err_print_fmt.format(name_str, error_str))
             continue
-        abstract = xdesc.raw_desc.get(XTestKeys.Abstract, False)
+        abstract = xdesc.raw_desc.get(ABSTRACT, False)
         if not show_all and abstract:
             continue
         if names_only:
             print(xdesc.name, end=' ')
             continue
 
-        short_desc = xdesc.raw_desc.get(XTestKeys.ShortDesc, None)
+        short_desc = xdesc.raw_desc.get(SHORT_DESC, None)
         print(print_fmt.format(_display_token(xdesc.name, _max_name_print_len),
               _display_token(short_desc, _max_desc_print_len)))
 
@@ -334,12 +334,13 @@ def dump_config(config: XeetConfig) -> None:
 
 
 def dump_schema(config: XeetConfig) -> None:
-    from xeet.xschemas import XEET_CONFIG_SCHEMA, XTEST_SCHEMA
+    from xeet.xtest import TEST_SCHEMA
+    from xeet.config import CONFIG_SCHEMA
     dump_type = config.schema_dump_type
 
     if dump_type == DUMP_CONFIG_SCHEMA:
-        print_dict(XEET_CONFIG_SCHEMA)
+        print_dict(CONFIG_SCHEMA)
     elif dump_type == DUMP_XTEST_SCHEMA:
-        print_dict(XTEST_SCHEMA)
+        print_dict(TEST_SCHEMA)
     elif dump_type == DUMP_UNIFIED_SCHEMA:
-        print_dict(XEET_CONFIG_SCHEMA)
+        print_dict(CONFIG_SCHEMA)

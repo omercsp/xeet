@@ -11,6 +11,17 @@ import jsonschema
 XEET_YES_TOKEN = 'yes'
 XEET_NO_TOKEN = 'no'
 
+# Common keys
+GROUPS = "groups"
+NAME = "name"
+ABSTRACT = "abstract"
+SHORT_DESC = "short_desc"
+BASE = "base"
+ENV = "env"
+INHERIT_ENV = "inherit_env"
+INHERIT_VARIABLES = "inherit_variables"
+INHERIT_GROUPS = "inherit_groups"
+
 
 class XeetException(Exception):
     def __init__(self, error: str) -> None:
