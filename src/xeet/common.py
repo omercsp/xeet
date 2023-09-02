@@ -1,4 +1,4 @@
-from xeet.xlogging import start_raw_logging, stop_raw_logging, log_verbose, log_warn
+from xeet.log import start_raw_logging, stop_raw_logging, log_verbose, log_warn
 import sys
 import re
 import os

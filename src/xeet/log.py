@@ -1,4 +1,4 @@
-from xeet.xprint import pr_err, pr_warn, pr_info, pr_verbose
+from xeet.pr import pr_err, pr_warn, pr_info, pr_verbose
 import logging
 import datetime
 import inspect

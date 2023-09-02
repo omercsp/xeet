@@ -1,9 +1,9 @@
 from xeet import XEET_BASE_VERSION
-from xeet.xschemas import AutoVarsKeys, GlobalKeys, XTestKeys, XEET_CONFIG_SCHEMA
-from xeet.xcommon import (XeetException, StringVarExpander, set_xeet_var, set_xeet_vars,
-                          validate_json_schema, dump_defualt_vars, dict_value,
-                          XEET_NO_TOKEN, XEET_YES_TOKEN)
-from xeet.xlogging import log_info, logging_enabled_for
+from xeet.schemas import AutoVarsKeys, GlobalKeys, XTestKeys, XEET_CONFIG_SCHEMA
+from xeet.common import (XeetException, StringVarExpander, set_xeet_var, set_xeet_vars,
+                         validate_json_schema, dump_defualt_vars, dict_value,
+                         XEET_NO_TOKEN, XEET_YES_TOKEN)
+from xeet.log import log_info, logging_enabled_for
 import os
 import json
 from typing import Optional, Any

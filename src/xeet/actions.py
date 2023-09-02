@@ -1,13 +1,12 @@
-from xeet.xprint import (XEET_GREEN, XEET_RED, XEET_YELLOW, XEET_WHITE, XEET_RESET,
-                         xeet_color_enabled)
-from xeet.xschemas import XTestKeys
+from xeet.pr import XEET_GREEN, XEET_RED, XEET_YELLOW, XEET_WHITE, XEET_RESET, xeet_color_enabled
+from xeet.schemas import XTestKeys
 from xeet.xtest import (XTest, XTestResult, XTEST_NOT_RUN, XTEST_PASSED, XTEST_FAILED,
                         XTEST_SKIPPED, XTEST_EXPECTED_FAILURE, XTEST_UNEXPECTED_PASS)
 
-from xeet.xconfig import (XeetConfig, XTestDesc, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA,
-                          DUMP_UNIFIED_SCHEMA)
-from xeet.xcommon import print_dict, XeetException
-from xeet.xlogging import log_blank, log_info, start_raw_logging, stop_raw_logging
+from xeet.config import (XeetConfig, XTestDesc, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA,
+                         DUMP_UNIFIED_SCHEMA)
+from xeet.common import print_dict, XeetException
+from xeet.log import log_blank, log_info, start_raw_logging, stop_raw_logging
 from xeet.xrun_info import XeetRunInfo
 import textwrap
 import sys

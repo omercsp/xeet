@@ -1,10 +1,9 @@
 from io import TextIOWrapper
-from xeet.xconfig import XeetConfig, XTestDesc
-from xeet.xschemas import CompareOutputKeys, XTestKeys, OutputBehaviorValues, XTEST_SCHEMA
-from xeet.xcommon import (XeetException, StringVarExpander, parse_assignment_str,
-                          validate_json_schema)
-from xeet.xlogging import (log_info, log_raw, log_error, logging_enabled_for, log_verbose,
-                           INFO)
+from xeet.config import XeetConfig, XTestDesc
+from xeet.schemas import CompareOutputKeys, XTestKeys, OutputBehaviorValues, XTEST_SCHEMA
+from xeet.common import (XeetException, StringVarExpander, parse_assignment_str,
+                         validate_json_schema)
+from xeet.log import (log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO)
 from typing import Optional
 import shlex
 import subprocess
