@@ -3,8 +3,7 @@ from xeet.xtest import (XTest, XTestResult, XTEST_NOT_RUN, XTEST_PASSED, XTEST_F
                         XTEST_SKIPPED, XTEST_EXPECTED_FAILURE, XTEST_UNEXPECTED_PASS, GROUPS,
                         ABSTRACT, SHORT_DESC)
 
-from xeet.config import (XeetConfig, XTestDesc, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA,
-                         DUMP_UNIFIED_SCHEMA)
+from xeet.config import XeetConfig, XTestDesc
 from xeet.common import print_dict, XeetException
 from xeet.log import log_blank, log_info, start_raw_logging, stop_raw_logging
 from xeet.xrun_info import XeetRunInfo
@@ -333,10 +332,14 @@ def dump_config(config: XeetConfig) -> None:
     print_dict(config.conf)
 
 
-def dump_schema(config: XeetConfig) -> None:
+DUMP_CONFIG_SCHEMA = "config"
+DUMP_UNIFIED_SCHEMA = "unfied"
+DUMP_XTEST_SCHEMA = "test"
+
+
+def dump_schema(dump_type: str) -> None:
     from xeet.xtest import TEST_SCHEMA
     from xeet.config import CONFIG_SCHEMA
-    dump_type = config.schema_dump_type
 
     if dump_type == DUMP_CONFIG_SCHEMA:
         print_dict(CONFIG_SCHEMA)

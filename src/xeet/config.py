@@ -1,116 +1,13 @@
-from xeet import XEET_BASE_VERSION
 from xeet.common import (XeetException, StringVarExpander, set_xeet_var, set_xeet_vars,
                          validate_json_schema, dump_defualt_vars, dict_value,
-                         XEET_NO_TOKEN, XEET_YES_TOKEN, NAME, GROUPS, ABSTRACT, BASE, ENV,
-                         INHERIT_ENV, INHERIT_VARIABLES, INHERIT_GROUPS)
+                         NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV, INHERIT_VARIABLES,
+                         INHERIT_GROUPS)
 from xeet.log import log_info, logging_enabled_for
 import os
 import json
 from typing import Optional, Any
 import argparse
 import logging
-import argcomplete
-
-
-RUN_CMD = "run"
-LIST_CMD = "list"
-GROUPS_CMD = "groups"
-INFO_CMD = "info"
-DUMP_XTEST_CMD = "dump"
-DUMP_CONFIG_CMD = "dump_config"
-DUMP_SCHEMA_CMD = "dump_schema"
-
-DUMP_CONFIG_SCHEMA = "config"
-DUMP_UNIFIED_SCHEMA = "unfied"
-DUMP_XTEST_SCHEMA = "test"
-
-
-def parse_arguments() -> argparse.Namespace:
-    yes_no: list[str] = [XEET_NO_TOKEN, XEET_YES_TOKEN]
-
-    parser = argparse.ArgumentParser(prog='xeet')
-    parser.add_argument('--version', action='version', version=f'%(prog)s {XEET_BASE_VERSION}')
-    parser.add_argument('--no-colors', action='store_true', default=False, help='disable colors')
-    parser.add_argument('--no-splash', action='store_true',
-                        default=False, help='don\'t show splash')
-
-    common_parser = argparse.ArgumentParser(add_help=False)
-    common_parser.add_argument('-v', '--verbose', action='count',
-                               help='log file verbosity', default=0)
-    common_parser.add_argument('-c', '--conf', metavar='CONF', help='configuration file to use',
-                               default="xeet.json")
-    common_parser.add_argument('--log-file', metavar='FILE', help='set log file', default=None)
-
-    test_groups_parser = argparse.ArgumentParser(add_help=False)
-    test_groups_parser.add_argument('-g', '--group', metavar='GROUP', default=[], action='append',
-                                    help='run tests in this group')
-    test_groups_parser.add_argument('-G', '--require-group', metavar='GROUP', default=[],
-                                    action='append', help='require tests to be in this group')
-    test_groups_parser.add_argument('-X', '--exclude-group', metavar='GROUP', default=[],
-                                    action='append', help='exclude tests in this group')
-
-    subparsers = parser.add_subparsers(help='commands', dest='subparsers_name')
-    subparsers.required = True
-
-    run_parser = subparsers.add_parser(RUN_CMD, help='run a test',
-                                       parents=[common_parser, test_groups_parser])
-    run_parser.add_argument('-t', '--test-name', metavar='TESTS', default=[],
-                            help='test names', action='append')
-    run_parser.add_argument('--debug', action='store_true', default=False,
-                            help='run tests in debug mode')
-    run_parser.add_argument('-r', '--repeat', metavar='COUNT', default=1, type=int,
-                            help='repeat count')
-    run_parser.add_argument('--cmd', metavar='CMD', default=None, help='set test command')
-    run_parser.add_argument('--cwd', metavar='DIR', default=None, help='set test working directory')
-    run_parser.add_argument('--shell', type=str, choices=yes_no, action='store', default=None,
-                            help='set shell usage')
-    run_parser.add_argument('--shell-path', metavar='PATH', help='set shell path', default=None)
-    run_parser.add_argument('--env', metavar='ENV=VAL', default=None, action='append',
-                            help='set an environment variable')
-    run_parser.add_argument('--show-summary', action='store_true', default=False,
-                            help='show test summary before run')
-    run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
-                            help='set a variable')
-
-    info_parser = subparsers.add_parser(INFO_CMD, help='show test info', parents=[common_parser])
-    info_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
-                             help='set test name', required=True)
-    info_parser.add_argument('-x', '--expand', help='expand values', action='store_true',
-                             default=False)
-
-    dump_parser = subparsers.add_parser(DUMP_XTEST_CMD, help='dump a test',
-                                        parents=[common_parser])
-    dump_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
-                             help='set test name', required=True)
-
-    dump_parser.add_argument('-i', '--includes', help='with inclusions',
-                             action='store_true', default=False)
-
-    list_parser = subparsers.add_parser(LIST_CMD, help='list tests',
-                                        parents=[common_parser, test_groups_parser])
-    list_parser.add_argument('-a', '--all', action='store_true', default=False,
-                             help='show hidden and shadowed tests')
-    list_parser.add_argument('--names-only', action='store_true', default=False,
-                             help=argparse.SUPPRESS)
-
-    subparsers.add_parser(GROUPS_CMD, help='list groups',
-                          parents=[common_parser, test_groups_parser])
-
-    dump_parser = subparsers.add_parser(DUMP_SCHEMA_CMD, help='dump configuration file schema',
-                                        parents=[common_parser])
-    dump_parser.add_argument('-s', '--schema',
-                             choices=[DUMP_UNIFIED_SCHEMA, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA],
-                             default=DUMP_UNIFIED_SCHEMA)
-
-    subparsers.add_parser(DUMP_CONFIG_CMD, help='dump configuration')
-
-    argcomplete.autocomplete(parser, always_complete_options=False)
-    args = parser.parse_args()
-    if args.subparsers_name == RUN_CMD and \
-            args.test_name and \
-            (args.group or args.require_group or args.exclude_group):
-        parser.error("test name and groups are mutually exclusive")
-    return args
 
 
 class XTestDesc(object):
@@ -157,12 +54,9 @@ CONFIG_SCHEMA = {
 
 
 class XeetConfig(object):
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, args: argparse.Namespace, expand: bool) -> None:
         self.args: argparse.Namespace = args
-
-        #  Dump scheme command doesn't require any configuration reading
-        if self.main_cmd == DUMP_SCHEMA_CMD:
-            return
+        self.expand_task = expand
 
         conf_path = args.conf
         if not conf_path:
@@ -223,10 +117,6 @@ class XeetConfig(object):
     @property
     def main_cmd(self) -> str:
         return self.args.subparsers_name
-
-    @property
-    def expand_task(self) -> bool:
-        return self.main_cmd == RUN_CMD or (self.main_cmd == INFO_CMD and self.args.expand)
 
     @property
     def schema_dump_type(self) -> Optional[str]:
