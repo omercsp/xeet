@@ -192,6 +192,7 @@ def _pre_run_print(name: str, config: Config) -> None:
     else:  # normal mode
         print_str = f"{print_str:<60} ....... "
         print(f"{print_str}", end='')
+    print("", end='', flush=True)
 
 
 __status_str_map = {
