@@ -21,6 +21,7 @@ ENV = "env"
 INHERIT_ENV = "inherit_env"
 INHERIT_VARIABLES = "inherit_variables"
 INHERIT_GROUPS = "inherit_groups"
+VARIABLES = "variables"
 
 
 class XeetException(Exception):

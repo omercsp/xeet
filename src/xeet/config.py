@@ -1,7 +1,7 @@
 from xeet.common import (XeetException, StringVarExpander, set_xeet_var, set_xeet_vars,
                          validate_json_schema, dump_defualt_vars, dict_value,
                          NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV, INHERIT_VARIABLES,
-                         INHERIT_GROUPS)
+                         INHERIT_GROUPS, VARIABLES)
 from xeet.log import log_info, logging_enabled_for
 import os
 import json
@@ -24,7 +24,6 @@ class XTestDesc(object):
 _SCHEMA = "$schema"
 _INCLUDE = "include"
 _TESTS = "tests"
-_VARIABLES = "variables"
 _DFLT_SHELL_PATH = "default_shell_path"
 
 
@@ -44,7 +43,7 @@ CONFIG_SCHEMA = {
             "type": "array",
             "items": {"type": "object"}
         },
-        _VARIABLES: {"type": "object"},
+        VARIABLES: {"type": "object"},
         _DFLT_SHELL_PATH: {
             "type": "string",
             "minLength": 1
@@ -96,7 +95,7 @@ class XeetConfig(object):
             self.xdescs.append(xdesc)
         self.xdescs_map = {xdesc.name: xdesc for xdesc in self.xdescs}
 
-        set_xeet_vars(self.conf.get(_VARIABLES, {}))
+        set_xeet_vars(self.conf.get(VARIABLES, {}))
 
         if logging_enabled_for(logging.DEBUG):
             dump_defualt_vars()
@@ -171,7 +170,7 @@ class XeetConfig(object):
                 raise XeetException(f"Include loop detected - '{f}'")
             included_conf = self._read_configuration(f, read_files)
             xtests += included_conf[_TESTS]  # TODO
-            variables.update(included_conf[_VARIABLES])
+            variables.update(included_conf[VARIABLES])
             conf.update(included_conf)
         read_files.remove(file_path)
         if _INCLUDE in conf:
@@ -180,8 +179,8 @@ class XeetConfig(object):
         conf.update(orig_conf)
         xtests += (orig_conf.get(_TESTS, []))
         conf[_TESTS] = xtests  # TODO
-        variables.update(orig_conf.get(_VARIABLES, {}))
-        conf[_VARIABLES] = variables
+        variables.update(orig_conf.get(VARIABLES, {}))
+        conf[VARIABLES] = variables
         return conf
 
     def default_shell_path(self) -> Optional[str]:
@@ -227,7 +226,7 @@ class XeetConfig(object):
                 if k == ENV and desc.target_desc.get(INHERIT_ENV, False):
                     desc.target_desc[k].update(v)
                     continue
-                if k == _VARIABLES and \
+                if k == VARIABLES and \
                         desc.target_desc.get(INHERIT_VARIABLES, False):
                     desc.target_desc[k].update(v)
                     continue

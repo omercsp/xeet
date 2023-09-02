@@ -2,7 +2,7 @@ from io import TextIOWrapper
 from xeet.config import XeetConfig, XTestDesc
 from xeet.common import (XeetException, StringVarExpander, parse_assignment_str,
                          validate_json_schema, NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV,
-                         INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC)
+                         INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC, VARIABLES)
 from xeet.log import (log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO)
 from typing import Optional
 import shlex
@@ -61,7 +61,6 @@ _COMPARE_OUTPUT = "compare_output"
 _OUTPUT_FILTER = "output_filter"
 _PRE_COMMAND = "pre_command"
 _POST_COMMAND = "post_command"
-_VARIABLES = "variables"
 _OUTPUT_BEHAVIOR = "output_behavior"
 _TIMEOUT = "timeout"
 
@@ -122,7 +121,7 @@ TEST_SCHEMA = {
         ABSTRACT: {"type": "boolean"},
         _SKIP: {"type": "boolean"},
         _SKIP_REASON: {"type": "string"},
-        _VARIABLES: {"type": "object"},
+        VARIABLES: {"type": "object"},
         INHERIT_VARIABLES: {"type": "boolean"},
         INHERIT_GROUPS: {"type": "boolean"}
     },
@@ -210,7 +209,7 @@ class XTest(object):
         if isinstance(self.pre_command, str):
             self.pre_command = self.pre_command.split()
 
-        self.vars_map = task_descriptor.get(_VARIABLES, {})
+        self.vars_map = task_descriptor.get(VARIABLES, {})
         self.vars_map['__xname__'] = self.name
 
         #  Handle CLI arguments override
