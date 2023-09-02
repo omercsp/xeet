@@ -39,10 +39,6 @@ class XTestKeys(object):
     AllowedRc = "allowed_return_codes"
     ExpectedFailure = "expected_failure"
     CompareOutput = "compare_output"
-    Stdout = "stdout"
-    Stderr = "stderr"
-    All = "all"
-    Nothing = "none"
     OutputFilter = "output_filter"
     PreCommand = "pre_command"
     PostCommand = "post_command"
@@ -65,6 +61,13 @@ class GlobalKeys(object):
 class OutputBehaviorValues(object):
     Unify = "unify"
     Split = "split"
+
+
+class CompareOutputKeys(object):
+    Stdout = "stdout"
+    Stderr = "stderr"
+    All = "all"
+    Nothing = "none"
 
 
 _COMMAND_SCHEMA = {
@@ -95,8 +98,14 @@ XTEST_SCHEMA = {
             "type": "integer",
             "minimum": 0
         },
-        XTestKeys.CompareOutput: {"type": "string", "enum": [
-            XTestKeys.All, XTestKeys.Stdout, XTestKeys.Stderr, XTestKeys.Nothing]},
+        XTestKeys.CompareOutput: {
+            "type": "string", "enum": [
+                CompareOutputKeys.All,
+                CompareOutputKeys.Stdout,
+                CompareOutputKeys.Stderr,
+                CompareOutputKeys.Nothing
+            ]
+        },
         XTestKeys.OutputFilter: _COMMAND_SCHEMA,
         XTestKeys.PreCommand: _COMMAND_SCHEMA,
         XTestKeys.PostCommand: _COMMAND_SCHEMA,

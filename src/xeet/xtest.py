@@ -1,6 +1,6 @@
 from io import TextIOWrapper
 from xeet.xconfig import XeetConfig, XTestDesc
-from xeet.xschemas import XTestKeys, OutputBehaviorValues, XTEST_SCHEMA
+from xeet.xschemas import CompareOutputKeys, XTestKeys, OutputBehaviorValues, XTEST_SCHEMA
 from xeet.xcommon import (XeetException, StringVarExpander, parse_assignment_str,
                           validate_json_schema)
 from xeet.xlogging import (log_info, log_raw, log_error, logging_enabled_for, log_verbose,
@@ -96,12 +96,13 @@ class XTest(object):
         else:
             self.stderr_file = None
 
-        self.compare_output: str = task_descriptor.get(XTestKeys.CompareOutput, XTestKeys.All)
-        if self.compare_output in (XTestKeys.Stderr, XTestKeys.All) and \
+        self.compare_output: str = task_descriptor.get(XTestKeys.CompareOutput,
+                                                       CompareOutputKeys.All)
+        if self.compare_output in (CompareOutputKeys.Stderr, CompareOutputKeys.All) and \
                 self.output_behavior == OutputBehaviorValues.Unify:
             self._log_info(("stderr comparison is not supported with unified output,"
                             " normalizing to 'stdout'"))
-            self.compare_output = XTestKeys.Stdout
+            self.compare_output = CompareOutputKeys.Stdout
 
         log_info(f"compare_output={self.compare_output}")
         self.output_filter: list = task_descriptor.get(XTestKeys.OutputFilter, [])
@@ -363,13 +364,13 @@ class XTest(object):
     def _compare_output(self, res: XTestResult) -> None:
         if res.status != XTEST_PASSED:
             return
-        if self.compare_output == XTestKeys.Nothing or self.debug_mode:
+        if self.compare_output == CompareOutputKeys.Nothing or self.debug_mode:
             res.compare_stderr_ok = True
             res.compare_stdout_ok = True
             return
 
         # Compare stdout
-        if self.compare_output == XTestKeys.Stderr:
+        if self.compare_output == CompareOutputKeys.Stderr:
             self._log_info("skipping stdout comparison")
             res.compare_stdout_ok = True
         else:
@@ -379,7 +380,7 @@ class XTest(object):
                                                        "stdout")
 
         # Compare stderr
-        if self.compare_output == XTestKeys.Stdout:
+        if self.compare_output == CompareOutputKeys.Stdout:
             self._log_info("skipping stderr comparison")
             res.compare_stderr_ok = True
         else:
