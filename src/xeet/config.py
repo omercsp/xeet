@@ -12,9 +12,6 @@ import logging
 import argcomplete
 
 
-_DFLT_XEET_CONF = "xeet.json"
-
-
 RUN_CMD = "run"
 LIST_CMD = "list"
 GROUPS_CMD = "groups"
@@ -167,9 +164,14 @@ class XeetConfig(object):
         if self.main_cmd == DUMP_SCHEMA_CMD:
             return
 
-        conf_path = XeetConfig._get_conf_file_path(args.conf if args else None)
+        conf_path = args.conf
         if not conf_path:
             raise XeetException("Empty configuration file path")
+        if os.path.isabs(conf_path):
+            self.xeet_root = os.path.dirname(conf_path)
+        else:
+            conf_path = f"{os.getcwd()}/{conf_path}"
+            self.xeet_root = os.path.dirname(conf_path)
 
         log_info(f"Using configuration file {conf_path}")
 
@@ -291,23 +293,6 @@ class XeetConfig(object):
         variables.update(orig_conf.get(_VARIABLES, {}))
         conf[_VARIABLES] = variables
         return conf
-
-    @staticmethod
-    def _get_conf_file_path(cli_conf: Optional[str]) -> Optional[str]:
-        directory = os.getcwd()
-        if cli_conf:
-            if os.path.isabs(cli_conf):
-                return cli_conf
-            return f"{directory}/{cli_conf}"
-
-        while True:
-            conf_path = directory + "/." + _DFLT_XEET_CONF
-            if os.path.isfile(conf_path):
-                return conf_path
-            if directory == "/":
-                break
-            directory = os.path.dirname(directory)
-        return None
 
     def default_shell_path(self) -> Optional[str]:
         return self.setting(_DFLT_SHELL_PATH, None)
