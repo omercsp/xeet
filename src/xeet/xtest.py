@@ -294,19 +294,19 @@ class XTest(object):
             env = self.env
         out_file, err_file = None, None
         try:
+            start = timer()
             if self.debug_mode:
                 print(" Test ouput ".center(50, '-'))
                 p = subprocess.run(self.command, shell=self.shell, executable=self.shell_path,
                                    env=env, cwd=self.cwd, timeout=self.timeout)
                 res.rc = p.returncode
-                res.run_ok = res.rc in self.allowed_rc
-                return res
+            else:
 
-            start = timer()
-            out_file, err_file = self._get_test_io_descriptors()
-            p = subprocess.Popen(self.command, shell=self.shell, executable=self.shell_path,
-                                 env=env, cwd=self.cwd, stdout=out_file, stderr=err_file)
-            res.rc = p.wait(self.timeout)
+                out_file, err_file = self._get_test_io_descriptors()
+                p = subprocess.Popen(self.command, shell=self.shell, executable=self.shell_path,
+                                     env=env, cwd=self.cwd, stdout=out_file, stderr=err_file)
+                res.rc = p.wait(self.timeout)
+
             res.duration = timer() - start
             self._log_info(f"command finished with rc={res.rc} in {res.duration:.3f}s")
             if res.rc in self.allowed_rc:
@@ -492,13 +492,18 @@ class XTest(object):
         post_run_cmd = [expander(x) for x in self.post_command]
         self._log_info(f"verifying with '{post_run_cmd}'")
         try:
-            p = subprocess.run(post_run_cmd, capture_output=True, text=True)
+            if self.debug_mode:
+                p = subprocess.run(post_run_cmd, text=True)
+            else:
+                p = subprocess.run(post_run_cmd, capture_output=True, text=True)
             msg = f"Post run command = {p.returncode}"
             self._log_info(msg)
             res.post_run_rc = p.returncode
             if p.returncode == 0:
                 return
             res.status = XTEST_FAILED
+            if self.debug_mode:
+                return
             res.short_comment = f"Post run failed"
             if p.stdout and len(p.stdout) > 0:
                 msg += f", unified output tail:"
