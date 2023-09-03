@@ -296,7 +296,7 @@ class XTest(object):
         try:
             start = timer()
             if self.debug_mode:
-                print(" Test ouput ".center(50, '-'))
+                print(" Test output ".center(50, '-'))
                 p = subprocess.run(self.command, shell=self.shell, executable=self.shell_path,
                                    env=env, cwd=self.cwd, timeout=self.timeout)
                 res.rc = p.returncode
@@ -345,6 +345,7 @@ class XTest(object):
             if isinstance(err_file, TextIOWrapper):
                 err_file.close()
         res.run_ok = res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE
+        self._log_info(f"run_ok={res.run_ok}")
         return res
 
     def _filter_output(self, res: TestResult) -> None:
@@ -481,8 +482,10 @@ class XTest(object):
 
     def _post_run(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
+            log_info("Skipping post run, since test failed")
             return
         if not self.post_command:
+            log_info("Skipping post run, no command")
             return
         if self.debug_mode:
             print(" Post run output ".center(50, '-'))
