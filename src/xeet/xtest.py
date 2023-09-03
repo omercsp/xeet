@@ -505,12 +505,12 @@ class XTest(object):
             if self.debug_mode:
                 return
             res.short_comment = f"Post run failed"
-            if p.stdout and len(p.stdout) > 0:
-                msg += f", unified output tail:"
+            if p.stderr and len(p.stderr) > 0:
+                msg += f", stderr tail:"
                 res.extra_comments.append(msg)
-                res.extra_comments.extend(p.stdout.splitlines()[-5:])
+                res.extra_comments.extend(p.stderr.splitlines()[-5:])
             else:
-                msg += ", no post run output"
+                msg += ", empty post run stderr"
                 res.extra_comments.append(msg)
         except OSError as e:
             res.status = XTEST_NOT_RUN
