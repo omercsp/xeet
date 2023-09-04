@@ -110,7 +110,7 @@ class Config(object):
         return f"{self.xeet_root}/xeet.out"
 
     @property
-    def default_expected_output_dir(self) -> str:
+    def expected_output_dir(self) -> str:
         return f"{self.xeet_root}/xeet.expected"
 
     @property

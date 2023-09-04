@@ -22,8 +22,13 @@
 			"cwd": "{{taskRoot}}/tests"
 		},
 		"run": {
-			"base": "sanity"
+			"short_desc": "Run QA test (xeet running xeet)",
+			"commands": [
+				"xeet run -t 001_pass --log-file=/tmp/xeet.log"
+			],
+			"cwd": "{{taskRoot}}/tests/sanity"
 		},
+
 		"debug": {
 			"short_desc": "Run test",
 			"commands": [

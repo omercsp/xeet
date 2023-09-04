@@ -12,16 +12,16 @@ Test stdout/stderr: (Empty stdout), (Empty stderr)
 011_bad_output                                               ....... [Failed ] stdout mismatch
 Diff head:
 >>>>>
---- XEET_DIR/sanity/xeet.expected/011_bad_output.out
-+++ XEET_DIR/sanity/xeet.out/011_bad_output.out
+--- XEET_DIR/sanity/xeet.expected/011_bad_output/stdout
++++ XEET_DIR/sanity/xeet.out/011_bad_output/stdout
 @@ -1 +1 @@
 -good output
 +bad output
 <<<<<
-Full diff file: XEET_DIR/sanity/xeet.out/011_bad_output.out.diff
+Full diff file: XEET_DIR/sanity/xeet.out/011_bad_output/stdout.diff
 
 015c_post_command_fail                                       ....... [Failed ] Post run failed
-Post run command = 1, no post run output
+Post run command = 1, empty post run stderr
 
 
 Finished iteration (#0/0)

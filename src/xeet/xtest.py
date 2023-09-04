@@ -168,12 +168,11 @@ class XTest(object):
         self.expected_failure = task_descriptor.get(_EXPECTED_FAILURE, False)
         self.output_behavior = task_descriptor.get(_OUTPUT_BEHAVIOR,
                                                    _SPLIT)
-        self.output_dir = config.output_dir
-        self.out_base_name = f"{config.output_dir}/{self.name}"
-        self.stdout_file = f"{self.out_base_name}.out"
+        self.output_dir = f"{config.output_dir}/{self.name}"
+        self.stdout_file = f"{self.output_dir}/stdout"
         log_info(f"stdout file: {self.stdout_file}")
         if self.output_behavior == _SPLIT:
-            self.stderr_file = f"{self.out_base_name}.err"
+            self.stderr_file = f"{self.output_dir}/stderr"
             log_info(f"stderr file: {self.stderr_file}")
         else:
             self.stderr_file = None
@@ -191,11 +190,13 @@ class XTest(object):
         if isinstance(self.output_filter, str):
             self.output_filter = self.output_filter.split()
         if self.compare_output:
-            self.expected_stdout_file = f"{config.default_expected_output_dir}/{self.name}.out"
-            self.expected_stderr_file = f"{config.default_expected_output_dir}/{self.name}.err"
-            self.out_diff_file = f"{config.output_dir}/{self.name}.out.diff"
-            self.err_diff_file = f"{config.output_dir}/{self.name}.err.diff"
+            self.expected_output_dir = f"{config.expected_output_dir}/{self.name}"
+            self.expected_stdout_file = f"{self.expected_output_dir}/stdout"
+            self.expected_stderr_file = f"{self.expected_output_dir}/stderr"
+            self.out_diff_file = f"{self.output_dir}/stdout.diff"
+            self.err_diff_file = f"{self.output_dir}/stderr.diff"
         else:
+            self.expected_output_dir: str = None  # type: ignore
             self.expected_stdout_file: str = None  # type: ignore
             self.expected_stderr_file: str = None  # type: ignore
             self.out_diff_file: str = None  # type: ignore
@@ -265,12 +266,21 @@ class XTest(object):
         else:
             self.command = [expander(x) for x in self.command]
 
-    def _create_output_dir(self) -> None:
-        try:
-            log_verbose("Creating output directory if it doesn't exist: '{}'", self.output_dir)
-            os.makedirs(self.output_dir, exist_ok=True)
-        except OSError as e:
-            raise XeetException(f"Error creating output directory - {e}")
+    def _setup_output_dir(self) -> None:
+        self._log_info(f"setting up output directory '{self.output_dir}'")
+        if os.path.isdir(self.output_dir):
+            # Clear the output director
+            for f in os.listdir(self.output_dir):
+                try:
+                    os.remove(os.path.join(self.output_dir, f))
+                except OSError as e:
+                    raise XeetException(f"Error removing file '{f}' - {e}")
+        else:
+            try:
+                log_verbose("Creating output directory if it doesn't exist: '{}'", self.output_dir)
+                os.makedirs(self.output_dir, exist_ok=False)
+            except OSError as e:
+                raise XeetException(f"Error creating output directory - {e}")
 
     def _get_test_io_descriptors(self) -> \
             tuple[Union[TextIOWrapper, int], Union[TextIOWrapper, int]]:
@@ -576,7 +586,7 @@ class XTest(object):
                 for k, v in self.env.items():
                     log_raw(f"{k}={v}")
 
-        self._create_output_dir()
+        self._setup_output_dir()
         log_verbose("_COMMAND is '{}'", self.command)
         self._pre_run(res)
         if not res.pre_run_ok:
