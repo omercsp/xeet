@@ -119,7 +119,9 @@ def xrun() -> int:
         pr_bright(f"{title}\n{'=' * len(title)}\n")
 
     try:
-        init_logging(args.log_file, args.verbose)
+        log_ok, err_msg = init_logging(args.log_file, args.verbose)
+        if not log_ok:
+            raise XeetException(err_msg)
         cmd_name = args.subparsers_name
         if cmd_name == DUMP_SCHEMA_CMD:
             actions.dump_schema(args.schema)

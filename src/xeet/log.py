@@ -3,7 +3,8 @@ import logging
 import datetime
 import inspect
 from os.path import basename
-from typing import Callable
+from typing import Callable, Tuple
+import os
 
 
 __logger = None
@@ -71,11 +72,20 @@ def log_blank(count=1) -> None:
     __logger.set_default_format()
 
 
-def init_logging(log_file: str, logfile_verbosity: int) -> None:
+def init_logging(log_file: str, logfile_verbosity: int) -> Tuple[bool, str]:
     global __logger
     assert __logger is None
     if not log_file:
-        return
+        return True, ""
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        try:
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+        except OSError:
+           return False, f"Unable to create log directory: {log_dir}"
+    if os.path.exists(log_file) and not os.path.isfile(log_file):
+        return False, f"Log file exists but not a file: {log_file}"
     __logger = _XeetLogging(log_file, logging.INFO if logfile_verbosity == 0 else logging.DEBUG)
     log_blank(2)
     __logger.set_raw_format()
@@ -83,6 +93,7 @@ def init_logging(log_file: str, logfile_verbosity: int) -> None:
     log_info("Xeet: {}".format(datetime.datetime.now().strftime("%I:%M:%S on %B %d, %Y")))
     log_info("======================================================================")
     __logger.set_default_format()
+    return True, ""
 
 
 def logging_enabled_for(level: int) -> bool:
