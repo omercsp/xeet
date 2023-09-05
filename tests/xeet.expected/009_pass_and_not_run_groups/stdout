@@ -1,6 +1,6 @@
 Starting run
 Included groups: not_run, passing
-Running tests: 001_pass, 004_bad_desc, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015b_pre_command_fail, 015d_post_command_verify
+Running tests: 001_pass, 004_bad_desc, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015b_pre_command_fail, 015d_post_command_verify, 015e_bad_pre_command
 
 001_pass                                                     ....... [Passed ]
 004_bad_desc                                                 ....... [Not Run]
@@ -18,8 +18,11 @@ Schema validation error: Additional properties are not allowed ('blat' was unexp
 015a_pre_command_ok                                          ....... [Passed ]
 015b_pre_command_fail                                        ....... [Not Run] Pre run command RC=1
 015d_post_command_verify                                     ....... [Passed ]
+015e_bad_pre_command                                         ....... [Not Run] Pre run failure
+[Errno 2] No such file or directory: 'does_not_exist'
+
 
 Finished iteration (#0/0)
 Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015d_post_command_verify
-Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail
+Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail, 015e_bad_pre_command
 

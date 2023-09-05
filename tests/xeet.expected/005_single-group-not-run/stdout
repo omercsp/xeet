@@ -1,6 +1,6 @@
 Starting run
 Included groups: not_run
-Running tests: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail
+Running tests: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail, 015e_bad_pre_command
 
 004_bad_desc                                                 ....... [Not Run]
 Schema validation error: Additional properties are not allowed ('blat' was unexpected)
@@ -9,7 +9,10 @@ Schema validation error: Additional properties are not allowed ('blat' was unexp
 [Errno 2] No such file or directory: 'no'
 
 015b_pre_command_fail                                        ....... [Not Run] Pre run command RC=1
+015e_bad_pre_command                                         ....... [Not Run] Pre run failure
+[Errno 2] No such file or directory: 'does_not_exist'
+
 
 Finished iteration (#0/0)
-Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail
+Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_command_fail, 015e_bad_pre_command
 

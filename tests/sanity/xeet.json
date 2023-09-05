@@ -108,7 +108,7 @@
 		},
 		{
 			"name": "015a_pre_command_ok",
-			"short_desc": "Test with valid pre-run command",
+			"short_desc": "Test with passing pre-run command",
 			"pre_command": "true",
 			"command": "echo {{__xname__}}",
 			"compare_output": "none",
@@ -116,14 +116,14 @@
 		},
 		{
 			"name": "015b_pre_command_fail",
-			"short_desc": "Test with invalid pre-run command",
+			"short_desc": "Test with failing pre-run command",
 			"base": "015a_pre_command_ok",
 			"pre_command": "false",
 			"groups": ["not_run"]
 		},
 		{
 			"name": "015c_post_command_fail",
-			"short_desc": "Test with invalid post-run command",
+			"short_desc": "Test with failing post-run command",
 			"base": "015a_pre_command_ok",
 			"post_command": "false",
 			"groups": ["failing"]
@@ -141,6 +141,13 @@
 			"compare_output": "none",
 			"post_command": "diff -u {{output_file}} {{verification_file}}",
 			"groups": ["passing"]
+		},
+		{
+			"name": "015e_bad_pre_command",
+			"short_desc": "Test with invalid pre-run command",
+			"base": "015a_pre_command_ok",
+			"pre_command": "does_not_exist",
+			"groups": ["not_run"]
 		},
 		{
 			"short_desc": "Abstract test",
