@@ -6,6 +6,7 @@ XEET_RED = '\033[91m'
 XEET_YELLOW = '\033[93m'
 XEET_WHITE = '\u001b[37;1m'
 XEET_RESET = '\033[0m'
+XEET_ORANGE = '\033[38;5;208m'
 
 _colored_print = True
 
@@ -26,7 +27,7 @@ def _gen_print_func(color: str) -> Callable:
             return
         print(color, end='')
         print(*args, **kwargs)
-        print(XEET_RESET, end='')
+        print(XEET_RESET, end='', flush=True)
     return _print
 
 
@@ -36,3 +37,4 @@ pr_warn = _gen_print_func(XEET_YELLOW)
 pr_info = print
 pr_verbose = print
 pr_bright = _gen_print_func(XEET_WHITE)
+pr_orange = _gen_print_func(XEET_ORANGE)

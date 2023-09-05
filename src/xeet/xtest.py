@@ -4,6 +4,7 @@ from xeet.common import (XeetException, StringVarExpander, parse_assignment_str,
                          validate_json_schema, NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV,
                          INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC, VARIABLES)
 from xeet.log import (log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO)
+from xeet.pr import pr_orange
 from typing import Optional
 import shlex
 import subprocess
@@ -306,10 +307,11 @@ class XTest(object):
         try:
             start = timer()
             if self.debug_mode:
-                print(" Test output ".center(50, '-'))
+                self._debug_pre_step_print("Test command", self.command)  # type: ignore
                 p = subprocess.run(self.command, shell=self.shell, executable=self.shell_path,
                                    env=env, cwd=self.cwd, timeout=self.timeout)
                 res.rc = p.returncode
+                self._debug_post_step_print("Test command", res.rc)
             else:
 
                 out_file, err_file = self._get_test_io_descriptors()
@@ -361,7 +363,7 @@ class XTest(object):
     def _filter_output(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
             return
-        if not self.output_filter or self.debug_mode:
+        if not self.output_filter:
             res.filter_ok = True
             return
         expander = StringVarExpander(self.vars_map)
@@ -490,6 +492,14 @@ class XTest(object):
         if not res.compare_stderr_ok or not res.compare_stdout_ok:
             res.status = XTEST_FAILED
 
+    def _debug_pre_step_print(self, step_name: str, command: list[str]) -> None:
+        pr_orange(f">>>>>>> {step_name} <<<<<<<\nCommand:")
+        print(" ".join(command))
+        pr_orange("Output:")
+
+    def _debug_post_step_print(self, step_name: str, rc: int) -> None:
+        pr_orange(f"{step_name} rc={rc}\n")
+
     def _post_run(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
             log_info("Skipping post run, since test failed")
@@ -497,12 +507,12 @@ class XTest(object):
         if not self.post_command:
             log_info("Skipping post run, no command")
             return
-        if self.debug_mode:
-            print(" Post run output ".center(50, '-'))
         post_cmd_map = {}
         post_cmd_map.update(self.vars_map)
         expander = StringVarExpander(post_cmd_map)
         post_run_cmd = [expander(x) for x in self.post_command]
+        if self.debug_mode:
+            self._debug_pre_step_print("Post run", post_run_cmd)
         self._log_info(f"verifying with '{post_run_cmd}'")
         try:
             if self.debug_mode:
@@ -516,6 +526,7 @@ class XTest(object):
                 return
             res.status = XTEST_FAILED
             if self.debug_mode:
+                self._debug_post_step_print("Post run", p.returncode)
                 return
             res.short_comment = f"Post run failed"
             if p.stderr and len(p.stderr) > 0:
@@ -540,11 +551,13 @@ class XTest(object):
         pre_run_cmd = [expander(x) for x in self.pre_command]
         self._log_info(f"running pre_command '{pre_run_cmd}'")
         if self.debug_mode:
-            print(" test pre command ".center(50, '-'))
+            self._debug_pre_step_print("Pre run", pre_run_cmd)
         try:
             p = subprocess.run(pre_run_cmd, capture_output=not self.debug_mode, text=True)
             self._log_info(f"Pre run command returned: {p.returncode}")
             res.pre_run_rc = p.returncode
+            if self.debug_mode:
+                self._debug_post_step_print("Pre run", p.returncode)
             if p.returncode == 0:
                 return
             self._log_info(f"Pre run failed")
