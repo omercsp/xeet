@@ -294,7 +294,10 @@ class XTest(object):
             err_file = out_file
         return out_file, err_file
 
-    def _run_cmd(self, res: TestResult) -> TestResult:
+    def _run_cmd(self, res: TestResult) -> None:
+        if res.status != XTEST_PASSED and res.status != XTEST_UNDEFINED:
+            self._log_info("Skipping run. Prior step failed")
+            return
         self._log_info("running command:")
         log_raw(self.command)
         p = None
@@ -358,10 +361,10 @@ class XTest(object):
                 err_file.close()
         res.run_ok = res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE
         self._log_info(f"run_ok={res.run_ok}")
-        return res
 
     def _filter_output(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
+            self._log_info("Skipping output filter, prior step failed")
             return
         if not self.output_filter:
             res.filter_ok = True
@@ -458,6 +461,7 @@ class XTest(object):
 
     def _compare_output(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
+            self._log_info("Skipping output comparison, prior step failed")
             return
         if self.compare_output == _NOTHING or self.debug_mode:
             res.compare_stderr_ok = True
@@ -502,7 +506,7 @@ class XTest(object):
 
     def _post_run(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
-            log_info("Skipping post run, since test failed")
+            log_info("Skipping post run, prior step failed")
             return
         if not self.post_command:
             log_info("Skipping post run, no command")
@@ -566,7 +570,9 @@ class XTest(object):
         except OSError as e:
             log_error(f"Error running pre run command- {e}", pr=False)
             res.status = XTEST_NOT_RUN
-            res.short_comment = f"Error running pre run command- {e}"
+            res.short_comment = f"Pre run failure"
+            res.extra_comments.append(str(e))
+            res.pre_run_rc = -1
 
     def run(self, res: TestResult) -> None:
         if self.init_err:
@@ -602,9 +608,6 @@ class XTest(object):
         self._setup_output_dir()
         log_verbose("_COMMAND is '{}'", self.command)
         self._pre_run(res)
-        if not res.pre_run_ok:
-            return
-
         self._run_cmd(res)
         self._filter_output(res)
         self._compare_output(res)
