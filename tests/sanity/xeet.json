@@ -1,7 +1,13 @@
 {
 	"tests": [
 		{
+			"name": "output_compare",
+			"post_command": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
+			"abstract": true
+		},
+		{
 			"name": "001_pass",
+			"base": "output_compare",
 			"short_desc": "echoes Hello World!",
 			"command": "echo 'Hello World!'",
 			"groups": ["group1", "group2", "passing"]
@@ -29,6 +35,7 @@
 		},
 		{
 			"name": "005_expected_fail",
+			"base": "output_compare",
 			"short_desc": "runs false but expected to fail",
 			"command": "false",
 			"expected_failure": true
@@ -62,6 +69,7 @@
 		{
 			"name": "009_env_pass",
 			"short_desc": "prints environment variable",
+			"base": "output_compare",
 			"env" : {
 				"TEST_ENV_VAR": "test value"
 			},
@@ -77,25 +85,11 @@
 			"groups": ["failing"]
 		},
 		{
-			"name": "011_bad_output",
-			"short_desc": "Bad output test",
-			"command": "echo 'bad output'",
-			"groups": ["failing"]
-		},
-		{
-			"name": "012_filtered_output",
-			"short_desc": "Filtered output test",
-			"command": "echo 'original output'",
-			"output_filter": ["sed", "-i", "-e", "s/original output/filtered output/", "{{XEET_TEST_STDOUT}}"],
-			"groups": ["passing"]
-		},
-		{
 			"name": "013_multi_rc_passing",
 			"short_desc": "Multiple return codes, shoudld pass",
 			"command": "rc=$(( ${RANDOM} % 5 + 1 )); echo 'return code: ${rc}'; exit ${rc}",
 			"shell": true,
 			"allowed_return_codes": [1, 2, 3, 4, 5],
-			"compare_output": "none",
 			"groups": ["passing"]
 		},
 		{
@@ -117,7 +111,6 @@
 			"short_desc": "Test with passing pre-run command",
 			"pre_command": "true",
 			"command": "echo {{XEET_TEST_NAME}}",
-			"compare_output": "none",
 			"groups": ["passing"]
 		},
 		{
@@ -144,7 +137,6 @@
 			},
 			"command": "echo 'Silence is golden' > {{output_file}}",
 			"shell": true,
-			"compare_output": "none",
 			"post_command": "diff -u {{output_file}} {{verification_file}}",
 			"groups": ["passing"]
 		},

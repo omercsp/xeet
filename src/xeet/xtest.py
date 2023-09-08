@@ -10,7 +10,6 @@ import shlex
 import subprocess
 import signal
 import os
-import difflib
 from timeit import default_timer as timer
 from typing import Union
 
@@ -58,8 +57,6 @@ _LONG_DESC = "description"
 _COMMAND = "command"
 _ALLOWED_RC = "allowed_return_codes"
 _EXPECTED_FAILURE = "expected_failure"
-_COMPARE_OUTPUT = "compare_output"
-_OUTPUT_FILTER = "output_filter"
 _PRE_COMMAND = "pre_command"
 _POST_COMMAND = "post_command"
 _OUTPUT_BEHAVIOR = "output_behavior"
@@ -68,12 +65,6 @@ _TIMEOUT = "timeout"
 # Output behavior values
 _UNIFY = "unify"
 _SPLIT = "split"
-
-# compare output keys
-_STDOUT = "stdout"
-_STDERR = "stderr"
-_ALL = "all"
-_NOTHING = "none"
 
 _COMMAND_SCHEMA = {
     "anyOf": [
@@ -102,8 +93,6 @@ TEST_SCHEMA = {
             "type": "integer",
             "minimum": 0
         },
-        _COMPARE_OUTPUT: {"type": "string", "enum": [_ALL, _STDOUT, _STDERR, _NOTHING]},
-        _OUTPUT_FILTER: _COMMAND_SCHEMA,
         _PRE_COMMAND: _COMMAND_SCHEMA,
         _POST_COMMAND: _COMMAND_SCHEMA,
         _EXPECTED_FAILURE: {"type": "boolean"},
@@ -178,31 +167,6 @@ class XTest(object):
         else:
             self.stderr_file = None
 
-        self.compare_output: str = task_descriptor.get(_COMPARE_OUTPUT,
-                                                       _ALL)
-        if self.compare_output in (_STDERR, _ALL) and \
-                self.output_behavior == _UNIFY:
-            self._log_info(("stderr comparison is not supported with unified output,"
-                            " normalizing to 'stdout'"))
-            self.compare_output = _STDOUT
-
-        log_info(f"compare_output={self.compare_output}")
-        self.output_filter: list = task_descriptor.get(_OUTPUT_FILTER, [])
-        if isinstance(self.output_filter, str):
-            self.output_filter = self.output_filter.split()
-        if self.compare_output:
-            self.expected_output_dir = f"{config.expected_output_dir}/{self.name}"
-            self.expected_stdout_file = f"{self.expected_output_dir}/stdout"
-            self.expected_stderr_file = f"{self.expected_output_dir}/stderr"
-            self.out_diff_file = f"{self.output_dir}/stdout.diff"
-            self.err_diff_file = f"{self.output_dir}/stderr.diff"
-        else:
-            self.expected_output_dir: str = None  # type: ignore
-            self.expected_stdout_file: str = None  # type: ignore
-            self.expected_stderr_file: str = None  # type: ignore
-            self.out_diff_file: str = None  # type: ignore
-            self.err_diff_file: str = None  # type: ignore
-
         self.post_command: list = task_descriptor.get(_POST_COMMAND, [])
         if isinstance(self.post_command, str):
             self.post_command = self.post_command.split()
@@ -275,9 +239,6 @@ class XTest(object):
             self.pre_command = [expander(x) for x in self.pre_command]
         if self.post_command:
             self.post_command = [expander(x) for x in self.post_command]
-        if self.output_filter:
-            self.output_filter = [expander(x) for x in self.output_filter]
-            log_info(f"output filter: {self.output_filter}")
 
     def _setup_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
@@ -373,139 +334,6 @@ class XTest(object):
                 err_file.close()
         res.run_ok = res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE
         self._log_info(f"run_ok={res.run_ok}")
-
-    def _filter_output(self, res: TestResult) -> None:
-        if res.status != XTEST_PASSED:
-            self._log_info("Skipping output filter, prior step failed")
-            return
-        if not self.output_filter:
-            res.filter_ok = True
-            return
-        log_info("Filter command: '{}'".format(" ".join(self.output_filter)))
-        try:
-            p = subprocess.run(self.output_filter, capture_output=True, text=True)
-            self._log_info(f"Filter command returned: {p.returncode}")
-            if p.returncode == 0:
-                res.filter_ok = True
-                return
-            self._log_info(f"Filter command stderr: {p.stderr}")
-            res.status = XTEST_FAILED
-            res.short_comment = f"output filter failed"
-            res.extra_comments.append(f"Filter command returned: {p.returncode}")
-            res.extra_comments.append(f"Filter stderr:")
-            res.extra_comments.append(p.stderr)
-            res.filter_ok = False
-        except OSError as e:
-            res.status = XTEST_NOT_RUN
-            log_error(f"Error running filter output command- {e}", pr=False)
-            res.short_comment = "Error filtering output:"
-            res.extra_comments.append(str(e))
-            res.filter_ok = False
-
-    def _compare_file(self, res: TestResult, src_file: str, expected_file: str, diff_file: str,
-                      stream_name: str) -> bool:
-
-        file_exists = self._valid_file(src_file)
-        expected_file_exists = self._valid_file(expected_file)
-
-        if not file_exists and not expected_file_exists:
-            return True
-
-        if not file_exists:
-            res.short_comment = f"Missing {stream_name}"
-            msg = f"No {stream_name} created for test"
-            res.extra_comments.append(msg)
-            log_info(msg)
-            res.status = XTEST_FAILED
-            return False
-        if not expected_file_exists:
-            res.status = XTEST_FAILED
-            res.short_comment = f"Unexpected {stream_name}"
-            msg = f"Test yielded unexpected {stream_name}"
-            log_info(msg)
-            res.extra_comments.append(msg)
-            return False
-
-        # get file path related to self.xeet_root
-        file_pr = os.path.relpath(src_file, self.xeet_root)
-        expected_file_pr = os.path.relpath(expected_file, self.xeet_root)
-        self._log_info(f"comparing {file_pr} with '{expected_file_pr}'")
-        try:
-            with open(src_file, "r") as file_fd, \
-                    open(expected_file, "r") as expected_file_fd:
-                diff = difflib.unified_diff(expected_file_fd.readlines(), file_fd.readlines(),
-                                            fromfile=expected_file, tofile=src_file)
-                diff = list(diff)
-            if len(diff) == 0:
-                self._log_info(f"{stream_name} matches")
-                return True
-
-            self._log_info(f"{stream_name} mismatch")
-            res.status = XTEST_FAILED
-            if diff_file:
-                with open(diff_file, "w") as diff_file_fd:
-                    diff_file_fd.writelines(diff)
-
-            if res.short_comment:
-                res.short_comment += f"{stream_name} mismatch"
-            else:
-                res.short_comment = f"{stream_name} mismatch"
-
-            res.extra_comments.append(f"Diff head:\n>>>>>")
-            for index, line in enumerate(diff):
-                res.extra_comments.append(line.strip("\n"))
-                if index > 5:
-                    res.extra_comments.append("...")
-                    break
-            res.extra_comments.append("<<<<<")
-            res.extra_comments.append(f"Full diff file: {self.out_diff_file}")
-
-        except OSError as e:
-            res.status = XTEST_NOT_RUN
-            err = f"Error comparing output - {e}"
-            log_error(err, pr=False)
-            res.short_comment = "Error comparing output"
-            res.extra_comments.append(err)
-            res.extra_comments.append("Output comparison skipped")
-        return False
-
-    def _compare_output(self, res: TestResult) -> None:
-        if res.status != XTEST_PASSED:
-            self._log_info("Skipping output comparison, prior step failed")
-            return
-        if self.compare_output == _NOTHING or self.debug_mode:
-            self._log_info("Skipping output comparison, prior step failed")
-            res.compare_stderr_ok = True
-            res.compare_stdout_ok = True
-            return
-
-        # Compare stdout
-        if self.compare_output == _STDERR:
-            self._log_info("skipping stdout comparison")
-            res.compare_stdout_ok = True
-        else:
-            res.compare_stdout_ok = self._compare_file(res, self.stdout_file,
-                                                       self.expected_stdout_file,
-                                                       self.out_diff_file,
-                                                       "stdout")
-
-        # Compare stderr
-        if self.compare_output == _STDOUT:
-            self._log_info("skipping stderr comparison")
-            res.compare_stderr_ok = True
-        else:
-            if not self.stderr_file:
-                self._log_info("Can't compare stderr, since output_behavior is 'unify'")
-                res.compare_stderr_ok = False
-                res.status = XTEST_NOT_RUN
-                return
-            res.compare_stderr_ok = self._compare_file(res, self.stderr_file,
-                                                       self.expected_stderr_file,
-                                                       self.err_diff_file,
-                                                       "stderr")
-
-        if not res.compare_stderr_ok or not res.compare_stdout_ok:
-            res.status = XTEST_FAILED
 
     def _debug_pre_step_print(self, step_name: str, command: list[str]) -> None:
         pr_orange(f">>>>>>> {step_name} <<<<<<<\nCommand:")
@@ -613,8 +441,6 @@ class XTest(object):
         log_verbose("_COMMAND is '{}'", self.command)
         self._pre_run(res)
         self._run_cmd(res)
-        self._filter_output(res)
-        self._compare_output(res)
         self._post_run(res)
         self.vars.restore_os_env()
 

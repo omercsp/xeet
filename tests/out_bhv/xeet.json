@@ -1,68 +1,43 @@
 {
 	"tests": [
 		{
+			"name": "compare_output",
+			"post_command": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
+			"abstract": true
+		},
+		{
 			"name": "001_out_only",
+			"base": "compare_output",
 			"command": "echo for stdout",
 			"groups": ["stdout", "passing"]
 		},
 		{
 			"name": "002_err_only",
+			"base": "compare_output",
 			"shell": true,
 			"command": "echo for stderr 1>&2",
 			"groups": ["stderr", "passing"]
 		},
 		{
 			"name": "003_out_and_err",
+			"base": "compare_output",
 			"shell": true,
 			"command": "echo for stdout; echo for stderr 1>&2",
 			"groups": ["stderr", "passing", "stdout"]
 		},
 		{
 			"name": "004_no_output",
+			"base": "compare_output",
 			"command": "true",
 			"groups": ["passing"]
 		},
 		{
-			"name": "007_unified_stdout_stderr",
+			"name": "007_unified_output",
+			"base": "compare_output",
 			"shell": true,
 			"output_behavior": "unify",
 			"command": "echo for stdout; echo for stderr 1>&2",
 			"groups": ["passing"]
-		},
-		{
-			"name": "050_ignore_stderr",
-			"shell": true,
-			"command": "echo for stdout; echo for stderr 1>&2",
-			"compare_output": "stdout",
-			"groups": ["passing"]
-		},
-		{
-			"name": "051_ignore_stdout",
-			"shell": true,
-			"command": "echo for stdout; echo for stderr 1>&2",
-			"compare_output": "stderr",
-			"groups": ["passing"]
-		},
-		{
-			"name": "100_missing_stdout",
-			"command": "true",
-			"groups": ["failing"]
-		},
-		{
-			"name": "101_missing_stderr",
-			"command": "true",
-			"groups": ["failing"]
-		},
-		{
-			"name": "102_unexpected_stdout",
-			"command": "echo unexpected stdout",
-			"groups": ["failing"]
-		},
-		{
-			"name": "103_unexpected_stderr",
-			"shell": true,
-			"command": "echo unexpected stderr 1>&2",
-			"groups": ["failing"]
 		}
 	]
 }
