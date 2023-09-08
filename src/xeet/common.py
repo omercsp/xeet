@@ -4,7 +4,6 @@ import re
 import os
 import traceback
 import json
-import copy
 from typing import Optional, Any, Tuple
 import jsonschema
 
@@ -59,25 +58,62 @@ def dict_value(d: dict, path: str, require=False, default=None) -> Any:
     return default
 
 
-_variables = {}
+class XeetVars(object):
+    _SYSTEM_VAR_PREFIX = "XEET_"
+
+    def __init__(self) -> None:
+        self._vars = {}
+
+    def __getitem__(self, name: str) -> Any:
+        return self._vars[name]
+
+    def set_var(self, name: str, value: Any, system: bool = False) -> None:
+        if name.startswith(self._SYSTEM_VAR_PREFIX):
+            log_warn((f"Invalid variable name '{name}'. "
+                      f"Variables prefixed with '{self._SYSTEM_VAR_PREFIX}'"
+                      " are reserved for system use"))
+            return
+        if system:
+            name = f"{self._SYSTEM_VAR_PREFIX}{name}"
+        self._vars[name] = value
+
+    def set_vars(self, vars_map: dict, system: bool = False) -> None:
+        for name, value in vars_map.items():
+            self.set_var(name, value, system)
+
+    def set_vars_raw(self, vars_map: dict) -> None:
+        self._vars.update(vars_map)
+
+    def get_vars(self) -> dict:
+        return self._vars
+
+    def update_os_env(self) -> None:
+        for name, value in self._vars.items():
+            if not name.startswith(self._SYSTEM_VAR_PREFIX):
+                continue
+            os.environ[name] = str(value)
+
+    def restore_os_env(self) -> None:
+        for name in self._vars.keys():
+            if not name.startswith(self._SYSTEM_VAR_PREFIX):
+                continue
+            os.environ.pop(name, None)
 
 
-def set_xeet_var(name: str, value: Any, allow_system: bool = False) -> None:
-    global _variables
-    if not allow_system and name.startswith("__") and name.endswith("__"):
-        log_warn("Variable name '{}' is reserved for system use", name)
-        return
-    _variables[name] = value
+_global_variables = XeetVars()
 
 
-def set_xeet_vars(vars_map: dict, allow_system: bool = False) -> None:
-    for name, value in vars_map.items():
-        set_xeet_var(name, value, allow_system)
+def set_global_vars(vars_map: dict, system: bool = False) -> None:
+    _global_variables.set_vars(vars_map, system)
 
 
-def dump_defualt_vars() -> None:
+def get_global_vars() -> dict:
+    return _global_variables.get_vars()
+
+
+def dump_global_vars() -> None:
     start_raw_logging()
-    for k, v in _variables.items():
+    for k, v in _global_variables.get_vars().items():
         log_verbose("{}='{}'", k, v)
     stop_raw_logging()
 
@@ -85,13 +121,8 @@ def dump_defualt_vars() -> None:
 class StringVarExpander(object):
     var_re = re.compile(r'{{\S*?}}')
 
-    def __init__(self, vars_map: Optional[dict] = None) -> None:
-        if not vars_map:
-            self.vars_map = _variables
-        else:
-            self.vars_map = copy.deepcopy(_variables)
-            self.vars_map.update(vars_map)
-
+    def __init__(self, vars_map: dict) -> None:
+        self.vars_map = vars_map
         self.expansion_stack = []
 
     def __call__(self, s: str) -> str:

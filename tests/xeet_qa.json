@@ -9,8 +9,8 @@
 	"tests": [
 		{
 			"name": "sanity_base",
-			"cwd": "{{__xroot__}}/..",
-			"output_filter": ["sed", "-i", "-e", "s,{{__cwd__}},XEET_DIR,", "{{__output_file__}}"],
+			"cwd": "{{XEET_ROOT}}/..",
+			"output_filter": ["sed", "-i", "-e", "s,{{XEET_ROOT}},XEET_DIR,", "{{XEET_TEST_STDOUT}}"],
 			"abstract": true
 		},
 		{
@@ -84,14 +84,14 @@
 		},
 		{
 			"name": "100_output_passing",
-			"cwd": "{{__xroot__}}/..",
+			"cwd": "{{XEET_ROOT}}/..",
 			"short_desc": "Test output behviour, passing",
 			"command": "{{output_test_cmd}} -g passing",
 			"groups": ["output", "group"]
 		},
 		{
 			"name": "101_output_failing",
-			"cwd": "{{__xroot__}}/..",
+			"cwd": "{{XEET_ROOT}}/..",
 			"short_desc": "Test output behviour, failing",
 			"command": "{{output_test_cmd}} -g failing",
 			"allowed_return_codes": [1],
@@ -99,28 +99,28 @@
 		},
 		{
 			"name": "200_list_tests",
-			"cwd": "{{__xroot__}}/..",
+			"cwd": "{{XEET_ROOT}}/..",
 			"short_desc": "Test output behviour, failing",
 			"command": "{{list_cmd}}",
 			"groups": ["list"]
 		},
 		{
 			"name": "201_list_tests_all",
-			"cwd": "{{__xroot__}}/..",
+			"cwd": "{{XEET_ROOT}}/..",
 			"short_desc": "Test output behviour, failing",
 			"command": "{{list_cmd}} -a",
 			"groups": ["list"]
 		},
 		{
 			"name": "202_list_tests_group",
-			"cwd": "{{__xroot__}}/..",
+			"cwd": "{{XEET_ROOT}}/..",
 			"short_desc": "Test output behviour, failing",
 			"command": "{{list_cmd}} -g AB",
 			"groups": ["list"]
 		},
 		{
 			"name": "203_list_tests_2groups",
-			"cwd": "{{__xroot__}}/..",
+			"cwd": "{{XEET_ROOT}}/..",
 			"short_desc": "Test output behviour, failing",
 			"command": "{{list_cmd}} -g AB -g CD",
 			"groups": ["list"]

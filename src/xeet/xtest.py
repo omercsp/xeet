@@ -1,8 +1,8 @@
 from io import TextIOWrapper
 from xeet.config import Config, TestDesc
-from xeet.common import (XeetException, StringVarExpander, parse_assignment_str,
+from xeet.common import (XeetException, StringVarExpander, parse_assignment_str, get_global_vars,
                          validate_json_schema, NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV,
-                         INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC, VARIABLES)
+                         INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC, VARIABLES, XeetVars)
 from xeet.log import (log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO)
 from xeet.pr import pr_orange
 from typing import Optional
@@ -211,9 +211,6 @@ class XTest(object):
         if isinstance(self.pre_command, str):
             self.pre_command = self.pre_command.split()
 
-        self.vars_map = task_descriptor.get(VARIABLES, {})
-        self.vars_map['__xname__'] = self.name
-
         #  Handle CLI arguments override
         cmd = config.arg('cmd')
         if cmd:
@@ -234,17 +231,24 @@ class XTest(object):
                 e_name, e_value = parse_assignment_str(e)
                 self.env[e_name] = e_value
 
+        self.vars_map = task_descriptor.get(VARIABLES, {})
         variables = config.arg('variables')
         if variables:
             for v in variables:
                 key, val = parse_assignment_str(v)
                 self.vars_map[key] = val
 
-        self.vars_map.update({
-            "__stdout__": self.stdout_file,
-            "__stderr__": self.stderr_file,
-            "__output_file__": self.stdout_file,
-        })
+        self.vars = XeetVars()
+        self.vars.set_vars_raw(get_global_vars())
+        self.vars.set_vars(self.vars_map)
+        self.vars.set_vars({
+            f"TEST_NAME": self.name,
+            f"TEST_OUTPUT_DIR": self.output_dir,
+            f"TEST_STDOUT": self.stdout_file,
+            f"TEST_STDERR": self.stderr_file,
+            f"TEST_CWD": self.cwd,
+            f"TEST_DEBUG": "1" if self.debug_mode else "0",
+        }, system=True)
 
         #  Finally, expand variables if needed
         if config.expand_task:
@@ -257,7 +261,7 @@ class XTest(object):
                 self.command = shlex.split(self.command)
 
     def expand(self) -> None:
-        expander = StringVarExpander(self.vars_map)
+        expander = StringVarExpander(self.vars.get_vars())
         self._log_info("expanding")
         self.env = {expander(k): expander(v) for k, v in self.env.items()}
         if self.cwd:
@@ -266,6 +270,14 @@ class XTest(object):
             self.command = expander(self.command)
         else:
             self.command = [expander(x) for x in self.command]
+
+        if self.pre_command:
+            self.pre_command = [expander(x) for x in self.pre_command]
+        if self.post_command:
+            self.post_command = [expander(x) for x in self.post_command]
+        if self.output_filter:
+            self.output_filter = [expander(x) for x in self.output_filter]
+            log_info(f"output filter: {self.output_filter}")
 
     def _setup_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
@@ -369,11 +381,9 @@ class XTest(object):
         if not self.output_filter:
             res.filter_ok = True
             return
-        expander = StringVarExpander(self.vars_map)
-        filter_cmd = [expander(x) for x in self.output_filter]
-        log_info("Filter command: '{}'".format(" ".join(filter_cmd)))
+        log_info("Filter command: '{}'".format(" ".join(self.output_filter)))
         try:
-            p = subprocess.run(filter_cmd, capture_output=True, text=True)
+            p = subprocess.run(self.output_filter, capture_output=True, text=True)
             self._log_info(f"Filter command returned: {p.returncode}")
             if p.returncode == 0:
                 res.filter_ok = True
@@ -464,6 +474,7 @@ class XTest(object):
             self._log_info("Skipping output comparison, prior step failed")
             return
         if self.compare_output == _NOTHING or self.debug_mode:
+            self._log_info("Skipping output comparison, prior step failed")
             res.compare_stderr_ok = True
             res.compare_stdout_ok = True
             return
@@ -511,18 +522,14 @@ class XTest(object):
         if not self.post_command:
             log_info("Skipping post run, no command")
             return
-        post_cmd_map = {}
-        post_cmd_map.update(self.vars_map)
-        expander = StringVarExpander(post_cmd_map)
-        post_run_cmd = [expander(x) for x in self.post_command]
         if self.debug_mode:
-            self._debug_pre_step_print("Post run", post_run_cmd)
-        self._log_info(f"verifying with '{post_run_cmd}'")
+            self._debug_pre_step_print("Post run", self.post_command)
+        self._log_info(f"verifying with '{self.post_command}'")
         try:
             if self.debug_mode:
-                p = subprocess.run(post_run_cmd, text=True)
+                p = subprocess.run(self.post_command, text=True)
             else:
-                p = subprocess.run(post_run_cmd, capture_output=True, text=True)
+                p = subprocess.run(self.post_command, capture_output=True, text=True)
             msg = f"Post run command = {p.returncode}"
             self._log_info(msg)
             res.post_run_rc = p.returncode
@@ -549,15 +556,11 @@ class XTest(object):
     def _pre_run(self, res: TestResult) -> None:
         if not self.pre_command:
             return
-        pre_cmd_map = {}
-        pre_cmd_map.update(self.vars_map)
-        expander = StringVarExpander(pre_cmd_map)
-        pre_run_cmd = [expander(x) for x in self.pre_command]
-        self._log_info(f"running pre_command '{pre_run_cmd}'")
+        self._log_info(f"running pre_command '{self.pre_command}'")
         if self.debug_mode:
-            self._debug_pre_step_print("Pre run", pre_run_cmd)
+            self._debug_pre_step_print("Pre run", self.pre_command)
         try:
-            p = subprocess.run(pre_run_cmd, capture_output=not self.debug_mode, text=True)
+            p = subprocess.run(self.pre_command, capture_output=not self.debug_mode, text=True)
             self._log_info(f"Pre run command returned: {p.returncode}")
             res.pre_run_rc = p.returncode
             if self.debug_mode:
@@ -605,6 +608,7 @@ class XTest(object):
                 for k, v in self.env.items():
                     log_raw(f"{k}={v}")
 
+        self.vars.update_os_env()
         self._setup_output_dir()
         log_verbose("_COMMAND is '{}'", self.command)
         self._pre_run(res)
@@ -612,6 +616,7 @@ class XTest(object):
         self._filter_output(res)
         self._compare_output(res)
         self._post_run(res)
+        self.vars.restore_os_env()
 
         if not res.run_ok and res.status != XTEST_NOT_RUN and not self.debug_mode:
             if self.output_behavior == _UNIFY:

@@ -1,5 +1,5 @@
-from xeet.common import (XeetException, StringVarExpander, set_xeet_var, set_xeet_vars,
-                         validate_json_schema, dump_defualt_vars, dict_value,
+from xeet.common import (XeetException, StringVarExpander, get_global_vars, set_global_vars,
+                         validate_json_schema, dump_global_vars, dict_value,
                          NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV, INHERIT_VARIABLES,
                          INHERIT_GROUPS, VARIABLES)
 from xeet.log import log_info, logging_enabled_for
@@ -70,9 +70,11 @@ class Config(object):
 
         #  Populate some variables early so they are available in
         self.xeet_root = os.path.dirname(conf_path)
-        set_xeet_var("__cwd__", os.getcwd(), allow_system=True)
-        set_xeet_var("__xroot__",  self.xeet_root, allow_system=True)
-        set_xeet_var("__output_dir__", self.output_dir, allow_system=True)
+        set_global_vars({
+            f"CWD": os.getcwd(),
+            f"ROOT": self.xeet_root,
+            f"OUTPUT_DIR": self.output_dir,
+        }, system=True)
 
         self.conf = {}
         self.conf = self._read_configuration(conf_path, set())
@@ -95,10 +97,10 @@ class Config(object):
             self.descs.append(desc)
         self.xdescs_map = {desc.name: desc for desc in self.descs}
 
-        set_xeet_vars(self.conf.get(VARIABLES, {}))
+        set_global_vars(self.conf.get(VARIABLES, {}))
 
         if logging_enabled_for(logging.DEBUG):
-            dump_defualt_vars()
+            dump_global_vars()
 
     def arg(self, name) -> Optional[Any]:
         if hasattr(self.args, name):
@@ -163,7 +165,7 @@ class Config(object):
 
         log_info(f"Configuration file includes: {includes}")
         read_files.add(file_path)
-        expander = StringVarExpander()
+        expander = StringVarExpander(get_global_vars())
         for f in includes:
             f = expander(f)
             if f in read_files:

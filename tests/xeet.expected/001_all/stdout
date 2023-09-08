@@ -1,5 +1,5 @@
 Starting run
-Running tests: 001_pass, 002_fail, 003_skip, 004_bad_desc, 005_expected_fail, 006_unexpected_success, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 010_timeout, 011_bad_output, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015b_pre_command_fail, 015c_post_command_fail, 015d_post_command_verify, 015e_bad_pre_command
+Running tests: 001_pass, 002_fail, 003_skip, 004_bad_desc, 005_expected_fail, 006_unexpected_success, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 010_timeout, 011_bad_output, 012_filtered_output, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_command_ok, 015b_pre_command_fail, 015c_post_command_fail, 015d_post_command_verify, 015e_bad_pre_command
 
 001_pass                                                     ....... [Passed ]
 002_fail                                                     ....... [Failed ] rc=1, allowed=0
@@ -36,7 +36,8 @@ Full diff file: XEET_DIR/sanity/xeet.out/011_bad_output/stdout.diff
 
 012_filtered_output                                          ....... [Passed ]
 013_multi_rc_passing                                         ....... [Passed ]
-014_show_auto_vars                                           ....... [Passed ]
+014a_show_auto_vars_internal                                 ....... [Passed ]
+014b_show_auto_vars_env                                      ....... [Passed ]
 015a_pre_command_ok                                          ....... [Passed ]
 015b_pre_command_fail                                        ....... [Not Run] Pre run command RC=1
 015c_post_command_fail                                       ....... [Failed ] Post run failed
@@ -48,7 +49,7 @@ Post run command = 1, empty post run stderr
 
 
 Finished iteration (#0/0)
-Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014_show_auto_vars, 015a_pre_command_ok, 015d_post_command_verify
+Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 012_filtered_output, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_command_ok, 015d_post_command_verify
 Expectedly failed: 005_expected_fail
 Failed: 002_fail, 010_timeout, 011_bad_output, 015c_post_command_fail
 Unexpectedly passed: 006_unexpected_success

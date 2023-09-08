@@ -86,7 +86,7 @@
 			"name": "012_filtered_output",
 			"short_desc": "Filtered output test",
 			"command": "echo 'original output'",
-			"output_filter": ["sed", "-i", "-e", "s/original output/filtered output/", "{{__output_file__}}"],
+			"output_filter": ["sed", "-i", "-e", "s/original output/filtered output/", "{{XEET_TEST_STDOUT}}"],
 			"groups": ["passing"]
 		},
 		{
@@ -99,18 +99,24 @@
 			"groups": ["passing"]
 		},
 		{
-			"name": "014_show_auto_vars",
+			"name": "014a_show_auto_vars_internal",
 			"short_desc": "Test auto variables",
-			"command": "echo {{__xname__}}",
+			"command": "echo -e Test name: {{XEET_TEST_NAME}}\necho -e Test output dir: {{XEET_TEST_OUTPUT_DIR}}\necho -e Test stdout: {{XEET_TEST_STDOUT}}\necho -e Test stderr: {{XEET_TEST_STDERR}}\necho -e Xeet root: {{XEET_ROOT}}\necho -e Xeet output dir: {{XEET_OUTPUT_DIR}}",
 			"shell": true,
-			"compare_output": "none",
+			"groups": ["passing"]
+		},
+		{
+			"name": "014b_show_auto_vars_env",
+			"short_desc": "Test auto variables",
+			"command": "echo -e Test name: $XEET_TEST_NAME\necho -e Test output dir: $XEET_TEST_OUTPUT_DIR\necho -e Test stdout: $XEET_TEST_STDOUT\necho -e Test stderr: $XEET_TEST_STDERR\necho -e Xeet root: $XEET_ROOT\necho -e Xeet output dir: $XEET_OUTPUT_DIR",
+			"shell": true,
 			"groups": ["passing"]
 		},
 		{
 			"name": "015a_pre_command_ok",
 			"short_desc": "Test with passing pre-run command",
 			"pre_command": "true",
-			"command": "echo {{__xname__}}",
+			"command": "echo {{XEET_TEST_NAME}}",
 			"compare_output": "none",
 			"groups": ["passing"]
 		},
@@ -132,8 +138,8 @@
 			"name": "015d_post_command_verify",
 			"short_desc": "Post command verification check",
 			"variables": {
-				"output_file": "{{__output_dir__}}/{{__xname__}}.txt",
-				"verification_file": "{{__xroot__}}/aux/{{__xname__}}_compare.txt"
+				"output_file": "{{XEET_TEST_OUTPUT_DIR}}/{{XEET_TEST_NAME}}.txt",
+				"verification_file": "{{XEET_ROOT}}/aux/{{XEET_TEST_NAME}}_compare.txt"
 
 			},
 			"command": "echo 'Silence is golden' > {{output_file}}",
