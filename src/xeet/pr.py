@@ -27,7 +27,7 @@ def _gen_print_func(color: str) -> Callable:
             return
         print(color, end='')
         print(*args, **kwargs)
-        print(XEET_RESET, end='')
+        print(XEET_RESET, end='', flush=True)
     return _print
 
 
