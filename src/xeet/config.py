@@ -190,6 +190,9 @@ class Config(object):
         return [desc.name for desc in self.descs
                 if not desc.raw_desc.get(ABSTRACT, False)]
 
+    def all_test_names(self) -> list[str]:
+        return [desc.name for desc in self.descs]
+
     def runnable_descs(self) -> list[TestDesc]:
         return [desc for desc in self.descs
                 if not desc.raw_desc.get(ABSTRACT, False)]

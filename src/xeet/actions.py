@@ -9,7 +9,19 @@ from xeet.log import log_blank, log_info, start_raw_logging, stop_raw_logging
 from xeet.runtime import RunInfo
 import textwrap
 import sys
-from typing import Optional
+from typing import Optional, Iterable
+
+
+def _get_test_name(base_name: str, test_list: Iterable[str]) -> str:
+    if base_name in test_list:
+        return base_name
+    possible_names = [x for x in test_list if x.startswith(base_name)]
+    if len(possible_names) == 0:
+        raise XeetException(f"No tests match '{base_name}'")
+    if len(possible_names) > 1:
+        names_str = ", ".join(possible_names)
+        raise XeetException(f"Multiple tests match '{base_name}': {names_str}")
+    return possible_names[0]
 
 
 def _prepare_tests_list(config: Config, runable: bool) -> list[TestDesc]:
@@ -18,14 +30,7 @@ def _prepare_tests_list(config: Config, runable: bool) -> list[TestDesc]:
     if names:
         ret = []
         for name in names:
-            if name not in runnable_test_names:
-                possible_names = [x for x in runnable_test_names if x.startswith(name)]
-                if len(possible_names) == 0:
-                    raise XeetException(f"No tests match '{name}'")
-                if len(possible_names) > 1:
-                    names_str = ", ".join(possible_names)
-                    raise XeetException(f"Multiple tests match '{name}': {names_str}")
-                name = possible_names[0]
+            name = _get_test_name(name, runnable_test_names)
             test_desc = config.get_test_desc(name)
             ret.append(test_desc)
         return ret
@@ -109,6 +114,7 @@ def show_test_info(config: Config) -> None:
     test_name = config.test_name_arg
     if not test_name:
         raise XeetException("No test name was specified")
+    test_name = _get_test_name(test_name, config.all_test_names())
     desc = config.get_test_desc(test_name)
     if desc is None:
         raise XeetException(f"No such xtest: {test_name}")
