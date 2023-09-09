@@ -2,7 +2,7 @@
 	"tests": [
 		{
 			"name": "output_compare",
-			"post_test_cmd": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
+			"verify_cmd": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
 			"abstract": true
 		},
 		{
@@ -121,14 +121,14 @@
 			"groups": ["not_run"]
 		},
 		{
-			"name": "015c_post_test_fail",
-			"short_desc": "Test with failing post-run command",
+			"name": "015c_verification_fail",
+			"short_desc": "Test failing over verification",
 			"base": "015a_pre_test_ok",
-			"post_test_cmd": "false",
+			"verify_cmd": "false",
 			"groups": ["failing"]
 		},
 		{
-			"name": "015d_post_test_verify_ok",
+			"name": "015d_test_verification_ok",
 			"short_desc": "Post command verification check",
 			"variables": {
 				"output_file": "{{XEET_TEST_OUTPUT_DIR}}/{{XEET_TEST_NAME}}.txt",
@@ -137,7 +137,7 @@
 			},
 			"test_cmd": "echo 'Silence is golden' > {{output_file}}",
 			"shell": true,
-			"post_test_cmd": "diff -u {{output_file}} {{verification_file}}",
+			"verify_cmd": "diff -u {{output_file}} {{verification_file}}",
 			"groups": ["passing"]
 		},
 		{
@@ -146,6 +146,28 @@
 			"base": "015a_pre_test_ok",
 			"pre_test_cmd": "does_not_exist",
 			"groups": ["not_run"]
+		},
+		{
+			"name": "020_post_test_ok",
+			"short_desc": "Test with valid post-test command",
+			"base": "015a_pre_test_ok",
+			"post_test_cmd": "true",
+			"groups": ["passing"]
+		},
+		{
+			"name": "021_post_test_fail",
+			"short_desc": "Test with invalid post-test command",
+			"base": "015a_pre_test_ok",
+			"post_test_cmd": "false",
+			"groups": ["passing"]
+		},
+		{
+			"name": "022_post_test_fail_output",
+			"short_desc": "Test with invalid post-test command and output",
+			"base": "015a_pre_test_ok",
+			"post_test_cmd_shell": true,
+			"post_test_cmd": "echo failing post test output; false",
+			"groups": ["passing"]
 		},
 		{
 			"short_desc": "Abstract test",

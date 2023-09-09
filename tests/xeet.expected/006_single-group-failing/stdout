@@ -1,6 +1,6 @@
 Starting run
 Included groups: failing
-Running tests: 002_fail, 010_timeout, 015c_post_test_fail
+Running tests: 002_fail, 010_timeout, 015c_verification_fail
 
 002_fail                                                     ....... [Failed ] rc=1, allowed=0
 stdout file: xeet.out/002_fail/stdout (empty)
@@ -9,8 +9,8 @@ stderr file: xeet.out/002_fail/stderr (empty)
 010_timeout                                                  ....... [Failed ]
 Command '['sleep', '5']' timed out after 1 seconds
 
-015c_post_test_fail                                          ....... [Failed ] Post-test failed w/no output
+015c_verification_fail                                       ....... [Failed ] Verification failed w/no output
 
 Finished iteration (#0/0)
-Failed: 002_fail, 010_timeout, 015c_post_test_fail
+Failed: 002_fail, 010_timeout, 015c_verification_fail
 
