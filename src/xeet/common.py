@@ -172,3 +172,17 @@ def validate_json_schema(data: dict, schema: dict) -> Optional[str]:
             return f"Schema validation error at '{path}': {e.message}"
         else:
             return f"Schema validation error: {e.message}"
+
+
+def text_file_head(file_path: str, lines: int = 5) -> str:
+    ret = ""
+    try:
+        with open(file_path, 'r') as f:
+            for _ in range(lines):
+                line = f.readline()
+                if not line:
+                    break
+                ret += line
+    except OSError:
+        pass
+    return ret.rstrip("\n")

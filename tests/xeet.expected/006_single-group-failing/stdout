@@ -3,15 +3,13 @@ Included groups: failing
 Running tests: 002_fail, 010_timeout, 015c_post_command_fail
 
 002_fail                                                     ....... [Failed ] rc=1, allowed=0
-Test stdout/stderr: (Empty stdout), (Empty stderr)
+stdout file: xeet.out/002_fail/stdout (empty)
+stderr file: xeet.out/002_fail/stdout (empty)
 
 010_timeout                                                  ....... [Failed ]
 Command '['sleep', '5']' timed out after 1 seconds
-Test stdout/stderr: (Empty stdout), (Empty stderr)
 
-015c_post_command_fail                                       ....... [Failed ] Post run failed
-Post run command = 1, empty post run stderr
-
+015c_post_command_fail                                       ....... [Failed ] Post run failed w/empty output
 
 Finished iteration (#0/0)
 Failed: 002_fail, 010_timeout, 015c_post_command_fail

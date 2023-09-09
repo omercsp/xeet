@@ -38,6 +38,37 @@
 			"output_behavior": "unify",
 			"command": "echo for stdout; echo for stderr 1>&2",
 			"groups": ["passing"]
+		},
+		{
+			"name": "050_pre_step_fail_output",
+			"short_desc": "timeout test",
+			"pre_command_shell": true,
+			"pre_command": "echo 'stderror string' >&2; false",
+			"command": "nothing",
+			"groups": ["not_run"]
+		},
+		{
+			"name": "051_fail_output_stderr",
+			"short_desc": "check stderr of a failing test",
+			"shell": true,
+			"command": "echo 'stderror string' >&2; false",
+			"groups": ["failing"]
+		},
+		{
+			"name": "052_fail_output_unify",
+			"short_desc": "check unified output of a failing test",
+			"output_behavior": "unify",
+			"shell": true,
+			"command": "echo 'stdout string'; echo 'stderror string' >&2; false",
+			"groups": ["failing"]
+		},
+		{
+			"name": "053_post_step_fail_output",
+			"short_desc": "check output of failing post step",
+			"command": "true",
+			"post_command_shell": true,
+			"post_command": "echo 'stdout string'; echo 'stderror string' >&2; false",
+			"groups": ["failing"]
 		}
 	]
 }
