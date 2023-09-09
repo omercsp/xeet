@@ -91,25 +91,25 @@
 		},
 		{
 			"name": "200_list_tests",
-			"short_desc": "Test output behviour, failing",
+			"short_desc": "Test list command",
 			"command": "{{list_cmd}}",
 			"groups": ["list"]
 		},
 		{
 			"name": "201_list_tests_all",
-			"short_desc": "Test output behviour, failing",
+			"short_desc": "Test list commaond, including abstract tests",
 			"command": "{{list_cmd}} -a",
 			"groups": ["list"]
 		},
 		{
 			"name": "202_list_tests_group",
-			"short_desc": "Test output behviour, failing",
+			"short_desc": "Test list command with group",
 			"command": "{{list_cmd}} -g AB",
 			"groups": ["list"]
 		},
 		{
 			"name": "203_list_tests_2groups",
-			"short_desc": "Test output behviour, failing",
+			"short_desc": "Test list command with 2 groups",
 			"command": "{{list_cmd}} -g AB -g CD",
 			"groups": ["list"]
 		}
