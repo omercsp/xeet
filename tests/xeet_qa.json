@@ -10,14 +10,14 @@
 		{
 			"name": "test_base",
 			"cwd": "{{XEET_ROOT}}",
-			"post_command": "scripts/dflt_output_compare.sh",
+			"post_test_cmd": "scripts/dflt_output_compare.sh",
 			"abstract": true
 		},
 		{
 			"name": "001_all",
 			"base": "test_base",
 			"short_desc": "Test sanity for development code",
-			"command": "{{sanity_cmd}}",
+			"test_cmd": "{{sanity_cmd}}",
 			"allowed_return_codes": [1],
 			"groups": ["sanity", "multi", "failing"]
 		},
@@ -25,14 +25,14 @@
 			"name": "002_single-test-pass",
 			"base": "test_base",
 			"short_desc": "Test single group,passing",
-			"command": "{{sanity_cmd}} -t 001_pass",
+			"test_cmd": "{{sanity_cmd}} -t 001_pass",
 			"groups": ["sanity", "single", "passing"]
 		},
 		{
 			"base": "test_base",
 			"name": "003_single-test-fail",
 			"short_desc": "Test single group,passing",
-			"command": "{{sanity_cmd}} -t 002_fail",
+			"test_cmd": "{{sanity_cmd}} -t 002_fail",
 			"allowed_return_codes": [1],
 			"groups": ["sanity", "single", "failing"]
 		},
@@ -40,14 +40,14 @@
 			"name": "004_single-group-passing",
 			"base": "test_base",
 			"short_desc": "Test single group,passing",
-			"command": "{{sanity_cmd}} -g passing",
+			"test_cmd": "{{sanity_cmd}} -g passing",
 			"groups": ["sanity", "group", "passing"]
 		},
 		{
 			"name": "005_single-group-not-run",
 			"base": "test_base",
 			"short_desc": "Test single group, not running",
-			"command": "{{sanity_cmd}} -g not_run",
+			"test_cmd": "{{sanity_cmd}} -g not_run",
 			"allowed_return_codes": [1],
 			"groups": ["sanity", "group", "not-run"]
 		},
@@ -55,7 +55,7 @@
 			"name": "006_single-group-failing",
 			"base": "test_base",
 			"short_desc": "Test single group, failing",
-			"command": "{{sanity_cmd}} -g failing",
+			"test_cmd": "{{sanity_cmd}} -g failing",
 			"allowed_return_codes": [1],
 			"groups": ["sanity", "group"]
 		},
@@ -63,14 +63,14 @@
 			"name": "007_pass_and_skip",
 			"base": "test_base",
 			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
-			"command": "{{sanity_cmd}} -t 001_pass -t 003_skip",
+			"test_cmd": "{{sanity_cmd}} -t 001_pass -t 003_skip",
 			"groups": ["sanity", "passing"]
 		},
 		{
 			"name": "008_fail_and_not_run",
 			"base": "test_base",
 			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
-			"command": "{{sanity_cmd}} -t 002_fail -t 004_bad_desc",
+			"test_cmd": "{{sanity_cmd}} -t 002_fail -t 004_bad_desc",
 			"allowed_return_codes": [1],
 			"groups": ["sanity", "group"]
 		},
@@ -78,7 +78,7 @@
 			"name": "009_pass_and_not_run_groups",
 			"base": "test_base",
 			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
-			"command": "{{sanity_cmd}} -g passing -g not_run",
+			"test_cmd": "{{sanity_cmd}} -g passing -g not_run",
 			"allowed_return_codes": [1],
 			"groups": ["sanity", "group"]
 		},
@@ -86,31 +86,30 @@
 			"name": "100_output_passing",
 			"base": "test_base",
 			"short_desc": "Test output behviour, passing",
-			"command": "{{output_test_cmd}} -g passing",
+			"test_cmd": "{{output_test_cmd}} -g passing",
 			"groups": ["output", "group"]
 		},
 		{
 			"name": "200_list_tests",
 			"short_desc": "Test list command",
-			"command": "{{list_cmd}}",
+			"test_cmd": "{{list_cmd}}",
 			"groups": ["list"]
 		},
 		{
 			"name": "201_list_tests_all",
 			"short_desc": "Test list commaond, including abstract tests",
-			"command": "{{list_cmd}} -a",
+			"test_cmd": "{{list_cmd}} -a",
 			"groups": ["list"]
 		},
 		{
 			"name": "202_list_tests_group",
 			"short_desc": "Test list command with group",
-			"command": "{{list_cmd}} -g AB",
+			"test_cmd": "{{list_cmd}} -g AB",
 			"groups": ["list"]
 		},
 		{
 			"name": "203_list_tests_2groups",
-			"short_desc": "Test list command with 2 groups",
-			"command": "{{list_cmd}} -g AB -g CD",
+			"test_cmd": "{{list_cmd}} -g AB -g CD",
 			"groups": ["list"]
 		}
 	]

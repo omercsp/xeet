@@ -2,26 +2,26 @@
 	"tests": [
 		{
 			"name": "output_compare",
-			"post_command": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
+			"post_test_cmd": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
 			"abstract": true
 		},
 		{
 			"name": "001_pass",
 			"base": "output_compare",
 			"short_desc": "echoes Hello World!",
-			"command": "echo 'Hello World!'",
+			"test_cmd": "echo 'Hello World!'",
 			"groups": ["group1", "group2", "passing"]
 		},
 		{
 			"name": "002_fail",
 			"short_desc": "runs false",
-			"command": "false",
+			"test_cmd": "false",
 			"groups": ["group1", "group3", "failing"]
 		},
 		{
 			"name": "003_skip",
 			"short_desc": "expected to be skipped",
-			"command": "false",
+			"test_cmd": "false",
 			"allowed_return_codes": [2],
 			"groups": ["group1", "group2", "group4", "skipped"],
 			"skip": true
@@ -37,32 +37,32 @@
 			"name": "005_expected_fail",
 			"base": "output_compare",
 			"short_desc": "runs false but expected to fail",
-			"command": "false",
+			"test_cmd": "false",
 			"expected_failure": true
 		},
 		{
 			"name": "006_unexpected_success",
 			"short_desc": "runs true but expected to fail",
-			"command": "true",
+			"test_cmd": "true",
 			"expected_failure": true
 		},
 		{
 			"name": "007 with spaces",
 			"short_desc": "test name with spaces",
-			"command": "true",
+			"test_cmd": "true",
 			"groups": ["passing"]
 		},
 		{
 			"name": "008a_bad_command_not_run",
 			"short_desc": "bad command (should not run)",
-			"command": "no such thing",
+			"test_cmd": "no such thing",
 			"groups": ["group5", "not_run"]
 		},
 		{
 			"name": "008b_inherits_bad_command_to_good",
 			"base": "008a_bad_command_not_run",
 			"short_desc": "inherits a bad command test, but replaces it with a good one",
-			"command": "true",
+			"test_cmd": "true",
 			"inherit_groups": false,
 			"groups": ["passing"]
 		},
@@ -73,21 +73,21 @@
 			"env" : {
 				"TEST_ENV_VAR": "test value"
 			},
-			"command": "printenv TEST_ENV_VAR",
+			"test_cmd": "printenv TEST_ENV_VAR",
 			"inherit_groups": true,
 			"groups": ["passing"]
 		},
 		{
 			"name": "010_timeout",
 			"short_desc": "timeout test",
-			"command": "sleep 5",
+			"test_cmd": "sleep 5",
 			"timeout": 1,
 			"groups": ["failing"]
 		},
 		{
 			"name": "013_multi_rc_passing",
 			"short_desc": "Multiple return codes, shoudld pass",
-			"command": "rc=$(( ${RANDOM} % 5 + 1 )); echo 'return code: ${rc}'; exit ${rc}",
+			"test_cmd": "rc=$(( ${RANDOM} % 5 + 1 )); echo 'return code: ${rc}'; exit ${rc}",
 			"shell": true,
 			"allowed_return_codes": [1, 2, 3, 4, 5],
 			"groups": ["passing"]
@@ -95,56 +95,56 @@
 		{
 			"name": "014a_show_auto_vars_internal",
 			"short_desc": "Test auto variables",
-			"command": "echo -e Test name: {{XEET_TEST_NAME}}\necho -e Test output dir: {{XEET_TEST_OUTPUT_DIR}}\necho -e Test stdout: {{XEET_TEST_STDOUT}}\necho -e Test stderr: {{XEET_TEST_STDERR}}\necho -e Xeet root: {{XEET_ROOT}}\necho -e Xeet output dir: {{XEET_OUTPUT_DIR}}",
+			"test_cmd": "echo -e Test name: {{XEET_TEST_NAME}}\necho -e Test output dir: {{XEET_TEST_OUTPUT_DIR}}\necho -e Test stdout: {{XEET_TEST_STDOUT}}\necho -e Test stderr: {{XEET_TEST_STDERR}}\necho -e Xeet root: {{XEET_ROOT}}\necho -e Xeet output dir: {{XEET_OUTPUT_DIR}}",
 			"shell": true,
 			"groups": ["passing"]
 		},
 		{
 			"name": "014b_show_auto_vars_env",
 			"short_desc": "Test auto variables",
-			"command": "echo -e Test name: $XEET_TEST_NAME\necho -e Test output dir: $XEET_TEST_OUTPUT_DIR\necho -e Test stdout: $XEET_TEST_STDOUT\necho -e Test stderr: $XEET_TEST_STDERR\necho -e Xeet root: $XEET_ROOT\necho -e Xeet output dir: $XEET_OUTPUT_DIR",
+			"test_cmd": "echo -e Test name: $XEET_TEST_NAME\necho -e Test output dir: $XEET_TEST_OUTPUT_DIR\necho -e Test stdout: $XEET_TEST_STDOUT\necho -e Test stderr: $XEET_TEST_STDERR\necho -e Xeet root: $XEET_ROOT\necho -e Xeet output dir: $XEET_OUTPUT_DIR",
 			"shell": true,
 			"groups": ["passing"]
 		},
 		{
-			"name": "015a_pre_command_ok",
+			"name": "015a_pre_test_ok",
 			"short_desc": "Test with passing pre-run command",
-			"pre_command": "true",
-			"command": "echo {{XEET_TEST_NAME}}",
+			"pre_test_cmd": "true",
+			"test_cmd": "echo {{XEET_TEST_NAME}}",
 			"groups": ["passing"]
 		},
 		{
-			"name": "015b_pre_command_fail",
+			"name": "015b_pre_test_fail",
 			"short_desc": "Test with failing pre-run command",
-			"base": "015a_pre_command_ok",
-			"pre_command": "false",
+			"base": "015a_pre_test_ok",
+			"pre_test_cmd": "false",
 			"groups": ["not_run"]
 		},
 		{
-			"name": "015c_post_command_fail",
+			"name": "015c_post_test_fail",
 			"short_desc": "Test with failing post-run command",
-			"base": "015a_pre_command_ok",
-			"post_command": "false",
+			"base": "015a_pre_test_ok",
+			"post_test_cmd": "false",
 			"groups": ["failing"]
 		},
 		{
-			"name": "015d_post_command_verify",
+			"name": "015d_post_test_verify_ok",
 			"short_desc": "Post command verification check",
 			"variables": {
 				"output_file": "{{XEET_TEST_OUTPUT_DIR}}/{{XEET_TEST_NAME}}.txt",
-				"verification_file": "{{XEET_ROOT}}/aux/{{XEET_TEST_NAME}}_compare.txt"
+				"verification_file": "{{XEET_ROOT}}/aux/{{XEET_TEST_NAME}}.txt"
 
 			},
-			"command": "echo 'Silence is golden' > {{output_file}}",
+			"test_cmd": "echo 'Silence is golden' > {{output_file}}",
 			"shell": true,
-			"post_command": "diff -u {{output_file}} {{verification_file}}",
+			"post_test_cmd": "diff -u {{output_file}} {{verification_file}}",
 			"groups": ["passing"]
 		},
 		{
-			"name": "015e_bad_pre_command",
+			"name": "015e_bad_pre_test_cmd",
 			"short_desc": "Test with invalid pre-run command",
-			"base": "015a_pre_command_ok",
-			"pre_command": "does_not_exist",
+			"base": "015a_pre_test_ok",
+			"pre_test_cmd": "does_not_exist",
 			"groups": ["not_run"]
 		},
 		{

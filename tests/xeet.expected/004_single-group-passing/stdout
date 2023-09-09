@@ -1,6 +1,6 @@
 Starting run
 Included groups: passing
-Running tests: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_command_ok, 015d_post_command_verify
+Running tests: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_test_ok, 015d_post_test_verify_ok
 
 001_pass                                                     ....... [Passed ]
 007 with spaces                                              ....... [Passed ]
@@ -9,9 +9,9 @@ Running tests: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009
 013_multi_rc_passing                                         ....... [Passed ]
 014a_show_auto_vars_internal                                 ....... [Passed ]
 014b_show_auto_vars_env                                      ....... [Passed ]
-015a_pre_command_ok                                          ....... [Passed ]
-015d_post_command_verify                                     ....... [Passed ]
+015a_pre_test_ok                                             ....... [Passed ]
+015d_post_test_verify_ok                                     ....... [Passed ]
 
 Finished iteration (#0/0)
-Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_command_ok, 015d_post_command_verify
+Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_test_ok, 015d_post_test_verify_ok
 

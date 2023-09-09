@@ -2,7 +2,8 @@ Starting run
 Running tests: 002_fail, 004_bad_desc
 
 002_fail                                                     ....... [Failed ] rc=1, allowed=0
-Test stdout/stderr: (Empty stdout), (Empty stderr)
+stdout file: xeet.out/002_fail/stdout (empty)
+stderr file: xeet.out/002_fail/stderr (empty)
 
 004_bad_desc                                                 ....... [Not Run]
 Schema validation error: Additional properties are not allowed ('blat' was unexpected)
