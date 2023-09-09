@@ -2,7 +2,7 @@
 	"tests": [
 		{
 			"name": "compare_output",
-			"post_test_cmd": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
+			"verify_cmd": "{{XEET_ROOT}}/../scripts/dflt_output_compare.sh",
 			"abstract": true
 		},
 		{
@@ -66,8 +66,8 @@
 			"name": "053_post_step_fail_output",
 			"short_desc": "check output of failing post step",
 			"test_cmd": "true",
-			"post_test_cmd_shell": true,
-			"post_test_cmd": "echo 'stdout string'; echo 'stderror string' >&2; false",
+			"verify_cmd_shell": true,
+			"verify_cmd": "echo 'stdout string'; echo 'stderror string' >&2; false",
 			"groups": ["failing"]
 		}
 	]

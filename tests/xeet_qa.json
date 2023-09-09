@@ -10,7 +10,7 @@
 		{
 			"name": "test_base",
 			"cwd": "{{XEET_ROOT}}",
-			"post_test_cmd": "scripts/dflt_output_compare.sh",
+			"verify_cmd": "scripts/dflt_output_compare.sh",
 			"abstract": true
 		},
 		{

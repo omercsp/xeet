@@ -30,6 +30,7 @@ class TestResult(object):
         self.status = XTEST_UNDEFINED
         self.rc: Optional[int] = None
         self.pre_test_cmd_rc: Optional[int] = None
+        self.verify_rc: Optional[int] = None
         self.post_test_cmd_rc: Optional[int] = None
         self.short_comment: str = ""
         self.extra_comments: list[str] = []
@@ -60,6 +61,8 @@ _ALLOWED_RC = "allowed_return_codes"
 _EXPECTED_FAILURE = "expected_failure"
 _PRE_TEST_CMD = "pre_test_cmd"
 _PRE_TEST_CMD_SHELL = "pre_test_cmd_shell"
+_VERIFY_CMD = "verify_cmd"
+_VERIFY_CMD_SHELL = "verify_cmd_shell"
 _POST_TEST_CMD = "post_test_cmd"
 _POST_TEST_CMD_SHELL = "post_test_cmd_shell"
 _OUTPUT_BEHAVIOR = "output_behavior"
@@ -100,6 +103,8 @@ TEST_SCHEMA = {
         _PRE_TEST_CMD_SHELL: {"type": "boolean"},
         _POST_TEST_CMD: _COMMAND_SCHEMA,
         _POST_TEST_CMD_SHELL: {"type": "boolean"},
+        _VERIFY_CMD: _COMMAND_SCHEMA,
+        _VERIFY_CMD_SHELL: {"type": "boolean"},
         _EXPECTED_FAILURE: {"type": "boolean"},
         _OUTPUT_BEHAVIOR: {"enum": [_UNIFY, _SPLIT]},
         _CWD: {"type": "string", "minLength": 1},
@@ -177,6 +182,11 @@ class XTest(object):
         if not self.pre_test_cmd_shell and isinstance(self.pre_test_cmd, str):
             self.pre_test_cmd = self.pre_test_cmd.split()
 
+        self.verify_command = task_descriptor.get(_VERIFY_CMD, [])
+        self.verify_command_shell = task_descriptor.get(_VERIFY_CMD_SHELL, False)
+        if not self.verify_command_shell and isinstance(self.verify_command, str):
+            self.verify_command = self.verify_command.split()
+
         self.post_test_cmd = task_descriptor.get(_POST_TEST_CMD, [])
         self.post_test_cmd_shell = task_descriptor.get(_POST_TEST_CMD_SHELL, False)
         if not self.post_test_cmd_shell and isinstance(self.post_test_cmd, str):
@@ -252,6 +262,11 @@ class XTest(object):
         else:
             self.post_test_cmd = [expander(x) for x in self.post_test_cmd]
 
+        if isinstance(self.verify_command, str):
+            self.verify_command = expander(self.verify_command)
+        else:
+            self.verify_command = [expander(x) for x in self.verify_command]
+
     def _setup_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
         if os.path.isdir(self.output_dir):
@@ -304,6 +319,7 @@ class XTest(object):
         log_verbose("_COMMAND is '{}'", self.command)
         self._pre_test(res)
         self._run(res)
+        self._verify(res)
         self._post_test(res)
         self.vars.restore_os_env()
 
@@ -472,44 +488,74 @@ class XTest(object):
                 err_file.close()
         res.run_ok = res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE
 
-    def _post_test(self, res: TestResult) -> None:
+    def _verify(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED:
-            self._log_info("Skipping post-test, prior step failed")
+            self._log_info("Skipping verification, prior step failed")
             return
-        if not self.post_test_cmd:
-            self._log_info("Skipping post-test, no command")
+        if not self.verify_command:
+            self._log_info("Skipping verification, no command")
             return
         if self.debug_mode:
-            self._debug_pre_step_print("Post-test", self.post_test_cmd, self.post_test_cmd_shell)
-        self._log_info(f"verifying with '{self.post_test_cmd}'")
+            self._debug_pre_step_print("Verification", self.verify_command,
+                                       self.verify_command_shell)
+        self._log_info(f"verifying with '{self.verify_command}'")
         try:
-            post_test_cmd_output = f"{self.output_dir}/post_test_output"
+            verification_output = f"{self.output_dir}/verification"
             if self.debug_mode:
-                p = subprocess.run(self.post_test_cmd, text=True, shell=self.post_test_cmd_shell)
+                p = subprocess.run(self.verify_command, text=True, shell=self.verify_command_shell)
             else:
-                with open(post_test_cmd_output, "w") as f:
-                    p = subprocess.run(self.post_test_cmd, text=True,
-                                       shell=self.post_test_cmd_shell, stdout=f, stderr=f)
-            msg = f"Post-test command = {p.returncode}"
+                with open(verification_output, "w") as f:
+                    p = subprocess.run(self.verify_command, text=True,
+                                       shell=self.verify_command_shell, stdout=f, stderr=f)
+            msg = f"Verification command = {p.returncode}"
             self._log_info(msg)
-            res.post_test_cmd_rc = p.returncode
+            res.verify_rc = p.returncode
             if self.debug_mode:
-                self._debug_post_step_print("Post-test", p.returncode)
+                self._debug_post_step_print("Verification", p.returncode)
             if p.returncode == 0:
                 return
             res.status = XTEST_FAILED
             if self.debug_mode:
                 return
-            res.short_comment = f"Post-test failed"
-            post_test_output_head = text_file_head(post_test_cmd_output)
-            if post_test_output_head:
-                self._add_step_err_comment(res, "Post-test output head", post_test_output_head)
+            res.short_comment = f"Verification failed"
+            verify_output_head = text_file_head(verification_output)
+            if verify_output_head:
+                self._add_step_err_comment(res, "Verification run output head", verify_output_head)
             else:
                 res.short_comment += " w/no output"
         except OSError as e:
             res.status = XTEST_NOT_RUN
-            log_error(f"Error running post test command- {e}", pr=False)
-            res.short_comment = "Post-test error:"
+            log_error(f"Error running verification command- {e}", pr=False)
+            res.short_comment = "Verification run error:"
+            res.extra_comments.append(str(e))
+
+    def _post_test(self, res: TestResult) -> None:
+        if not self.post_test_cmd:
+            self._log_info("Skipping post-test, no command")
+            return
+        self._log_info(f"post-test command '{self.post_test_cmd}'")
+        try:
+            post_test_output = f"{self.output_dir}/post_test_output"
+            if self.debug_mode:
+                p = subprocess.run(self.post_test_cmd, text=True, shell=self.post_test_cmd_shell)
+            else:
+                with open(post_test_output, "w") as f:
+                    p = subprocess.run(self.post_test_cmd, text=True,
+                                       shell=self.post_test_cmd_shell, stdout=f, stderr=f)
+            msg = f"Post-test RC = {p.returncode}"
+            self._log_info(msg)
+            res.post_test_cmd_rc = p.returncode
+            if self.debug_mode:
+                self._debug_post_step_print("Post-test", p.returncode)
+            if p.returncode == 0 or self.debug_mode:
+                return
+            res.extra_comments.append(
+                f"NOTICE: Test succeded, but post-test failed with rc={p.returncode}")
+            post_run_head = text_file_head(post_test_output)
+            if post_run_head:
+                self._add_step_err_comment(res, "Verification run output head", post_run_head)
+        except OSError as e:
+            log_error(f"Post test run failed - {e}", pr=False)
             res.extra_comments.append(str(e))
 
     @staticmethod
