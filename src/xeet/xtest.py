@@ -533,6 +533,9 @@ class XTest(object):
         if not self.post_test_cmd:
             self._log_info("Skipping post-test, no command")
             return
+        if self.debug_mode:
+            self._debug_pre_step_print("Post-test", self.verify_command,
+                                       self.verify_command_shell)
         self._log_info(f"post-test command '{self.post_test_cmd}'")
         try:
             post_test_output = f"{self.output_dir}/post_test_output"
