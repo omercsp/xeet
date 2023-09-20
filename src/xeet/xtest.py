@@ -518,7 +518,7 @@ class XTest(object):
             if self.debug_mode:
                 return
             res.short_comment = f"Verification failed"
-            verify_output_head = text_file_head(verification_output)
+            verify_output_head = text_file_head(verification_output, lines=8)
             if verify_output_head:
                 self._add_step_err_comment(res, "Verification run output head", verify_output_head)
             else:
