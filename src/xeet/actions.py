@@ -106,8 +106,23 @@ def _show_test(test: XTest, full_details: bool) -> None:
     if test.cwd:
         print_blob("Working directory:", _test_str(test.cwd))
 
+    if test.pre_test_cmd:
+        pre_test_cmd = test.pre_test_cmd
+        if isinstance(pre_test_cmd, list):
+            pre_test_cmd = " ".join(pre_test_cmd)
+        print_blob("Pre-test command:", _test_str(pre_test_cmd))
     if test.command:
         print_blob("Command (joined):", _test_str(" ".join(test.command)))
+    if test.verify_command:
+        verify_cmd = test.verify_command
+        if isinstance(verify_cmd, list):
+            verify_cmd = " ".join(verify_cmd)
+        print_blob("Verify command:", _test_str(verify_cmd))
+    if test.post_test_cmd:
+        post_test_cmd = test.post_test_cmd
+        if isinstance(post_test_cmd, list):
+            post_test_cmd = " ".join(post_test_cmd)
+        print_blob("Post-test command:", _test_str(post_test_cmd))
 
 
 def show_test_info(config: Config) -> None:
