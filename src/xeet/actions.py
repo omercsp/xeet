@@ -99,6 +99,8 @@ def _show_test(test: XTest, full_details: bool) -> None:
             print_val(shell_title, "/usr/bin/sh")
 
     print_bool("Inherit environment", test.env_inherit)
+    if test.env_file:
+        print_val("Environment file:", test.env_file)
     if test.env:
         print("Environment:")
         for count, (k, v) in enumerate(test.env.items()):

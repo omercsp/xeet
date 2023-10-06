@@ -58,8 +58,8 @@ def parse_arguments() -> argparse.Namespace:
     run_parser.add_argument('--shell', type=str, choices=yes_no, action='store', default=None,
                             help='set shell usage')
     run_parser.add_argument('--shell-path', metavar='PATH', help='set shell path', default=None)
-    run_parser.add_argument('--env', metavar='ENV=VAL', default=None, action='append',
-                            help='set an environment variable')
+    run_parser.add_argument('--env-file', metavar='FILE',
+                            default=None, help='environment file path')
     run_parser.add_argument('--show-summary', action='store_true', default=False,
                             help='show test summary before run')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',

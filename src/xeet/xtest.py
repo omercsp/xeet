@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import signal
 import os
+import json
 from timeit import default_timer as timer
 from typing import Union
 
@@ -67,6 +68,7 @@ _POST_TEST_CMD = "post_test_cmd"
 _POST_TEST_CMD_SHELL = "post_test_cmd_shell"
 _OUTPUT_BEHAVIOR = "output_behavior"
 _TIMEOUT = "timeout"
+_ENV_FILE = "env_file"
 
 # Output behavior values
 _UNIFY = "unify"
@@ -77,6 +79,13 @@ _COMMAND_SCHEMA = {
         {"type": "string", "minLength": 1},
         {"type": "array", "items": {"type": "string", "minLength": 1}}
     ]
+}
+
+_ENV_SCHEMA = {
+    "type": "object",
+    "additionalProperties": {
+        "type": "string"
+    }
 }
 
 TEST_SCHEMA = {
@@ -110,12 +119,8 @@ TEST_SCHEMA = {
         _CWD: {"type": "string", "minLength": 1},
         _SHELL: {"type": "boolean"},
         _SHELLPATH: {"type": "string", "minLength": 1},
-        ENV: {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
+        ENV: _ENV_SCHEMA,
+        _ENV_FILE: {"type": "string", "minLength": 1},
         _INHERIT_OS_ENV: {"type": "boolean"},
         INHERIT_ENV: {"type": "boolean"},
         ABSTRACT: {"type": "boolean"},
@@ -160,6 +165,7 @@ class XTest(object):
 
         self.env_inherit = task_descriptor.get(_INHERIT_OS_ENV, True)
         self.env = task_descriptor.get(ENV, {})
+        self.env_file = task_descriptor.get(_ENV_FILE, None)
         self.abstract = task_descriptor.get(ABSTRACT, False)
         self.skip = task_descriptor.get(_SKIP, False)
         self.skip_reason = task_descriptor.get(_SKIP_REASON, None)
@@ -205,12 +211,6 @@ class XTest(object):
         shell_path = config.arg('shell_path')
         if shell_path:
             self.shell_path = shell_path
-        env = config.arg('env')
-        if env:
-            self.env = {}
-            for e in env:
-                e_name, e_value = parse_assignment_str(e)
-                self.env[e_name] = e_value
 
         self.vars_map = task_descriptor.get(VARIABLES, {})
         variables = config.arg('variables')
@@ -266,6 +266,8 @@ class XTest(object):
             self.verify_command = expander(self.verify_command)
         else:
             self.verify_command = [expander(x) for x in self.verify_command]
+        if self.env_file:
+            self.env_file = expander(self.env_file)
 
     def _setup_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
@@ -437,6 +439,24 @@ class XTest(object):
             if stderr_head:
                 self._add_step_err_comment(res, "stderr head", stderr_head)
 
+    def _red_env_vars(self):
+        ret = {}
+        if self.env_inherit:
+            ret.update(os.environ)
+        if self.env_file:
+            try:
+                with open(self.env_file, "r") as f:
+                    data = json.load(f)
+                    err = validate_json_schema(data, _ENV_SCHEMA)
+                    if err:
+                        raise XeetException(f"Error reading env file - {err}")
+                    ret.update(data)
+            except OSError as e:
+                raise XeetException(f"Error reading env file - {e}")
+        if self.env:
+            ret.update(self.env)
+        return ret
+
     def _run(self, res: TestResult) -> None:
         if res.status != XTEST_PASSED and res.status != XTEST_UNDEFINED:
             self._log_info("Skipping run. Prior step failed")
@@ -444,11 +464,12 @@ class XTest(object):
         self._log_info("running command:")
         log_raw(self.command)
         p = None
-        if self.env_inherit:
-            env = os.environ
-            env.update(self.env)
-        else:
-            env = self.env
+        try:
+            env = self._red_env_vars()
+        except XeetException as e:
+            res.status = XTEST_NOT_RUN
+            res.extra_comments.append(str(e))
+            return
         out_file, err_file = None, None
         try:
             start = timer()
@@ -466,7 +487,7 @@ class XTest(object):
                 res.rc = p.wait(self.timeout)
 
             res.duration = timer() - start
-            self._log_info(f"command finished with rc={res.rc} in {res.duration:.3f}s")
+            self._log_info(f"command finished with rc= in {res.duration:.3f}s")
             self._set_run_cmd_result(res)
         except (OSError, FileNotFoundError) as e:
             self._log_info(str(e))
