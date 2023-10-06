@@ -83,6 +83,14 @@
 			"groups": ["sanity", "group"]
 		},
 		{
+			"name": "050_environment_tests",
+			"base": "test_base",
+			"short_desc": "Test environment variables behaviour",
+			"test_cmd": "{{run_cmd}} -c env_tests/xeet.json",
+			"allowed_return_codes": [1],
+			"groups": ["env"]
+		},
+		{
 			"name": "100_output_passing",
 			"base": "test_base",
 			"short_desc": "Test output behviour, passing",
