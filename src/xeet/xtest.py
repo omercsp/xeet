@@ -316,14 +316,20 @@ class XTest(object):
                 for k, v in self.env.items():
                     log_raw(f"{k}={v}")
 
-        self.vars.update_os_env()
+
+        try:
+            env = self._read_env_vars()
+        except XeetException as e:
+            res.status = XTEST_NOT_RUN
+            res.extra_comments.append(str(e))
+            return
+
         self._setup_output_dir()
         log_verbose("_COMMAND is '{}'", self.command)
-        self._pre_test(res)
-        self._run(res)
-        self._verify(res)
-        self._post_test(res)
-        self.vars.restore_os_env()
+        self._pre_test(res, env)
+        self._run(res, env)
+        self._verify(res, env)
+        self._post_test(res, env)
 
         if res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE:
             self._log_info("completed successfully")
@@ -352,7 +358,7 @@ class XTest(object):
         res.extra_comments.append(msg)
         res.extra_comments.append("-" * 40)
 
-    def _pre_test(self, res: TestResult) -> None:
+    def _pre_test(self, res: TestResult, env: dict) -> None:
         if not self.pre_test_cmd:
             return
         self._log_info(f"running pre_command '{self.pre_test_cmd}'")
@@ -362,11 +368,11 @@ class XTest(object):
             pre_test_output = f"{self.output_dir}/pre_run_output"
             if self.debug_mode:
                 p = subprocess.run(self.pre_test_cmd, capture_output=False, text=True,
-                                   shell=self.pre_test_cmd_shell)
+                                   shell=self.pre_test_cmd_shell, env=env)
             else:
                 with open(pre_test_output, "w") as f:
                     p = subprocess.run(self.pre_test_cmd, stdout=f, stderr=f, text=True,
-                                       shell=self.pre_test_cmd_shell)
+                                       shell=self.pre_test_cmd_shell, env=env)
 
             self._log_info(f"Pre-test command returned: {p.returncode}")
             res.pre_test_cmd_rc = p.returncode
@@ -439,12 +445,13 @@ class XTest(object):
             if stderr_head:
                 self._add_step_err_comment(res, "stderr head", stderr_head)
 
-    def _red_env_vars(self):
+    def _read_env_vars(self):
         ret = {}
         if self.env_inherit:
             ret.update(os.environ)
         if self.env_file:
             try:
+                self._log_info(f"reading env file '{self.env_file}'")
                 with open(self.env_file, "r") as f:
                     data = json.load(f)
                     err = validate_json_schema(data, _ENV_SCHEMA)
@@ -455,21 +462,17 @@ class XTest(object):
                 raise XeetException(f"Error reading env file - {e}")
         if self.env:
             ret.update(self.env)
+        # System variables override all
+        ret.update(self.vars.system_vars())
         return ret
 
-    def _run(self, res: TestResult) -> None:
+    def _run(self, res: TestResult, env: dict) -> None:
         if res.status != XTEST_PASSED and res.status != XTEST_UNDEFINED:
             self._log_info("Skipping run. Prior step failed")
             return
         self._log_info("running command:")
         log_raw(self.command)
         p = None
-        try:
-            env = self._red_env_vars()
-        except XeetException as e:
-            res.status = XTEST_NOT_RUN
-            res.extra_comments.append(str(e))
-            return
         out_file, err_file = None, None
         try:
             start = timer()
@@ -509,7 +512,7 @@ class XTest(object):
                 err_file.close()
         res.run_ok = res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE
 
-    def _verify(self, res: TestResult) -> None:
+    def _verify(self, res: TestResult, env: dict) -> None:
         if res.status != XTEST_PASSED:
             self._log_info("Skipping verification, prior step failed")
             return
@@ -518,16 +521,17 @@ class XTest(object):
             return
         if self.debug_mode:
             self._debug_pre_step_print("Verification", self.verify_command,
-                                       self.verify_command_shell)
+                                       self.verify_command_shell,)
         self._log_info(f"verifying with '{self.verify_command}'")
         try:
             verification_output = f"{self.output_dir}/verification"
             if self.debug_mode:
-                p = subprocess.run(self.verify_command, text=True, shell=self.verify_command_shell)
+                p = subprocess.run(self.verify_command, text=True,
+                                   shell=self.verify_command_shell, env=env)
             else:
                 with open(verification_output, "w") as f:
                     p = subprocess.run(self.verify_command, text=True,
-                                       shell=self.verify_command_shell, stdout=f, stderr=f)
+                                       shell=self.verify_command_shell, stdout=f, stderr=f, env=env)
             msg = f"Verification command = {p.returncode}"
             self._log_info(msg)
             res.verify_rc = p.returncode
@@ -550,7 +554,7 @@ class XTest(object):
             res.short_comment = "Verification run error:"
             res.extra_comments.append(str(e))
 
-    def _post_test(self, res: TestResult) -> None:
+    def _post_test(self, res: TestResult, env: dict) -> None:
         if not self.post_test_cmd:
             self._log_info("Skipping post-test, no command")
             return
@@ -561,11 +565,12 @@ class XTest(object):
         try:
             post_test_output = f"{self.output_dir}/post_test_output"
             if self.debug_mode:
-                p = subprocess.run(self.post_test_cmd, text=True, shell=self.post_test_cmd_shell)
+                p = subprocess.run(self.post_test_cmd, text=True,
+                                   shell=self.post_test_cmd_shell, env=env)
             else:
                 with open(post_test_output, "w") as f:
                     p = subprocess.run(self.post_test_cmd, text=True,
-                                       shell=self.post_test_cmd_shell, stdout=f, stderr=f)
+                                       shell=self.post_test_cmd_shell, stdout=f, stderr=f, env=env)
             msg = f"Post-test RC = {p.returncode}"
             self._log_info(msg)
             res.post_test_cmd_rc = p.returncode

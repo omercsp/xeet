@@ -87,17 +87,11 @@ class XeetVars(object):
     def get_vars(self) -> dict:
         return self._vars
 
-    def update_os_env(self) -> None:
-        for name, value in self._vars.items():
-            if not name.startswith(self._SYSTEM_VAR_PREFIX):
-                continue
-            os.environ[name] = str(value)
-
-    def restore_os_env(self) -> None:
-        for name in self._vars.keys():
-            if not name.startswith(self._SYSTEM_VAR_PREFIX):
-                continue
-            os.environ.pop(name, None)
+    def system_vars(self) -> dict:
+        return {
+            k: v if v else "" for k, v in self._vars.items()
+            if k.startswith(self._SYSTEM_VAR_PREFIX)
+        }
 
 
 _global_variables = XeetVars()
