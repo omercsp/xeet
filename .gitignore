@@ -5,6 +5,8 @@ pyrightconfig.json
 __pycache__/
 xeet.out/
 .tasks.json
+xeet.log
+.python-version
 
 # Virtual Environments
 .env/
