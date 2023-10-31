@@ -1,4 +1,4 @@
-from xeet import XEET_BASE_VERSION
+from xeet import xeet_version
 from xeet.config import Config
 from xeet.common import XeetException, XEET_NO_TOKEN, XEET_YES_TOKEN
 from xeet.log import init_logging, log_error
@@ -22,7 +22,7 @@ def parse_arguments() -> argparse.Namespace:
     yes_no: list[str] = [XEET_NO_TOKEN, XEET_YES_TOKEN]
 
     parser = argparse.ArgumentParser(prog='xeet')
-    parser.add_argument('--version', action='version', version=f'%(prog)s {XEET_BASE_VERSION}')
+    parser.add_argument('--version', action='version', version=f'v{xeet_version}')
     parser.add_argument('--no-colors', action='store_true', default=False, help='disable colors')
     parser.add_argument('--no-splash', action='store_true',
                         default=False, help='don\'t show splash')
@@ -115,7 +115,7 @@ def xrun() -> int:
         set_no_color_print()
 
     if not args.no_splash:
-        title = f"Xeet, v{XEET_BASE_VERSION}"
+        title = f"Xeet, v{xeet_version}"
         pr_bright(f"{title}\n{'=' * len(title)}\n")
 
     try:

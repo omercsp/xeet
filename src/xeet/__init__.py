@@ -1,7 +1,12 @@
-_MAJOR_VER = 0
-_MINOR_VER = 5
-_FIX_VER = 2
-_BUILD_VER = 1
-XEET_BASE_VERSION = f'{_MAJOR_VER}.{_MINOR_VER}.{_FIX_VER}'
-XEET_FULL_VERSION = f'{_MAJOR_VER}.{_MINOR_VER}.{_FIX_VER}-{_BUILD_VER}'
-__VERSION__ = XEET_FULL_VERSION
+import os.path
+import importlib.util
+
+
+__version_path = os.path.join(os.path.dirname(__file__), "_version.py")
+try:
+    __spec = importlib.util.spec_from_file_location("_version", __version_path)
+    __module = importlib.util.module_from_spec(__spec)  # type: ignore
+    __spec.loader.exec_module(__module)  # type: ignore
+    xeet_version = __module.__version__
+except (FileNotFoundError, ModuleNotFoundError, AttributeError):
+    xeet_version = "0.0.0"
