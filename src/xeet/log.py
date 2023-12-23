@@ -83,7 +83,7 @@ def init_logging(log_file: str, logfile_verbosity: int) -> Tuple[bool, str]:
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir)
         except OSError:
-           return False, f"Unable to create log directory: {log_dir}"
+            return False, f"Unable to create log directory: {log_dir}"
     if os.path.exists(log_file) and not os.path.isfile(log_file):
         return False, f"Log file exists but not a file: {log_file}"
     __logger = _XeetLogging(log_file, logging.INFO if logfile_verbosity == 0 else logging.DEBUG)
@@ -104,11 +104,11 @@ def logging_enabled_for(level: int) -> bool:
 
 def gen_log_func(verbosity: int, pr_func: Callable) -> Callable:
     def _log_func(*args, **kwargs) -> None:
+        extra_frames = kwargs.pop('extra_frames', 0)
         if kwargs.pop('pr', False):
             pr_func(*args, **kwargs)
         if __logger is None:
             return
-        extra_frames = kwargs.pop('extra_frames', 0)
         msg = " ".join([str(x) for x in args])
         __logger.log(verbosity, msg, extra_frames=extra_frames)
     return _log_func

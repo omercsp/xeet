@@ -2,7 +2,7 @@ from xeet import xeet_version
 from xeet.config import Config
 from xeet.common import XeetException, XEET_NO_TOKEN, XEET_YES_TOKEN
 from xeet.log import init_logging, log_error
-from xeet.pr import pr_bright, set_no_color_print, XEET_RESET, XEET_RED
+from xeet.pr import pr_bright, set_no_color_print
 import xeet.actions as actions
 import sys
 import argparse
@@ -143,9 +143,7 @@ def xrun() -> int:
             actions.dump_test(args.test_name, config)
 
     except XeetException as e:
-        print(f"{XEET_RESET}{XEET_RED}", end='', file=sys.stderr)
         log_error(f"xeet: {e}", pr=True, file=sys.stderr)
-        print(XEET_RESET, file=sys.stderr)
         return 255
     return 0
 

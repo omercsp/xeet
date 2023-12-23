@@ -1,4 +1,5 @@
 from typing import Callable
+import sys
 
 
 XEET_GREEN = '\033[92m'
@@ -20,20 +21,22 @@ def set_no_color_print() -> None:
     _colored_print = False
 
 
-def _gen_print_func(color: str) -> Callable:
+def _gen_print_func(color: str, dflt_file=None) -> Callable:
     def _print(*args, **kwargs) -> None:
+        if "file" not in kwargs:
+            kwargs["file"] = dflt_file
         if not _colored_print:
             print(*args, **kwargs)
             return
-        print(color, end='')
+        print(color, end='', file=kwargs["file"])
         print(*args, **kwargs)
-        print(XEET_RESET, end='', flush=True)
+        print(XEET_RESET, end='', flush=True, file=kwargs["file"])
     return _print
 
 
 pr_ok = _gen_print_func(XEET_GREEN)
-pr_err = _gen_print_func(XEET_RED)
-pr_warn = _gen_print_func(XEET_YELLOW)
+pr_err = _gen_print_func(XEET_RED, dflt_file=sys.stderr)
+pr_warn = _gen_print_func(XEET_YELLOW, dflt_file=sys.stderr)
 pr_info = print
 pr_verbose = print
 pr_bright = _gen_print_func(XEET_WHITE)
