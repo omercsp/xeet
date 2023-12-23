@@ -137,7 +137,6 @@ TEST_SCHEMA = {
 
 class XTest(object):
     def _log_info(self, msg: str, *args, **kwargs) -> None:
-        #  kwargs['extra_frames'] = 1
         log_info(f"{self.name}: {msg}", *args, **kwargs)
 
     def __init__(self, desc: TestDesc, config: Config) -> None:
@@ -316,7 +315,6 @@ class XTest(object):
                 for k, v in self.env.items():
                     log_raw(f"{k}={v}")
 
-
         try:
             env = self._read_env_vars()
         except XeetException as e:
@@ -390,7 +388,7 @@ class XTest(object):
                 res.short_comment += " w/no output"
 
         except OSError as e:
-            log_error(f"Error running pre-test command- {e}", pr=False)
+            log_error(f"Error running pre-test command- {e}")
             res.status = XTEST_NOT_RUN
             res.short_comment = f"Pre-test run failure"
             res.extra_comments.append(str(e))
@@ -550,7 +548,7 @@ class XTest(object):
                 res.short_comment += " w/no output"
         except OSError as e:
             res.status = XTEST_NOT_RUN
-            log_error(f"Error running verification command- {e}", pr=False)
+            log_error(f"Error running verification command- {e}")
             res.short_comment = "Verification run error:"
             res.extra_comments.append(str(e))
 
