@@ -370,3 +370,7 @@ def dump_schema(dump_type: str) -> None:
         dump_xtest_schema()
     elif dump_type == DUMP_UNIFIED_SCHEMA:
         dump_unified_schema()
+
+
+__ALL__ = [dump_schema, run_test_list, list_tests, list_groups, show_test_info, dump_config,
+           dump_test, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA, DUMP_UNIFIED_SCHEMA]

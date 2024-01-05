@@ -3,7 +3,7 @@ from xeet.config import Config
 from xeet.common import XeetException, XEET_NO_TOKEN, XEET_YES_TOKEN
 from xeet.log import init_logging, log_error
 from xeet.pr import pr_bright, set_no_color_print
-import xeet.actions as actions
+from xeet.actions import *
 import sys
 import argparse
 import argcomplete
@@ -91,12 +91,9 @@ def parse_arguments() -> argparse.Namespace:
 
     dump_parser = subparsers.add_parser(DUMP_SCHEMA_CMD, help='dump configuration file schema',
                                         parents=[common_parser])
-    dump_schema_choices = [
-        actions.DUMP_UNIFIED_SCHEMA,
-        actions.DUMP_CONFIG_SCHEMA,
-        actions.DUMP_XTEST_SCHEMA]
+    dump_schema_choices = [DUMP_UNIFIED_SCHEMA, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA]
     dump_parser.add_argument('-s', '--schema', choices=dump_schema_choices,
-                             default=actions.DUMP_UNIFIED_SCHEMA)
+                             default=DUMP_UNIFIED_SCHEMA)
 
     subparsers.add_parser(DUMP_CONFIG_CMD, help='dump configuration')
 
@@ -124,23 +121,23 @@ def xrun() -> int:
             raise XeetException(err_msg)
         cmd_name = args.subparsers_name
         if cmd_name == DUMP_SCHEMA_CMD:
-            actions.dump_schema(args.schema)
+            dump_schema(args.schema)
             return 0
 
         expand = cmd_name == RUN_CMD or (cmd_name == INFO_CMD and args.expand)
         config = Config(args, expand)
         if config.main_cmd == RUN_CMD:
-            return actions.run_test_list(config)
+            return run_test_list(config)
         elif config.main_cmd == LIST_CMD:
-            actions.list_tests(config)
+            list_tests(config)
         elif config.main_cmd == GROUPS_CMD:
-            actions.list_groups(config)
+            list_groups(config)
         elif config.main_cmd == INFO_CMD:
-            actions.show_test_info(config)
+            show_test_info(config)
         elif config.main_cmd == DUMP_CONFIG_CMD:
-            actions.dump_config(config)
+            dump_config(config)
         elif config.main_cmd == DUMP_XTEST_CMD:
-            actions.dump_test(args.test_name, config)
+            dump_test(args.test_name, config)
 
     except XeetException as e:
         log_error(f"xeet: {e}", pr=True, file=sys.stderr)
