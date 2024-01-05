@@ -4,23 +4,12 @@ import re
 import os
 import traceback
 import json
-from typing import Optional, Any, Tuple
-import jsonschema
+from typing import Any, Tuple
 
 XEET_YES_TOKEN = 'yes'
 XEET_NO_TOKEN = 'no'
 
 # Common keys
-GROUPS = "groups"
-NAME = "name"
-ABSTRACT = "abstract"
-SHORT_DESC = "short_desc"
-BASE = "base"
-ENV = "env"
-INHERIT_ENV = "inherit_env"
-INHERIT_VARIABLES = "inherit_variables"
-INHERIT_GROUPS = "inherit_groups"
-VARIABLES = "variables"
 
 
 class XeetException(Exception):
@@ -154,18 +143,6 @@ def bt() -> None:
 
 def print_dict(d: dict) -> None:
     print(json.dumps(d, indent=4))
-
-
-def validate_json_schema(data: dict, schema: dict) -> Optional[str]:
-    try:
-        jsonschema.validate(data, schema)
-        return None
-    except jsonschema.ValidationError as e:
-        if e.absolute_path:
-            path = "/".join(str(v) for v in list(e.absolute_path))
-            return f"Schema validation error at '{path}': {e.message}"
-        else:
-            return f"Schema validation error: {e.message}"
 
 
 def text_file_head(file_path: str, lines: int = 5) -> str:

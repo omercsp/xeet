@@ -362,12 +362,11 @@ DUMP_XTEST_SCHEMA = "test"
 
 
 def dump_schema(dump_type: str) -> None:
-    from xeet.xtest import TEST_SCHEMA
-    from xeet.config import CONFIG_SCHEMA
+    from xeet.schema import dump_config_schema, dump_unified_schema, dump_xtest_schema
 
     if dump_type == DUMP_CONFIG_SCHEMA:
-        print_dict(CONFIG_SCHEMA)
+        dump_config_schema()
     elif dump_type == DUMP_XTEST_SCHEMA:
-        print_dict(TEST_SCHEMA)
+        dump_xtest_schema()
     elif dump_type == DUMP_UNIFIED_SCHEMA:
-        print_dict(CONFIG_SCHEMA)
+        dump_unified_schema()

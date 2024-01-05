@@ -1,7 +1,6 @@
 from xeet.common import (XeetException, StringVarExpander, get_global_vars, set_global_vars,
-                         validate_json_schema, dump_global_vars, dict_value,
-                         NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV, INHERIT_VARIABLES,
-                         INHERIT_GROUPS, VARIABLES)
+                         dump_global_vars, dict_value)
+from xeet.schema import *
 from xeet.log import log_info, logging_enabled_for
 import os
 import json
@@ -19,37 +18,6 @@ class TestDesc(object):
 
     def target_desc_property(self, target: str, default=None) -> Any:
         return self.target_desc.get(target, default)
-
-
-_SCHEMA = "$schema"
-_INCLUDE = "include"
-_TESTS = "tests"
-_DFLT_SHELL_PATH = "default_shell_path"
-
-
-CONFIG_SCHEMA = {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        _SCHEMA: {
-            "type": "string",
-            "minLength": 1
-        },
-        _INCLUDE: {
-            "type": "array",
-            "items": {"type": "string", "minLength": 1}
-        },
-        _TESTS: {
-            "type": "array",
-            "items": {"type": "object"}
-        },
-        VARIABLES: {"type": "object"},
-        _DFLT_SHELL_PATH: {
-            "type": "string",
-            "minLength": 1
-        },
-    }
-}
 
 
 class Config(object):
@@ -78,11 +46,11 @@ class Config(object):
 
         self.conf = {}
         self.conf = self._read_configuration(conf_path, set())
-        conf_err = validate_json_schema(self.conf, CONFIG_SCHEMA)
+        conf_err = validate_config_schema(self.conf)
         if conf_err:
             raise XeetException(f"Invalid configuration file '{conf_path}': {conf_err}")
 
-        raw_descs = self.conf.get(_TESTS, [])
+        raw_descs = self.conf.get(TESTS, [])
         self.raw_tests_map = {}
         for raw_desc in raw_descs:
             name = raw_desc.get(NAME, None)
@@ -158,7 +126,7 @@ class Config(object):
             orig_conf: dict = json.load(open(file_path, 'r'))
         except (IOError, TypeError, ValueError) as e:
             raise XeetException(f"Error parsing {file_path} - {e}")
-        includes = orig_conf.get(_INCLUDE, [])
+        includes = orig_conf.get(INCLUDE, [])
         conf = {}
         tests = []
         variables = {}
@@ -171,22 +139,22 @@ class Config(object):
             if f in read_files:
                 raise XeetException(f"Include loop detected - '{f}'")
             included_conf = self._read_configuration(f, read_files)
-            tests += included_conf[_TESTS]  # TODO
+            tests += included_conf[TESTS]  # TODO
             variables.update(included_conf[VARIABLES])
             conf.update(included_conf)
         read_files.remove(file_path)
-        if _INCLUDE in conf:
-            conf.pop(_INCLUDE)
+        if INCLUDE in conf:
+            conf.pop(INCLUDE)
 
         conf.update(orig_conf)
-        tests += (orig_conf.get(_TESTS, []))
-        conf[_TESTS] = tests  # TODO
+        tests += (orig_conf.get(TESTS, []))
+        conf[TESTS] = tests  # TODO
         variables.update(orig_conf.get(VARIABLES, {}))
         conf[VARIABLES] = variables
         return conf
 
     def default_shell_path(self) -> Optional[str]:
-        return self.setting(_DFLT_SHELL_PATH, None)
+        return self.setting(DFLT_SHELL_PATH, None)
 
     def runnable_test_names(self) -> list[str]:
         return [desc.name for desc in self.descs

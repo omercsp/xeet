@@ -1,10 +1,9 @@
 from io import TextIOWrapper
 from xeet.config import Config, TestDesc
 from xeet.common import (XeetException, StringVarExpander, parse_assignment_str, get_global_vars,
-                         validate_json_schema, NAME, GROUPS, ABSTRACT, BASE, ENV, INHERIT_ENV,
-                         INHERIT_VARIABLES, INHERIT_GROUPS, SHORT_DESC, VARIABLES, XeetVars,
-                         text_file_head)
-from xeet.log import (log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO)
+                         XeetVars, text_file_head)
+from xeet.schema import *
+from xeet.log import log_info, log_raw, log_error, logging_enabled_for, log_verbose, INFO
 from xeet.pr import pr_orange
 from typing import Optional
 import shlex
@@ -50,91 +49,6 @@ class TestResult(object):
         return self.post_test_cmd_rc == 0 or self.post_test_cmd_rc is None
 
 
-_SHELL = "shell"
-_SHELLPATH = "shell_path"
-_INHERIT_OS_ENV = "inherit_os_env"
-_CWD = "cwd"
-_SKIP = "skip"
-_SKIP_REASON = "skip_reason"
-_LONG_DESC = "description"
-_TEST_COMMAND = "test_cmd"
-_ALLOWED_RC = "allowed_return_codes"
-_EXPECTED_FAILURE = "expected_failure"
-_PRE_TEST_CMD = "pre_test_cmd"
-_PRE_TEST_CMD_SHELL = "pre_test_cmd_shell"
-_VERIFY_CMD = "verify_cmd"
-_VERIFY_CMD_SHELL = "verify_cmd_shell"
-_POST_TEST_CMD = "post_test_cmd"
-_POST_TEST_CMD_SHELL = "post_test_cmd_shell"
-_OUTPUT_BEHAVIOR = "output_behavior"
-_TIMEOUT = "timeout"
-_ENV_FILE = "env_file"
-
-# Output behavior values
-_UNIFY = "unify"
-_SPLIT = "split"
-
-_COMMAND_SCHEMA = {
-    "anyOf": [
-        {"type": "string", "minLength": 1},
-        {"type": "array", "items": {"type": "string", "minLength": 1}}
-    ]
-}
-
-_ENV_SCHEMA = {
-    "type": "object",
-    "additionalProperties": {
-        "type": "string"
-    }
-}
-
-TEST_SCHEMA = {
-    "type": "object",
-    "properties": {
-        NAME: {"type": "string", "minLength": 1},
-        BASE: {"type": "string", "minLength": 1},
-        SHORT_DESC: {"type": "string", "maxLength": 75},
-        _LONG_DESC: {"type": "string"},
-        GROUPS: {
-            "type": "array",
-            "items": {"type": "string", "minLength": 1}
-        },
-        _TEST_COMMAND: _COMMAND_SCHEMA,
-        _ALLOWED_RC: {
-            "type": "array",
-            "items": {"type": "integer", "minimum": 0, "maximum": 255}
-        },
-        _TIMEOUT: {
-            "type": "integer",
-            "minimum": 0
-        },
-        _PRE_TEST_CMD: _COMMAND_SCHEMA,
-        _PRE_TEST_CMD_SHELL: {"type": "boolean"},
-        _POST_TEST_CMD: _COMMAND_SCHEMA,
-        _POST_TEST_CMD_SHELL: {"type": "boolean"},
-        _VERIFY_CMD: _COMMAND_SCHEMA,
-        _VERIFY_CMD_SHELL: {"type": "boolean"},
-        _EXPECTED_FAILURE: {"type": "boolean"},
-        _OUTPUT_BEHAVIOR: {"enum": [_UNIFY, _SPLIT]},
-        _CWD: {"type": "string", "minLength": 1},
-        _SHELL: {"type": "boolean"},
-        _SHELLPATH: {"type": "string", "minLength": 1},
-        ENV: _ENV_SCHEMA,
-        _ENV_FILE: {"type": "string", "minLength": 1},
-        _INHERIT_OS_ENV: {"type": "boolean"},
-        INHERIT_ENV: {"type": "boolean"},
-        ABSTRACT: {"type": "boolean"},
-        _SKIP: {"type": "boolean"},
-        _SKIP_REASON: {"type": "string"},
-        VARIABLES: {"type": "object"},
-        INHERIT_VARIABLES: {"type": "boolean"},
-        INHERIT_GROUPS: {"type": "boolean"}
-    },
-    "additionalProperties": False,
-    "required": [NAME]
-}
-
-
 class XTest(object):
     def _log_info(self, msg: str, *args, **kwargs) -> None:
         log_info(f"{self.name}: {msg}", *args, **kwargs)
@@ -145,55 +59,53 @@ class XTest(object):
         self._log_info("initializing test")
 
         assert desc is not None
-        task_descriptor = desc.target_desc
-        self.init_err = validate_json_schema(task_descriptor, TEST_SCHEMA)
+        test_descriptor = desc.target_desc
+        self.init_err = validate_xtest_schema(test_descriptor)
         if self.init_err:
             self._log_info(f"Error in test descriptor: {self.init_err}")
             return
         self.debug_mode = config.debug_mode
         self.xeet_root = config.xeet_root
 
-        self.short_desc = task_descriptor.get(SHORT_DESC, None)
-        self.long_desc = task_descriptor.get(_LONG_DESC, None)
+        self.short_desc = test_descriptor.get(SHORT_DESC, None)
+        self.long_desc = test_descriptor.get(LONG_DESC, None)
 
-        self.cwd = task_descriptor.get(_CWD, None)
-        self.shell = task_descriptor.get(_SHELL, False)
-        self.shell_path = task_descriptor.get(
-            _SHELLPATH, config.default_shell_path())
-        self.command = task_descriptor.get(_TEST_COMMAND, [])
+        self.cwd = test_descriptor.get(CWD, None)
+        self.shell = test_descriptor.get(SHELL, False)
+        self.shell_path = test_descriptor.get(SHELLPATH, config.default_shell_path())
+        self.command = test_descriptor.get(TEST_COMMAND, [])
 
-        self.env_inherit = task_descriptor.get(_INHERIT_OS_ENV, True)
-        self.env = task_descriptor.get(ENV, {})
-        self.env_file = task_descriptor.get(_ENV_FILE, None)
-        self.abstract = task_descriptor.get(ABSTRACT, False)
-        self.skip = task_descriptor.get(_SKIP, False)
-        self.skip_reason = task_descriptor.get(_SKIP_REASON, None)
-        self.allowed_rc = task_descriptor.get(_ALLOWED_RC, [0])
-        self.timeout = task_descriptor.get(_TIMEOUT, None)
-        self.expected_failure = task_descriptor.get(_EXPECTED_FAILURE, False)
-        self.output_behavior = task_descriptor.get(_OUTPUT_BEHAVIOR,
-                                                   _SPLIT)
+        self.env_inherit = test_descriptor.get(INHERIT_OS_ENV, True)
+        self.env = test_descriptor.get(ENV, {})
+        self.env_file = test_descriptor.get(ENV_FILE, None)
+        self.abstract = test_descriptor.get(ABSTRACT, False)
+        self.skip = test_descriptor.get(SKIP, False)
+        self.skip_reason = test_descriptor.get(SKIP_REASON, None)
+        self.allowed_rc = test_descriptor.get(ALLOWED_RC, [0])
+        self.timeout = test_descriptor.get(TIMEOUT, None)
+        self.expected_failure = test_descriptor.get(EXPECTED_FAILURE, False)
+        self.output_behavior = test_descriptor.get(OUTPUT_BEHAVIOR, SPLIT)
         self.output_dir = f"{config.output_dir}/{self.name}"
         self.stdout_file = f"{self.output_dir}/stdout"
         self._log_info(f"stdout file: {self.stdout_file}")
-        if self.output_behavior == _SPLIT:
+        if self.output_behavior == SPLIT:
             self.stderr_file = f"{self.output_dir}/stderr"
             self._log_info(f"stderr file: {self.stderr_file}")
         else:
             self.stderr_file = None
 
-        self.pre_test_cmd = task_descriptor.get(_PRE_TEST_CMD, [])
-        self.pre_test_cmd_shell = task_descriptor.get(_PRE_TEST_CMD_SHELL, False)
+        self.pre_test_cmd = test_descriptor.get(PRE_TEST_CMD, [])
+        self.pre_test_cmd_shell = test_descriptor.get(PRE_TEST_CMD_SHELL, False)
         if not self.pre_test_cmd_shell and isinstance(self.pre_test_cmd, str):
             self.pre_test_cmd = self.pre_test_cmd.split()
 
-        self.verify_command = task_descriptor.get(_VERIFY_CMD, [])
-        self.verify_command_shell = task_descriptor.get(_VERIFY_CMD_SHELL, False)
+        self.verify_command = test_descriptor.get(VERIFY_CMD, [])
+        self.verify_command_shell = test_descriptor.get(VERIFY_CMD_SHELL, False)
         if not self.verify_command_shell and isinstance(self.verify_command, str):
             self.verify_command = self.verify_command.split()
 
-        self.post_test_cmd = task_descriptor.get(_POST_TEST_CMD, [])
-        self.post_test_cmd_shell = task_descriptor.get(_POST_TEST_CMD_SHELL, False)
+        self.post_test_cmd = test_descriptor.get(POST_TEST_CMD, [])
+        self.post_test_cmd_shell = test_descriptor.get(POST_TEST_CMD_SHELL, False)
         if not self.post_test_cmd_shell and isinstance(self.post_test_cmd, str):
             self.post_test_cmd = self.post_test_cmd.split()
 
@@ -211,7 +123,7 @@ class XTest(object):
         if shell_path:
             self.shell_path = shell_path
 
-        self.vars_map = task_descriptor.get(VARIABLES, {})
+        self.vars_map = test_descriptor.get(VARIABLES, {})
         variables = config.arg('variables')
         if variables:
             for v in variables:
@@ -401,7 +313,7 @@ class XTest(object):
         out_file = open(self.stdout_file, "w")
         if self.stderr_file:
             err_file = open(self.stderr_file, "w")
-        elif self.output_behavior == _UNIFY:
+        elif self.output_behavior == UNIFY:
             err_file = out_file
         return out_file, err_file
 
@@ -429,7 +341,7 @@ class XTest(object):
         stdout_head = text_file_head(self.stdout_file)
         stderr_head = None
         empty_msg = "" if stdout_head else " (empty)"
-        if self.output_behavior == _UNIFY:
+        if self.output_behavior == UNIFY:
             res.extra_comments.append(f"output file (unified): {stdout_print}{empty_msg}")
             if stdout_head:
                 self._add_step_err_comment(res, "Unified output head", stdout_head)
@@ -452,7 +364,7 @@ class XTest(object):
                 self._log_info(f"reading env file '{self.env_file}'")
                 with open(self.env_file, "r") as f:
                     data = json.load(f)
-                    err = validate_json_schema(data, _ENV_SCHEMA)
+                    err = validate_env_schema(data)
                     if err:
                         raise XeetException(f"Error reading env file - {err}")
                     ret.update(data)
