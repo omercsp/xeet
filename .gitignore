@@ -8,6 +8,7 @@ xeet.out/
 xeet.log
 .python-version
 _version.py
+.tasks.json
 
 # Virtual Environments
 .env/
