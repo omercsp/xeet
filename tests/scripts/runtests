@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-_build_pkg_venv()
+_pkg_venv()
 {
 	local repo_flags=""
 
@@ -18,26 +18,36 @@ _build_pkg_venv()
 	pip install --upgrade pip
 
 	pip install ${repo_flags} xeet
-	which xeet
 }
 
 _fini_pkg_env()
 {
-    deactivate
-    [[ -n ${venv_dir} && -d ${venv_dir} ]] && rm -rf ${venv_dir}
+	deactivate
+	[[ -n ${venv_dir} && -d ${venv_dir} ]] && rm -rf ${venv_dir}
+}
+
+_venv_activate()
+{
+	source ${PROJ_ROOT}/.venv/bin/activate
 }
 
 PROJ_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -z "${PROJ_ROOT}" ]; then
-    echo "ERROR: Could not find project root. Are you in the project directory?"
-    exit 1
+	echo "ERROR: Could not find project root. Are you in the project directory?"
+	exit 1
 fi
 
 HERE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd ${HERE}
 
-[[ ${TEST_PKG} -eq 1 ]] && _build_pkg_venv
-cmd="${PROJ_ROOT}/xeet run -c xeet.json $*"
+if [[ ${TEST_PKG} -eq 1 ]]; then
+	_pkg_venv
+else
+	_venv_activate
+fi
+
+echo "xeet path: $(which xeet)"
+cmd="xeet run -c xeet.json $*"
 echo "Running: ${cmd}"
 ${cmd}
 ret=$?
