@@ -88,12 +88,9 @@ def parse_arguments() -> argparse.Namespace:
 
     subparsers.add_parser(GROUPS_CMD, help='list groups',
                           parents=[common_parser, test_groups_parser])
-
     dump_parser = subparsers.add_parser(DUMP_SCHEMA_CMD, help='dump configuration file schema',
                                         parents=[common_parser])
-    dump_schema_choices = [DUMP_UNIFIED_SCHEMA, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA]
-    dump_parser.add_argument('-s', '--schema', choices=dump_schema_choices,
-                             default=DUMP_UNIFIED_SCHEMA)
+    dump_parser.add_argument('-s', '--schema', choices=DUMP_TYPES, default=DUMP_TYPES[0])
 
     subparsers.add_parser(DUMP_CONFIG_CMD, help='dump configuration')
 

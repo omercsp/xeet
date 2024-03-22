@@ -356,21 +356,23 @@ def dump_config(config: Config) -> None:
     print_dict(config.conf)
 
 
-DUMP_CONFIG_SCHEMA = "config"
-DUMP_UNIFIED_SCHEMA = "unfied"
-DUMP_XTEST_SCHEMA = "test"
+_DUMP_CONFIG_SCHEMA = "config"
+_DUMP_UNIFIED_SCHEMA = "unfied"
+_DUMP_XTEST_SCHEMA = "test"
+
+DUMP_TYPES = [_DUMP_UNIFIED_SCHEMA, _DUMP_CONFIG_SCHEMA, _DUMP_XTEST_SCHEMA]
 
 
 def dump_schema(dump_type: str) -> None:
     from xeet.schema import dump_config_schema, dump_unified_schema, dump_xtest_schema
 
-    if dump_type == DUMP_CONFIG_SCHEMA:
+    if dump_type == _DUMP_CONFIG_SCHEMA:
         dump_config_schema()
-    elif dump_type == DUMP_XTEST_SCHEMA:
+    elif dump_type == _DUMP_XTEST_SCHEMA:
         dump_xtest_schema()
-    elif dump_type == DUMP_UNIFIED_SCHEMA:
+    elif dump_type == _DUMP_UNIFIED_SCHEMA:
         dump_unified_schema()
 
 
 __ALL__ = [dump_schema, run_test_list, list_tests, list_groups, show_test_info, dump_config,
-           dump_test, DUMP_CONFIG_SCHEMA, DUMP_XTEST_SCHEMA, DUMP_UNIFIED_SCHEMA]
+           dump_test, DUMP_TYPES]
