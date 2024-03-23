@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034
 EXPECTED_BASE_DIR=xeet.expected
 OUT_BASE_DIR=xeet.out
 OUTPUT_FILES="stdout stderr"

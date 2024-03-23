@@ -93,30 +93,34 @@
 		{
 			"name": "100_output_passing",
 			"base": "test_base",
-			"short_desc": "Test output behviour, passing",
+			"short_desc": "Test output behaviour, passing",
 			"test_cmd": "{{output_test_cmd}} -g passing",
 			"groups": ["output", "group"]
 		},
 		{
 			"name": "200_list_tests",
+			"base": "test_base",
 			"short_desc": "Test list command",
 			"test_cmd": "{{list_cmd}}",
 			"groups": ["list"]
 		},
 		{
 			"name": "201_list_tests_all",
-			"short_desc": "Test list commaond, including abstract tests",
+			"base": "test_base",
+			"short_desc": "Test list command, including abstract tests",
 			"test_cmd": "{{list_cmd}} -a",
 			"groups": ["list"]
 		},
 		{
 			"name": "202_list_tests_group",
+			"base": "test_base",
 			"short_desc": "Test list command with group",
 			"test_cmd": "{{list_cmd}} -g AB",
 			"groups": ["list"]
 		},
 		{
 			"name": "203_list_tests_2groups",
+			"base": "test_base",
 			"test_cmd": "{{list_cmd}} -g AB -g CD",
 			"groups": ["list"]
 		}

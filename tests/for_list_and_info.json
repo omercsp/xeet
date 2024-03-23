@@ -27,9 +27,9 @@
 			"groups": ["CD"]
 		},
 		{
-			"name": "Test_E_loop_error",
+			"name": "Test_E",
 			"base": "Test_E",
-			"short_desc": "Test E",
+			"short_desc": "Test E loop error",
 			"command": "true"
 		},
 		{

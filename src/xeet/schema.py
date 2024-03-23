@@ -62,7 +62,7 @@ INHERIT_ENV = "inherit_env"
 INHERIT_VARIABLES = "inherit_variables"
 INHERIT_GROUPS = "inherit_groups"
 SHELL = "shell"
-SHELLPATH = "shell_path"
+SHELL_PATH = "shell_path"
 INHERIT_OS_ENV = "inherit_os_env"
 CWD = "cwd"
 SKIP = "skip"
@@ -134,7 +134,7 @@ _XTEST_SCHEMA = {
         OUTPUT_BEHAVIOR: {"enum": [UNIFY, SPLIT]},
         CWD: {"type": "string", "minLength": 1},
         SHELL: {"type": "boolean"},
-        SHELLPATH: {"type": "string", "minLength": 1},
+        SHELL_PATH: {"type": "string", "minLength": 1},
         ENV: _ENV_SCHEMA,
         ENV_FILE: {"type": "string", "minLength": 1},
         INHERIT_OS_ENV: {"type": "boolean"},
@@ -157,7 +157,7 @@ def validate_xtest_schema(xtest):
 
 __ALL__ = [SCHEMA, INCLUDE, TESTS, DFLT_SHELL_PATH,
            GROUPS, NAME, ABSTRACT, SHORT_DESC, BASE, ENV, INHERIT_ENV, INHERIT_VARIABLES,
-           INHERIT_GROUPS, VARIABLES, SHELL, SHELLPATH, INHERIT_OS_ENV, CWD, SKIP, SKIP_REASON,
+           INHERIT_GROUPS, VARIABLES, SHELL, SHELL_PATH, INHERIT_OS_ENV, CWD, SKIP, SKIP_REASON,
            LONG_DESC, TEST_COMMAND, ALLOWED_RC, EXPECTED_FAILURE, PRE_TEST_CMD, PRE_TEST_CMD_SHELL,
            VERIFY_CMD, VERIFY_CMD_SHELL, POST_TEST_CMD, POST_TEST_CMD_SHELL, OUTPUT_BEHAVIOR,
            TIMEOUT, ENV_FILE, UNIFY, SPLIT, validate_env_schema, validate_xtest_schema]

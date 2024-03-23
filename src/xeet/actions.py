@@ -252,7 +252,7 @@ def _post_run_print(res: TestResult, config: Config) -> None:
 
 
 def _summarize_iter(run_info: RunInfo, iter_n: int,
-                    show_succesful: bool = False) -> None:
+                    show_successful: bool = False) -> None:
     def summarize_test_list(suffix: str, test_names: list[str], color: str = "") -> None:
         title = f"{suffix}"
         test_list_str = ", ".join(test_names)
@@ -265,14 +265,14 @@ def _summarize_iter(run_info: RunInfo, iter_n: int,
         log_info(f"{title} {test_list_str}")
         stop_raw_logging()
 
-    iter_info = run_info.itearations_info[iter_n]
+    iter_info = run_info.iterations_info[iter_n]
 
     print()
     log_info(f"Finished iteration (#{iter_n}/{run_info.iterations - 1})", pr=True)
     if run_info.iterations > 1:
         print(f"\nxeet iteration #{iter_n} summary:")
 
-    if show_succesful and iter_info.successful_tests:
+    if show_successful and iter_info.successful_tests:
         summarize_test_list("Passed", iter_info.successful_tests, XEET_GREEN)
     if iter_info.expected_failures:
         summarize_test_list("Expectedly failed", iter_info.expected_failures, XEET_GREEN)
@@ -340,7 +340,7 @@ def run_test_list(config: Config) -> int:
             log_blank()
         if config.debug_mode:
             continue
-        _summarize_iter(run_info, iter_n, show_succesful=True)
+        _summarize_iter(run_info, iter_n, show_successful=True)
     return 1 if run_info.failed else 0
 
 
@@ -357,7 +357,7 @@ def dump_config(config: Config) -> None:
 
 
 _DUMP_CONFIG_SCHEMA = "config"
-_DUMP_UNIFIED_SCHEMA = "unfied"
+_DUMP_UNIFIED_SCHEMA = "unified"
 _DUMP_XTEST_SCHEMA = "test"
 
 DUMP_TYPES = [_DUMP_UNIFIED_SCHEMA, _DUMP_CONFIG_SCHEMA, _DUMP_XTEST_SCHEMA]

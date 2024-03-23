@@ -3,7 +3,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 XEET_DIR=${DIR}/..
 
-# check if we are insisde a virtual environment and deactivate it
+# check if we are inside a virtual environment and deactivate it
 if [[ $VIRTUAL_ENV != "" ]]; then
     echo "deactivate virtual environment"
     deactivate

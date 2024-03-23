@@ -72,7 +72,7 @@ class XTest(object):
 
         self.cwd = test_descriptor.get(CWD, None)
         self.shell = test_descriptor.get(SHELL, False)
-        self.shell_path = test_descriptor.get(SHELLPATH, config.default_shell_path())
+        self.shell_path = test_descriptor.get(SHELL_PATH, config.default_shell_path())
         self.command = test_descriptor.get(TEST_COMMAND, [])
 
         self.env_inherit = test_descriptor.get(INHERIT_OS_ENV, True)
@@ -244,7 +244,8 @@ class XTest(object):
         if res.status == XTEST_PASSED or res.status == XTEST_EXPECTED_FAILURE:
             self._log_info("completed successfully")
 
-    def _debug_pre_step_print(self, step_name: str, command, shell: bool) -> None:
+    @staticmethod
+    def _debug_pre_step_print(step_name: str, command, shell: bool) -> None:
         header = f">>>>>>> {step_name} <<<<<<<\nCommand"
         if shell:
             header += " (shell):"
@@ -258,10 +259,12 @@ class XTest(object):
         print(cmd_str)
         pr_orange("Output:")
 
-    def _debug_post_step_print(self, step_name: str, rc: int) -> None:
+    @staticmethod
+    def _debug_post_step_print(step_name: str, rc: int) -> None:
         pr_orange(f"{step_name} rc: {rc}\n")
 
-    def _add_step_err_comment(self, res: TestResult, step_name: str, msg) -> None:
+    @staticmethod
+    def _add_step_err_comment(res: TestResult, step_name: str, msg) -> None:
         if not msg:
             return
         res.extra_comments.append(step_name.center(40, "-"))  # type: ignore
@@ -308,7 +311,6 @@ class XTest(object):
 
     def _get_test_io_descriptors(self) -> \
             tuple[Union[TextIOWrapper, int], Union[TextIOWrapper, int]]:
-        out_file = subprocess.DEVNULL
         err_file = subprocess.DEVNULL
         out_file = open(self.stdout_file, "w")
         if self.stderr_file:
@@ -326,7 +328,7 @@ class XTest(object):
                 res.status = XTEST_PASSED
             return
         if self.expected_failure:
-            self._log_info(f"exepcted failure")
+            self._log_info(f"expected failure")
             res.status = XTEST_EXPECTED_FAILURE
             return
         # If we got here, the test failed
@@ -339,7 +341,6 @@ class XTest(object):
         res.short_comment = err
         stdout_print = os.path.relpath(self.stdout_file, self.xeet_root)
         stdout_head = text_file_head(self.stdout_file)
-        stderr_head = None
         empty_msg = "" if stdout_head else " (empty)"
         if self.output_behavior == UNIFY:
             res.extra_comments.append(f"output file (unified): {stdout_print}{empty_msg}")

@@ -59,11 +59,11 @@ class Config(object):
                 continue
             self.raw_tests_map[name] = raw_desc
         self.descs = []
-        for raw_xdesc in raw_descs:
-            desc = TestDesc(raw_xdesc)
+        for raw_desc in raw_descs:
+            desc = TestDesc(raw_desc)
             self._solve_desc_inclusions(desc)
             self.descs.append(desc)
-        self.xdescs_map = {desc.name: desc for desc in self.descs}
+        self.descs_map = {desc.name: desc for desc in self.descs}
 
         set_global_vars(self.conf.get(VARIABLES, {}))
 
@@ -172,7 +172,7 @@ class Config(object):
         return dict_value(self.conf, path, default=default)
 
     def get_test_desc(self, name: str) -> Optional[TestDesc]:
-        return self.xdescs_map.get(name, None)
+        return self.descs_map.get(name, None)
 
     def _solve_desc_inclusions(self, desc: TestDesc) -> None:
         base_desc_name = desc.raw_desc.get(BASE, None)
@@ -183,7 +183,7 @@ class Config(object):
         inclusions_order: list[str] = [desc.name]
         while base_desc_name:
             if base_desc_name in inclusions:
-                desc.error = f"Ihneritance loop detected for '{base_desc_name}'"
+                desc.error = f"Inheritance loop detected for '{base_desc_name}'"
                 return
             raw_base_desc = self.raw_tests_map.get(base_desc_name, None)
             if not raw_base_desc:
