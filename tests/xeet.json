@@ -123,6 +123,12 @@
 			"base": "test_base",
 			"test_cmd": "{{list_cmd}} -g AB -g CD",
 			"groups": ["list"]
+		},
+		{
+			"name": "204_list_tests_exclude",
+			"base": "test_base",
+			"test_cmd": "{{list_cmd}} -X AB",
+			"groups": ["list"]
 		}
 	]
 }

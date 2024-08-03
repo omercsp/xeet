@@ -25,6 +25,15 @@ def _get_test_name(base_name: str, test_list: Iterable[str]) -> str:
 
 
 def _prepare_tests_list(config: Config, runable: bool) -> list[TestDesc]:
+    def filter_desc(desc: TestDesc) -> bool:
+        test_groups = desc.target_desc.get(GROUPS, [])
+        if include_groups and not include_groups.intersection(test_groups):
+            return False
+        if require_groups and not require_groups.issubset(test_groups):
+            return False
+        if exclude_groups and exclude_groups.intersection(test_groups):
+            return False
+        return True
     names = config.test_name_arg
     runnable_test_names = set(config.runnable_test_names())
     if names:
@@ -41,20 +50,7 @@ def _prepare_tests_list(config: Config, runable: bool) -> list[TestDesc]:
         ret = config.runnable_descs()
     else:
         ret = config.descs
-    if include_groups or require_groups or exclude_groups:
-        def filter_desc(desc: TestDesc) -> bool:
-            test_groups = desc.target_desc.get(GROUPS, [])
-            if not test_groups:
-                return False
-            if include_groups and not include_groups.intersection(test_groups):
-                return False
-            if require_groups and not require_groups.issubset(test_groups):
-                return False
-            if exclude_groups and exclude_groups.intersection(test_groups):
-                return False
-            return True
-        ret = [desc for desc in ret if filter_desc(desc)]
-    return ret
+    return [desc for desc in ret if filter_desc(desc)]
 
 
 def _show_test(test: XTest, full_details: bool) -> None:
