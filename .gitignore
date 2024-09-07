@@ -9,6 +9,9 @@ xeet.log
 .python-version
 _version.py
 .tasks.json
+.tasks.yaml
+tasks.json
+tasks.yaml
 
 # Virtual Environments
 .env/
