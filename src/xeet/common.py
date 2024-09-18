@@ -157,3 +157,18 @@ def text_file_head(file_path: str, lines: int = 5) -> str:
     except OSError:
         pass
     return ret.rstrip("\n")
+
+def text_file_tail(file_path: str, lines: int = 5) -> str:
+    ret = ""
+    try:
+        with open(file_path, 'r') as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(f.tell() - 1, os.SEEK_SET)
+            if f.read(1) == '\n':
+                f.seek(f.tell() - 1, os.SEEK_SET)
+            for _ in range(lines):
+                line = f.readline()
+                ret += line
+    except OSError:
+        pass
+    return ret.rstrip("\n")

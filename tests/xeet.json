@@ -1,10 +1,10 @@
 {
 	"variables":{
-		"base_cmd": "../xeet --no-colors --no-splash",
+		"base_cmd": "{{XEET_ROOT}}/runtests_internal.sh",
 		"run_cmd": "{{base_cmd}} run",
-		"sanity_cmd": "{{run_cmd}} -c sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"output_test_cmd": "{{run_cmd}} -c out_bhv/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"list_cmd": "{{base_cmd}} list -c for_list_and_info.json"
+		"sanity_cmd": "{{run_cmd}} -c 00_sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
+		"output_test_cmd": "{{run_cmd}} -c 01_output/xeet.json --log-file=/tmp/xeet_sanity.log",
+		"list_cmd": "{{base_cmd}} list -c 03_list_and_info/xeet.json"
 	},
 	"tests": [
 		{
@@ -86,7 +86,8 @@
 			"name": "050_environment_tests",
 			"base": "test_base",
 			"short_desc": "Test environment variables behaviour",
-			"test_cmd": "{{run_cmd}} -c env_tests/xeet.json",
+			"test_cmd": "{{run_cmd}} -c 02_env/xeet.json",
+			"verify_cmd": "scripts/filtered_path_output_compare.sh",
 			"allowed_return_codes": [1],
 			"groups": ["env"]
 		},

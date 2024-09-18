@@ -103,3 +103,13 @@ generic_stdout_test()
     _compare_file ${TEST_EXPECTED_DIR}/stderr ${XEET_TEST_OUTPUT_DIR}/stderr
 }
 
+generic_xeet_path_filter()
+{
+    if [[ ${XEET_TEST_DEBUG} == "1" ]]; then
+        echo "Running in debug mode, skipping stdout manipulation"
+        return 0
+    fi
+    sed -i "s,${XEET_ROOT},__XEET_ROOT__,g" ${XEET_TEST_OUTPUT_DIR}/stdout
+    sed -i "s,${XEET_ROOT},__XEET_ROOT__,g" ${XEET_TEST_OUTPUT_DIR}/stderr
+}
+
