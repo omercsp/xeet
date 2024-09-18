@@ -2,8 +2,8 @@
 	"variables":{
 		"base_cmd": "../xeet --no-colors --no-splash",
 		"run_cmd": "{{base_cmd}} run",
-		"sanity_cmd": "{{run_cmd}} -c sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"output_test_cmd": "{{run_cmd}} -c out_bhv/xeet.json --log-file=/tmp/xeet_sanity.log",
+		"sanity_cmd": "{{run_cmd}} -c 01_sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
+		"output_test_cmd": "{{run_cmd}} -c 02_output/xeet.json --log-file=/tmp/xeet_sanity.log",
 		"list_cmd": "{{base_cmd}} list -c for_list_and_info.json"
 	},
 	"tests": [

@@ -1,1 +1,16 @@
-scripts/runtests
+#!/bin/bash
+set -e
+HERE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd ${HERE}
+source ./test_env.inc.sh
+
+xeet_tests_venv_activate
+which xeet
+
+# echo "xeet path: $(which xeet)"
+# cmd="xeet run -c xeet.json $*"
+# echo "Running: ${cmd}"
+# ${cmd}
+# ret=$?
+
+# exit ${ret}
