@@ -1,0 +1,16 @@
+Starting run
+------------
+Running tests: 003_fail_over_output
+
+003_fail_over_output                                         ....... [Failed]
+Run step #0:  failed: stdout differs from expected
+--- /home/omer/devel/xeet/tests/testbed/xeet.out/003_fail_over_output_main_0_stdout
++++ expected_stdout
+@@ -1,2 +1,2 @@
+-Hello World!
++Goodbye World!
+ 
+
+
+Failed: 003_fail_over_output
+
