@@ -1,30 +1,16 @@
 Starting run
 ------------
-Included groups: not_run, passing
-Running tests: 001_pass, 004_bad_desc, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015a_pre_test_ok, 015b_pre_test_fail, 015d_test_verification_ok, 015e_bad_pre_test_cmd, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
+Included groups: passing
+Running tests: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015a_pre_test_ok, 015d_test_verification_ok, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
 
 001_pass                                                     ....... [Passed ]
-004_bad_desc                                                 ....... [Not run] Malformed test
-Error parsing test '004_bad_desc' - 'bad_setting': Extra inputs are not permitted
-
 007 with spaces                                              ....... [Passed ]
-008a_bad_command_not_run                                     ....... [Not run] Run error
-No such file or directory
-
 008b_inherits_bad_command_to_good                            ....... [Passed ]
 009_env_pass                                                 ....... [Passed ]
 013_multi_rc_passing                                         ....... [Passed ]
 014_show_auto_vars_internal                                  ....... [Passed ]
 015a_pre_test_ok                                             ....... [Passed ]
-015b_pre_test_fail                                           ....... [Not run] Pre-test error
-Pre-test failed with rc=1
-empty pre test output file
-
 015d_test_verification_ok                                    ....... [Passed ]
-015e_bad_pre_test_cmd                                        ....... [Not run] Pre-test error
-[Errno 2] No such file or directory: 'does_not_exist'
-empty pre test output file
-
 020_post_test_ok                                             ....... [Passed ]
 021_post_test_fail                                           ....... [Passed ]
 NOTICE: Post-test failed
@@ -37,8 +23,5 @@ failing post test output
 --------------------------------------------------
 
 
-Initialization error: 004_bad_desc
-Pre-run error: 015b_pre_test_fail, 015e_bad_pre_test_cmd
-Run error: 008a_bad_command_not_run
 Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015a_pre_test_ok, 015d_test_verification_ok, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
 

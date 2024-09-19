@@ -1,0 +1,18 @@
+Starting run
+------------
+Running tests: 002b_fail_output_compare
+
+002b_fail_output_compare                                     ....... [Failed ]
+Verification failed with rc=1
+------------ verification output tail ------------
+1,2c1,2
+< good stdout str
+< good stderr str
+---
+> bad stdout str
+> bad stderr str
+--------------------------------------------------
+
+
+Failed verification: 002b_fail_output_compare
+

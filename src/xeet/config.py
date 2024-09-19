@@ -1,218 +1,222 @@
-from xeet.common import (XeetException, StringVarExpander, get_global_vars, set_global_vars,
-                         dump_global_vars, dict_value)
-from xeet.schema import *
-from xeet.log import log_info, logging_enabled_for
-import os
+from xeet.log import log_info, log_warn
+from xeet.common import XeetException, global_vars, NonEmptyStr, pydantic_errmsg
+from xeet.xtest import Xtest
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, ValidationInfo
+from typing import Any
+from yaml import safe_load
 import json
-from typing import Optional, Any
-import argparse
-import logging
+import os
 
 
-class TestDesc(object):
-    def __init__(self, raw_desc: dict) -> None:
-        self.name = raw_desc[NAME]
-        self.error: str = ""
-        self.raw_desc = raw_desc if raw_desc else {}
-        self.target_desc = {}
-
-    def target_desc_property(self, target: str, default=None) -> Any:
-        return self.target_desc.get(target, default)
+_NAME = "name"
+_GROUPS = "groups"
+_ABSTRACT = "abstract"
 
 
-class Config(object):
-    def __init__(self, args: argparse.Namespace, expand: bool) -> None:
-        self.args: argparse.Namespace = args
-        self.expand_task = expand
+class TestCriteria:
+    def __init__(self, names: list[str], include_groups: list[str], require_groups: list[str],
+                 exclude_groups: list[str], hidden_tests: bool) -> None:
+        self.names = set(names)
+        self.hidden_tests = hidden_tests
+        self.include_groups = set(include_groups)
+        self.require_groups = set(require_groups)
+        self.exclude_groups = set(exclude_groups)
 
-        conf_path = args.conf
-        if not conf_path:
-            raise XeetException("Empty configuration file path")
-        if os.path.isabs(conf_path):
-            self.xeet_root = os.path.dirname(conf_path)
-        else:
-            conf_path = f"{os.getcwd()}/{conf_path}"
-            self.xeet_root = os.path.dirname(conf_path)
+    def match(self, name: str, groups: list[str], hidden: bool) -> bool:
+        if hidden and not self.hidden_tests:
+            return False
+        if self.names and name and name not in self.names:
+            return False
+        if self.include_groups and not self.include_groups.intersection(groups):
+            return False
+        if self.require_groups and not self.require_groups.issubset(groups):
+            return False
+        if self.exclude_groups and self.exclude_groups.intersection(groups):
+            return False
+        return True
 
-        log_info(f"Using configuration file {conf_path}")
+    #  def _match_name(self, name: str) -> str:
+    #      if name in test_list:
+    #          return name
+    #      possible_names = [x for x in test_list if x.startswith(name)]
+    #      if len(possible_names) == 0:
+    #          raise XeetException(f"No tests match '{name}'")
+    #      if len(possible_names) > 1:
+    #          names_str = ", ".join(possible_names)
+    #          raise XeetException(f"Multiple tests match '{name}': {names_str}")
+    #      return possible_names[0]
 
-        #  Populate some variables early so they are available in
-        self.xeet_root = os.path.dirname(conf_path)
-        set_global_vars({
-            f"CWD": os.getcwd(),
-            f"ROOT": self.xeet_root,
-            f"OUTPUT_DIR": self.output_dir,
-        }, system=True)
 
-        self.conf = {}
-        self.conf = self._read_configuration(conf_path, set())
-        conf_err = validate_config_schema(self.conf)
-        if conf_err:
-            raise XeetException(f"Invalid configuration file '{conf_path}': {conf_err}")
+class ConfigModel(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    json_schema: str | None = Field(None, alias="$schema")
+    includes: list[NonEmptyStr] = Field(default_factory=list, alias="include")
+    tests: list[dict] = Field(default_factory=list)
+    variables: dict[str, Any] = Field(default_factory=dict)
+    default_shell_path: str | None = Field(None, alias="default_shell_path", min_length=1)
 
-        raw_descs = self.conf.get(TESTS, [])
-        self.raw_tests_map = {}
-        for raw_desc in raw_descs:
-            name = raw_desc.get(NAME, None)
+    @field_validator('tests')
+    @classmethod
+    def check_alphanumeric(cls, v: list[dict], _: ValidationInfo) -> list[dict]:
+        test_names = set()
+        for test in v:
+            name = test.get(_NAME)
+            if name:
+                if name in test_names:
+                    raise ValueError(f"Duplicate test name '{name}'")
+                test_names.add(name)
+        return v
+
+
+class Config:
+    def __init__(self, file_path: str, model: ConfigModel) -> None:
+        self.model = model
+        self.variables = model.variables
+        self.test_descs = model.tests
+        self.includes = model.includes
+        self.default_shell_path = model.default_shell_path
+        self.tests_dict: dict[str, dict] = Field(default_factory=dict)
+        self.file_path = file_path
+        self.root_path = os.path.dirname(file_path)
+        if not self.root_path:
+            self.root_path = "."
+        self.output_dir = f"{self.root_path}/xeet.out"
+        self.expected_output_dir = f"{self.root_path}/xeet.expected"
+        self.tests_dict = {t.get(_NAME): t for t in self.test_descs if t.get(_NAME)}  # type: ignore
+        log_info(f"Configuration file '{file_path}' read")
+        log_info(f"Output directory: {self.output_dir}")
+
+    def include_config(self, other: "Config") -> None:
+        self.variables = {**other.variables, **self.variables}
+        added_tests = []
+        for index, test in enumerate(other.test_descs):
+            name = test.get(_NAME)
             if not name:
-                log_info("Ignoring nameless test")
                 continue
-            self.raw_tests_map[name] = raw_desc
-        self.descs = []
-        for raw_desc in raw_descs:
-            desc = TestDesc(raw_desc)
-            self._solve_desc_inclusions(desc)
-            self.descs.append(desc)
-        self.descs_map = {desc.name: desc for desc in self.descs}
+            if name in self.tests_dict:
+                log_warn(f"Ignoring shadowed test '{name}' at index {index}, already defined")
+                continue
+            added_tests.append(test)
+            self.tests_dict[name] = test
+        self.test_descs = added_tests + self.test_descs
 
-        set_global_vars(self.conf.get(VARIABLES, {}))
+    def _xtest(self, desc: dict, inherited: set[str] | None = None) -> Xtest:
+        ret = Xtest(desc, output_base_dir=self.output_dir, xeet_root=self.root_path,
+                    dflt_shell_path=self.default_shell_path)
+        if ret.init_err or not ret.base:
+            return ret
+        if not inherited:
+            inherited = set()
+        inherited.add(ret.name)
+        if ret.base in inherited:
+            ret.init_err = f"Inheritance loop detected for '{ret.base}'"
+            return ret
+        base_desc = self.tests_dict.get(ret.base, None)
+        if not base_desc:
+            ret.init_err = f"No such base test '{ret.base}'"
+            return ret
+        base_xtest = self._xtest(base_desc, inherited)
+        if base_xtest.init_err:
+            ret.init_err = base_xtest.init_err
+            return ret
+        ret.inherit(base_xtest)
+        return ret
 
-        if logging_enabled_for(logging.DEBUG):
-            dump_global_vars()
+    def xtest(self, name: str) -> Xtest | None:
+        desc = self.tests_dict.get(name, None)
+        if not desc:
+            return None
+        return self._xtest(desc)
 
-    def arg(self, name) -> Optional[Any]:
-        if hasattr(self.args, name):
-            return getattr(self.args, name)
-        return None
+    def xtests(self, criteria: TestCriteria) -> list[Xtest]:
+        #  TODO/BUG: groups are not inherited at this point, so inherited tests may not be
+        # filtered correctly
+        return [self._xtest(desc) for desc in self.test_descs
+                if criteria.match(desc.get(_NAME, ""),
+                                  desc.get(_GROUPS, []), desc.get(_ABSTRACT, False))]
 
-    @property
-    def output_dir(self) -> str:
-        return f"{self.xeet_root}/xeet.out"
-
-    @property
-    def expected_output_dir(self) -> str:
-        return f"{self.xeet_root}/xeet.expected"
-
-    @property
-    def main_cmd(self) -> str:
-        return self.args.subparsers_name
-
-    @property
-    def schema_dump_type(self) -> Optional[str]:
-        return self.arg("schema")
-
-    @property
-    def test_name_arg(self) -> Any:
-        return self.arg("test_name")
-
-    @property
-    def include_groups(self) -> set[str]:
-        groups = self.arg("group")
-        return set(groups) if groups else set()
-
-    @property
-    def require_groups(self) -> set[str]:
-        groups = self.arg("require_group")
-        return set(groups) if groups else set()
-
-    @property
-    def exclude_groups(self) -> set[str]:
-        groups = self.arg("exclude_group")
-        return set(groups) if groups else set()
-
-    @property
-    def debug_mode(self) -> bool:
-        return True if self.arg("debug") else False
+    def test_desc(self, name: str) -> dict | None:
+        return self.tests_dict.get(name, None)
 
     def all_groups(self) -> set[str]:
         ret = set()
-        for desc in self.descs:
-            ret.update(desc.target_desc_property(GROUPS, []))
+        for desc in self.test_descs:
+            ret.update(desc.get(_GROUPS, []))
         return ret
 
-    def _read_configuration(self, file_path: str, read_files: set) -> dict:
-        log_info(f"Reading configuration file {file_path}")
-        try:
-            orig_conf: dict = json.load(open(file_path, 'r'))
-        except (IOError, TypeError, ValueError) as e:
-            raise XeetException(f"Error parsing {file_path} - {e}")
-        includes = orig_conf.get(INCLUDE, [])
-        conf = {}
-        tests = []
-        variables = {}
 
-        log_info(f"Configuration file includes: {includes}")
-        read_files.add(file_path)
-        expander = StringVarExpander(get_global_vars())
-        for f in includes:
-            f = expander(f)
-            if f in read_files:
-                raise XeetException(f"Include loop detected - '{f}'")
-            included_conf = self._read_configuration(f, read_files)
-            tests += included_conf[TESTS]  # TODO
-            variables.update(included_conf[VARIABLES])
-            conf.update(included_conf)
-        read_files.remove(file_path)
-        if INCLUDE in conf:
-            conf.pop(INCLUDE)
+_configs = {}
 
-        conf.update(orig_conf)
-        tests += (orig_conf.get(TESTS, []))
-        conf[TESTS] = tests  # TODO
-        variables.update(orig_conf.get(VARIABLES, {}))
-        conf[VARIABLES] = variables
-        return conf
 
-    def default_shell_path(self) -> Optional[str]:
-        return self.setting(DFLT_SHELL_PATH, None)
+class XeetConfigException(XeetException):
+    ...
 
-    def runnable_test_names(self) -> list[str]:
-        return [desc.name for desc in self.descs
-                if not desc.raw_desc.get(ABSTRACT, False)]
 
-    def all_test_names(self) -> list[str]:
-        return [desc.name for desc in self.descs]
+class XeetIncludeLoopException(XeetConfigException):
+    def __init__(self, file_path: str) -> None:
+        super().__init__(f"Include loop detected - '{file_path}'")
 
-    def runnable_descs(self) -> list[TestDesc]:
-        return [desc for desc in self.descs
-                if not desc.raw_desc.get(ABSTRACT, False)]
 
-    #  Return anything. Types is forced by schema validations.
-    def setting(self, path: str, default=None) -> Any:
-        return dict_value(self.conf, path, default=default)
+def _extract_include_files(file_path: str, included: set[str] | None = None) -> list[str]:
+    file_path = global_vars().expand(file_path)
+    dir_name = os.path.dirname(file_path)
 
-    def get_test_desc(self, name: str) -> Optional[TestDesc]:
-        return self.descs_map.get(name, None)
+    if not included:  # first call
+        included = set()
 
-    def _solve_desc_inclusions(self, desc: TestDesc) -> None:
-        base_desc_name = desc.raw_desc.get(BASE, None)
-        if not base_desc_name:
-            desc.target_desc = desc.raw_desc
-            return
-        inclusions: dict[str, dict[str, Any]] = {desc.name: desc.raw_desc}
-        inclusions_order: list[str] = [desc.name]
-        while base_desc_name:
-            if base_desc_name in inclusions:
-                desc.error = f"Inheritance loop detected for '{base_desc_name}'"
-                return
-            raw_base_desc = self.raw_tests_map.get(base_desc_name, None)
-            if not raw_base_desc:
-                desc.error = f"no such base test '{base_desc_name}'"
-                return
-            inclusions[base_desc_name] = raw_base_desc
-            inclusions_order.insert(0, base_desc_name)
-            base_desc_name = raw_base_desc.get(BASE, None)
+    if file_path in included:
+        raise XeetIncludeLoopException(f"Include loop detected - '{file_path}'")
 
-        for name in inclusions_order:
-            raw_desc = inclusions[name]
-            for k, v in raw_desc.items():
-                if k == ENV and desc.target_desc.get(INHERIT_ENV, False):
-                    desc.target_desc[k].update(v)
-                    continue
-                if k == VARIABLES and \
-                        desc.target_desc.get(INHERIT_VARIABLES, False):
-                    desc.target_desc[k].update(v)
-                    continue
-                if k == GROUPS and desc.target_desc.get(INHERIT_GROUPS, False):
-                    groups = set(desc.target_desc.get(GROUPS, []))
-                    groups.update(raw_desc.get(GROUPS, []))
-                    desc.target_desc[k] = list(groups)
-                    continue
-                if k == INHERIT_ENV or k == INHERIT_VARIABLES or \
-                        k == ABSTRACT:
-                    continue
-                desc.target_desc[k] = v
+    try:
+        file_path = os.path.abspath(file_path)
+        file_suffix = os.path.splitext(file_path)[1]
+        with open(file_path, 'r') as f:
+            if file_suffix == ".yaml" or file_suffix == ".yml":
+                conf = safe_load(f)
+            else:
+                conf = json.load(f)
+            model = ConfigModel(**conf)
+            config = Config(file_path, model)
+    except ValidationError as e:
+        err = pydantic_errmsg(e)
+        raise XeetConfigException(f"Invalid configuration file '{file_path}': {err}")
+    except (IOError, TypeError, ValueError) as e:
+        raise XeetConfigException(f"Error parsing {file_path} - {e}")
+    _configs[file_path] = config
 
-        for k in (INHERIT_ENV, INHERIT_VARIABLES, INHERIT_GROUPS):
-            if k in desc.target_desc:
-                del desc.target_desc[k]
+    ret = []
+    included.add(file_path)
+    for i in model.includes:
+        include_file_path = i.root
+        if not os.path.isabs(include_file_path):
+            include_file_path = os.path.join(dir_name, include_file_path)
+        ret += _extract_include_files(include_file_path, included)
+    ret.append(file_path)
+    included.remove(file_path)
+    return ret
+
+
+def read_config_file(file_path: str) -> Config:
+    if not file_path:
+        for file in ("xeet.yaml", "xeet.yml", "xeet.json"):
+            if os.path.exists(file):
+                file_path = file
+                break
+        if not file_path:
+            raise XeetConfigException("Empty configuration file path")
+    includes = _extract_include_files(file_path)
+    if not includes:  # should never happen
+        raise XeetConfigException(f"No configuration files found in '{file_path}'")
+    log_info(f"Reading main configuration '{file_path}'")
+    last_config = None
+    read_configs = set()
+    for i in includes:
+        if i in read_configs:
+            continue
+        read_configs.add(i)
+        config: Config = _configs[i]
+        if last_config:
+            config.include_config(last_config)
+        last_config = config
+
+    return last_config  # type: ignore

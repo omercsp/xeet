@@ -1,0 +1,169 @@
+tests:
+  - name: compare_output
+    verify_cmd_shell: true
+    verify_cmd: '{XEET_ROOT}/compare_output.sh {XEET_TEST_NAME}'
+    env:
+      XEET_ROOT: "{XEET_ROOT}"
+      XEET_DEBUG: "{XEET_DEBUG}"
+      TEST_NAME: "{XEET_TEST_NAME}"
+      TEST_STDOUT: "{XEET_TEST_STDOUT}"
+      TEST_STDERR: "{XEET_TEST_STDERR}"
+      TEST_OUTPUT_DIR: "{XEET_TEST_OUTPUT_DIR}"
+    abstract: true
+
+  - name: 001_pass
+    base: compare_output
+    short_desc: echoes Hello World!
+    cmd: echo 'Hello World!'
+    groups: [group1, group2, passing]
+
+  - name: 002a_fail_rc
+    short_desc: runs false
+    cmd: "false"
+    groups: [group1, group3, failing]
+
+  - name: 002b_fail_output_compare
+    base: compare_output
+    shell: true
+    cmd: echo 'bad stdout str'; echo 'bad stderr str' >&2
+    groups: [group1, group3, failing, compare_output]
+
+  - name: 002c_fail_output_compare_split
+    base: 002b_fail_output_compare
+    # stdout should be OK, stderr should be FAIL
+    cmd: echo 'good stdout str'; echo 'bad stderr str' >&2
+    output_behavior: split
+
+  - name: 003a_skip
+    short_desc: expected to be skipped
+    cmd: "false"
+    allowed_return_codes: [2]
+    groups: [group1, group2, group4, skipped]
+    skip: true
+
+  - name: 003b_skip_reason
+    short_desc: expected to be skipped
+    cmd: "false"
+    groups: [group1, group2, group4, skipped]
+    skip: true
+    skip_reason: This test is expected to be skipped
+
+  - name: 004_bad_desc
+    short_desc: bad test descriptor
+    bad_setting: bad_value
+    groups: [not_run]
+
+  - name: 005_expected_fail
+    base: compare_output
+    short_desc: runs false but expected to fail
+    cmd: "false"
+    expected_failure: true
+
+  - name: 006_unexpected_success
+    short_desc: runs true but expected to fail
+    cmd: "true"
+    expected_failure: true
+
+  - name: 007 with spaces
+    short_desc: test name with spaces
+    cmd: "true"
+    groups: [passing]
+
+  - name: 008a_bad_command_not_run
+    short_desc: bad command (should not run)
+    cmd: bad_command
+    groups: [gorup5, not_run]
+
+  - name: 008b_inherits_bad_command_to_good
+    base: 008a_bad_command_not_run
+    short_desc: inherits a bad command test, but replaces it with a good one
+    cmd: "true"
+    groups: [passing]
+
+  - name: 009_env_pass
+    short_desc: prints environment variable
+    base: compare_output
+    env:
+      TEST_ENV_VAR: test value
+    cmd: printenv TEST_ENV_VAR
+    groups: [passing]
+
+  - name: 010_timeout
+    short_desc: timeout test
+    cmd: echo "Going to sleep"; sleep 1
+    shell: true
+    timeout: 0.5
+    groups: [failing]
+
+  - name: 013_multi_rc_passing
+    short_desc: Multiple return codes, shoudld pass
+    cmd: 'rc=$(( $\{RANDOM} % 5 + 1 )); echo ''return code: $\{rc}''; exit $\{rc}\'
+    shell: true
+    allowed_return_codes: [1, 2, 3, 4, 5]
+    groups: [passing]
+
+  - name: 014_show_auto_vars_internal
+    base: compare_output
+    short_desc: Test auto variables
+    cmd: |-
+      echo -e Test name: {XEET_TEST_NAME}
+      echo -e Test output dir: {XEET_TEST_OUTPUT_DIR}
+      echo -e Test stdout: {XEET_TEST_STDOUT}
+      echo -e Test stderr: {XEET_TEST_STDERR}
+      echo -e Xeet root: {XEET_ROOT}
+      echo -e Xeet output dir: {XEET_OUTPUT_DIR}
+    shell: true
+    groups: [passing]
+
+  - name: 015a_pre_test_ok
+    short_desc: Test with passing pre-run command
+    pre_cmd: "true"
+    cmd: echo {XEET_TEST_NAME}
+    groups: [passing]
+
+  - name: 015b_pre_test_fail
+    short_desc: Test with failing pre-run command
+    base: 015a_pre_test_ok
+    pre_cmd: "false"
+    groups: [not_run]
+
+  - name: 015c_verification_fail
+    short_desc: Test failing over verification
+    base: 015a_pre_test_ok
+    verify_cmd: "false"
+    groups: [failing]
+
+  - name: 015d_test_verification_ok
+    short_desc: Post command verification check
+    variables:
+      output_file: '{XEET_TEST_OUTPUT_DIR}/{XEET_TEST_NAME}.txt'
+      verification_file: '{XEET_ROOT}/aux/{XEET_TEST_NAME}.txt'
+    cmd: echo 'Silence is golden' > {output_file}
+    shell: true
+    verify_cmd: diff -u {output_file} {verification_file}
+    groups: [passing]
+
+  - name: 015e_bad_pre_test_cmd
+    short_desc: Test with invalid pre-run command
+    base: 015a_pre_test_ok
+    pre_cmd: does_not_exist
+    groups: [not_run]
+
+  - name: 020_post_test_ok
+    short_desc: Test with valid post-test command
+    base: 015a_pre_test_ok
+    post_cmd: "true"
+    groups: [passing]
+
+  - name: 021_post_test_fail
+    short_desc: Test with invalid post-test command
+    base: 015a_pre_test_ok
+    post_cmd: "false"
+    groups: [passing]
+
+  - name: 022_post_test_fail_output
+    short_desc: Test with invalid post-test command and output
+    base: 015a_pre_test_ok
+    post_cmd_shell: true
+    post_cmd: echo failing post test output; false
+    groups: [passing]
