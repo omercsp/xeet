@@ -1,0 +1,24 @@
+Starting run
+------------
+Included groups: not_run
+Running tests: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_test_fail, 015e_bad_pre_test_cmd
+
+004_bad_desc                                                 ....... [Not run] Malformed test
+Error parsing test '004_bad_desc' - 'bad_setting': Extra inputs are not permitted
+
+008a_bad_command_not_run                                     ....... [Not run] Run error
+No such file or directory
+
+015b_pre_test_fail                                           ....... [Not run] Pre-test error
+Pre-test failed with rc=1
+empty pre test output file
+
+015e_bad_pre_test_cmd                                        ....... [Not run] Pre-test error
+[Errno 2] No such file or directory: 'does_not_exist'
+empty pre test output file
+
+
+Initialization error: 004_bad_desc
+Pre-run error: 015b_pre_test_fail, 015e_bad_pre_test_cmd
+Run error: 008a_bad_command_not_run
+

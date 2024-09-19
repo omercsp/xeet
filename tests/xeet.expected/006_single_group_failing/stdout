@@ -1,0 +1,34 @@
+Starting run
+------------
+Included groups: failing
+Running tests: 002a_fail_rc, 002b_fail_output_compare, 010_timeout, 015c_verification_fail
+
+002a_fail_rc                                                 ....... [Failed ]
+retrun code 1, not in allowed return codes (0)
+empty test output file (unified)
+
+002b_fail_output_compare                                     ....... [Failed ]
+Verification failed with rc=1
+------------ verification output tail ------------
+1,2c1,2
+< good stdout str
+< good stderr str
+---
+> bad stdout str
+> bad stderr str
+--------------------------------------------------
+
+010_timeout                                                  ....... [Failed ] timeout (0.5s)
+----------- test output tail (unified) -----------
+Going to sleep
+--------------------------------------------------
+
+015c_verification_fail                                       ....... [Failed ]
+Verification failed with rc=1
+empty verification output file
+
+
+Failed RC verification: 002a_fail_rc
+Failed verification: 002b_fail_output_compare, 015c_verification_fail
+Timeout: 010_timeout
+
