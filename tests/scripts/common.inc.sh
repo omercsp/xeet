@@ -54,13 +54,13 @@ require_not_file()
     fi
 }
 
-require_var XEET_TEST_NAME
-require_var XEET_TEST_DEBUG
+require_var TEST_NAME
+require_var XEET_DEBUG
 
-require_dir_var XEET_TEST_OUTPUT_DIR
+require_dir_var TEST_OUTPUT_DIR
 require_dir_var XEET_ROOT
 
-TEST_EXPECTED_DIR=${XEET_ROOT}/xeet.expected/${XEET_TEST_NAME}
+TEST_EXPECTED_DIR=${XEET_ROOT}/xeet.expected/${TEST_NAME}
 
 _compare_file()
 {
@@ -95,21 +95,21 @@ _compare_file()
 
 generic_stdout_test()
 {
-    if [[ ${XEET_TEST_DEBUG} == "1" ]]; then
+    if [[ ${XEET_DEBUG} == "1" ]]; then
         echo "Running in debug mode, skipping stdout comparison"
         return 0
     fi
-    _compare_file ${TEST_EXPECTED_DIR}/stdout ${XEET_TEST_OUTPUT_DIR}/stdout
-    _compare_file ${TEST_EXPECTED_DIR}/stderr ${XEET_TEST_OUTPUT_DIR}/stderr
+    _compare_file ${TEST_EXPECTED_DIR}/stdout ${TEST_OUTPUT_DIR}/stdout
+    _compare_file ${TEST_EXPECTED_DIR}/stderr ${TEST_OUTPUT_DIR}/stderr
 }
 
 generic_xeet_path_filter()
 {
-    if [[ ${XEET_TEST_DEBUG} == "1" ]]; then
+    if [[ ${XEET_DEBUG} == "1" ]]; then
         echo "Running in debug mode, skipping stdout manipulation"
         return 0
     fi
-    sed -i "s,${XEET_ROOT},__XEET_ROOT__,g" ${XEET_TEST_OUTPUT_DIR}/stdout
-    sed -i "s,${XEET_ROOT},__XEET_ROOT__,g" ${XEET_TEST_OUTPUT_DIR}/stderr
+    sed -i "s,${XEET_ROOT},__XEET_ROOT__,g" ${TEST_OUTPUT_DIR}/stdout
+    sed -i "s,${XEET_ROOT},__XEET_ROOT__,g" ${TEST_OUTPUT_DIR}/stderr
 }
 

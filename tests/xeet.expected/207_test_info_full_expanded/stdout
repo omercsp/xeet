@@ -1,0 +1,96 @@
+Name:                            030_for_info
+Short description:               Test for info command testing
+Description:                     This test is for testing the info command.
+                                 Inerits from another test, and has all kinds
+                                 of test attributes set.
+Groups:                          passing
+Pre-run steps:
+ - [0] Name:                     ''
+       Step type:                exec
+       Base:                     ''
+       Allowed return codes:     0
+       Command:                  python /home/omer/devel/xeet/tests/testbed/..
+                                 /../scripts/testing/rc.py 0
+       working directory:        None
+       Debug new line:           No
+       Environment variables:    None
+       Env file:                 None
+       Expected stderr:          None
+       Expected stderr file:     None
+       Expected stdout:          None
+       Expected stdout file:     None
+       Output behavior:          unify
+       Shell path:               None
+       Stderr file:              None
+       Stdout file:              None
+       Timeout:                  None
+       Use os env:               No
+       Use shell:                No
+Run steps:
+ - [0] Name:                     ''
+       Step type:                exec
+       Base:                     ''
+       Allowed return codes:     0
+       Command:                  python /home/omer/devel/xeet/tests/testbed/..
+                                 /../scripts/testing/pwd.py
+       working directory:        None
+       Debug new line:           No
+       Environment variables:    None
+       Env file:                 None
+       Expected stderr:          None
+       Expected stderr file:     None
+       Expected stdout:          /home/omer/devel/xeet/tests
+       Expected stdout file:     None
+       Output behavior:          unify
+       Shell path:               None
+       Stderr file:              None
+       Stdout file:              None
+       Timeout:                  None
+       Use os env:               No
+       Use shell:                No
+ - [1] Name:                     ''
+       Step type:                exec
+       Base:                     ''
+       Allowed return codes:     0
+       Command:                  python /home/omer/devel/xeet/tests/testbed/..
+                                 /../scripts/testing/showenv.py TEST_ENV_VAR
+       working directory:        None
+       Debug new line:           No
+       Environment variables:    TEST_ENV_VAR='test value'
+       Env file:                 None
+       Expected stderr:          None
+       Expected stderr file:     None
+       Expected stdout:          test value
+       Expected stdout file:     None
+       Output behavior:          unify
+       Shell path:               None
+       Stderr file:              None
+       Stdout file:              None
+       Timeout:                  None
+       Use os env:               No
+       Use shell:                No
+Post-run steps:
+ - [0] Name:                     ''
+       Step type:                exec
+       Base:                     ''
+       Allowed return codes:     0
+       Command:                  python /home/omer/devel/xeet/tests/testbed/..
+                                 /../scripts/testing/echo.py Test output dir: 
+                                 /home/omer/devel/xeet/tests/testbed/xeet.out/
+                                 030_for_info
+       working directory:        None
+       Debug new line:           No
+       Environment variables:    None
+       Env file:                 None
+       Expected stderr:          None
+       Expected stderr file:     None
+       Expected stdout:          Test output dir: /home/omer/devel/xeet/tests/
+                                 testbed/xeet.out/030_for_info
+       Expected stdout file:     None
+       Output behavior:          unify
+       Shell path:               None
+       Stderr file:              None
+       Stdout file:              None
+       Timeout:                  None
+       Use os env:               No
+       Use shell:                No
