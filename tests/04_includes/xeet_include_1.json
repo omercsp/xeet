@@ -1,0 +1,41 @@
+{
+	"tests": [
+		{
+			"name": "Test_A",
+			"short_desc": "Test A short description",
+			"test_cmd": "true",
+			"groups": ["AB"]
+		},
+		{
+			"name": "Test_B",
+			"short_desc": "Test B short description",
+			"test_cmd": "true",
+			"groups": ["AB"]
+		},
+		{
+			"name": "Test_C_Abstract",
+			"short_desc": "Test C short description (abstract)",
+			"abstract": true,
+			"test_cmd": "true",
+			"groups": ["CD"]
+		},
+		{
+			"name": "Test_D_inherit_C",
+			"base": "Test_C_Abstract",
+			"short_desc": "Test D short description (inherit C)",
+			"test_cmd": "true",
+			"groups": ["CD"]
+		},
+		{
+			"name": "Test_E",
+			"base": "Test_E",
+			"short_desc": "Test E loop error",
+			"test_cmd": "true"
+		},
+		{
+			"name": "Test_F",
+			"short_desc": "Test F",
+			"test_cmd": "true"
+		}
+	]
+}

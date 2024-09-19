@@ -1,10 +1,11 @@
 from xeet import xeet_version
-from xeet.config import Config
+from xeet.config import read_config_file, TestCriteria
 from xeet.common import XeetException, XEET_NO_TOKEN, XEET_YES_TOKEN
-from xeet.log import init_logging, log_error
-from xeet.pr import pr_bright, set_no_color_print
-from xeet.actions import *
-import sys
+from xeet.log import init_logging, log_error, log_info
+from xeet.pr import pr_header, disable_colors
+import xeet.actions as actions
+
+import os
 import argparse
 import argcomplete
 
@@ -30,8 +31,7 @@ def parse_arguments() -> argparse.Namespace:
     common_parser = argparse.ArgumentParser(add_help=False)
     common_parser.add_argument('-v', '--verbose', action='count',
                                help='log file verbosity', default=0)
-    common_parser.add_argument('-c', '--conf', metavar='CONF', help='configuration file to use',
-                               default="xeet.json")
+    common_parser.add_argument('-c', '--conf', metavar='CONF', help='configuration file to use')
     common_parser.add_argument('--log-file', metavar='FILE', help='set log file', default=None)
 
     test_groups_parser = argparse.ArgumentParser(add_help=False)
@@ -47,7 +47,7 @@ def parse_arguments() -> argparse.Namespace:
 
     run_parser = subparsers.add_parser(RUN_CMD, help='run a test',
                                        parents=[common_parser, test_groups_parser])
-    run_parser.add_argument('-t', '--test-name', metavar='TESTS', default=[],
+    run_parser.add_argument('-t', '--test-names', metavar='TESTS', default=[],
                             help='test names', action='append')
     run_parser.add_argument('--debug', action='store_true', default=False,
                             help='run tests in debug mode')
@@ -82,7 +82,7 @@ def parse_arguments() -> argparse.Namespace:
     list_parser = subparsers.add_parser(LIST_CMD, help='list tests',
                                         parents=[common_parser, test_groups_parser])
     list_parser.add_argument('-a', '--all', action='store_true', default=False,
-                             help='show hidden and shadowed tests')
+                             help='show hidden tests')
     list_parser.add_argument('--names-only', action='store_true', default=False,
                              help=argparse.SUPPRESS)
 
@@ -90,56 +90,79 @@ def parse_arguments() -> argparse.Namespace:
                           parents=[common_parser, test_groups_parser])
     dump_parser = subparsers.add_parser(DUMP_SCHEMA_CMD, help='dump configuration file schema',
                                         parents=[common_parser])
-    dump_parser.add_argument('-s', '--schema', choices=DUMP_TYPES, default=DUMP_TYPES[0])
+    dump_parser.add_argument('-s', '--schema', choices=actions.DUMP_TYPES,
+                             default=actions.DUMP_TYPES[0])
 
-    subparsers.add_parser(DUMP_CONFIG_CMD, help='dump configuration')
+    subparsers.add_parser(DUMP_CONFIG_CMD, help='dump configuration', parents=[common_parser])
 
     argcomplete.autocomplete(parser, always_complete_options=False)
     args = parser.parse_args()
-    if args.subparsers_name == RUN_CMD and \
-            args.test_name and \
-            (args.group or args.require_group or args.exclude_group):
-        parser.error("test name and groups are mutually exclusive")
+    if args.subparsers_name == RUN_CMD:
+        if args.test_names and (args.group or args.require_group or args.exclude_group):
+            parser.error("test name and groups are mutually exclusive")
+        if args.repeat < 1:
+            parser.error("repeat count must be a psitive integer")
     return args
+
+
+def _gen_tests_list_criteria(args: argparse.Namespace) -> TestCriteria:
+    if hasattr(args, "all"):
+        all_tests = args.all
+    else:
+        all_tests = False
+    if hasattr(args, "test_names"):
+        test_names = args.test_names
+    else:
+        test_names = []
+    return TestCriteria(test_names, args.group, args.require_group, args.exclude_group,
+                        all_tests)
+
+
+def _gen_run_settings(args: argparse.Namespace) -> actions.RunSettings:
+    criteria = _gen_tests_list_criteria(args)
+    return actions.RunSettings(iterations=args.repeat, show_summary=args.show_summary,
+                               debug_mode=args.debug, criteria=criteria)
 
 
 def xrun() -> int:
     args = parse_arguments()
     if args.no_colors:
-        set_no_color_print()
+        disable_colors()
 
+    title = f"xeet, v{xeet_version}"
     if not args.no_splash:
-        title = f"Xeet, v{xeet_version}"
-        pr_bright(f"{title}\n{'=' * len(title)}\n")
-
+        pr_header(f"{title}\n{'=' * len(title)}\n")
     try:
-        log_ok, err_msg = init_logging(args.log_file, args.verbose)
-        if not log_ok:
-            raise XeetException(err_msg)
+        if args.log_file:
+            init_logging(title, args.log_file, args.verbose)
+        log_info(f"Running command '{args.subparsers_name}'")
+        log_info(f"CWD is '{os.getcwd()}'")
         cmd_name = args.subparsers_name
         if cmd_name == DUMP_SCHEMA_CMD:
-            dump_schema(args.schema)
+            actions.dump_schema(args.schema)
             return 0
 
-        expand = cmd_name == RUN_CMD or (cmd_name == INFO_CMD and args.expand)
-        config = Config(args, expand)
-        if config.main_cmd == RUN_CMD:
-            return run_test_list(config)
-        elif config.main_cmd == LIST_CMD:
-            list_tests(config)
-        elif config.main_cmd == GROUPS_CMD:
-            list_groups(config)
-        elif config.main_cmd == INFO_CMD:
-            show_test_info(config)
-        elif config.main_cmd == DUMP_CONFIG_CMD:
-            dump_config(config)
-        elif config.main_cmd == DUMP_XTEST_CMD:
-            dump_test(args.test_name, config)
+        #  expand = cmd_name == RUN_CMD or (cmd_name == INFO_CMD and args.expand)
+        config = read_config_file(args.conf)
+        rc = 0
+        if cmd_name == RUN_CMD:
+            run_info = actions.run_tests(config, _gen_run_settings(args))
+            rc = 1 if run_info.failed else 0
+        elif cmd_name == LIST_CMD:
+            actions.list_tests(config, _gen_tests_list_criteria(args), args.names_only)
+        elif cmd_name == GROUPS_CMD:
+            actions.list_groups(config)
+        elif cmd_name == INFO_CMD:
+            actions.show_test_info(args.conf, args.test_name, args.expand)
+        elif cmd_name == DUMP_CONFIG_CMD:
+            actions.dump_config(config)
+        elif cmd_name == DUMP_XTEST_CMD:
+            actions.dump_test(config, args.test_name)
 
     except XeetException as e:
-        log_error(f"xeet: {e}", pr=True, file=sys.stderr)
+        log_error(f"xeet: {e}")
         return 255
-    return 0
+    return rc
 
 
 if __name__ == "__main__":
