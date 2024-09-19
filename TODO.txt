@@ -1,5 +1,8 @@
+# New step chagnes
+- Debug mode validation
+
+# Missing features
 - Add variable matrix support
-- Validate multi configuration files support
 - Add colored log support
 - Improve logging: time stamp
 - Add quiet mode 1 - no unrelated test output (splash and so)
@@ -15,6 +18,14 @@
 - Add save results to file option
 -- Add compare with last run time support
 -- Add run only last failed tests
-- Add log retention policy option (number of runs to keep)
+-- Add log retention policy option (number of runs to keep)
 - Add test CLI editor
 - Add test rename capability (should rename result file as well)
+- Add pre/post suite execution commands
+- Add skip test command (should be able to skip a test based on a condition)
+- Seperate test running from UI (CLI) and infra. The latter should be able to run for other clients, hence
+  it should yield the results in a format that can be consumed by the client.
+- Migrate all the testing components to be plugin based (pre-test, test, verify, post-test)
+- Add E2E multiple iterarion test
+- Add option to stop on first failure
+- Add option to create test sequences, not necessarily from the same group, outside of test defintions
