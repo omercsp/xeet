@@ -1,0 +1,31 @@
+Starting run
+------------
+Included groups: not_run
+Running tests: 008_bad_desc, 011_bad_cmd, 010_timeout_fail, 016_not_run_pre_test_fail, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run
+
+008_bad_desc                                                 ....... [Run error] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+011_bad_cmd                                                  ....... [Run error]
+Run step #0:  incomplete: [Errno 2] No such file or directory: 'bad_command'
+
+010_timeout_fail                                             ....... [Run error]
+Run step #0:  incomplete: Timeout expired after 0.5s
+
+016_not_run_pre_test_fail                                    ....... [Run error] Pre-run error
+Pre-run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+021_inherit_abstract_pre_run_bad                             ....... [Run error] Pre-run error
+Pre-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+022_inherit_abstract_pre_run_bad_add_...                     ....... [Run error] Pre-run error
+Pre-run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+
+Initialization error: 008_bad_desc
+Run error: 011_bad_cmd, 010_timeout_fail
+Pre-run error: 016_not_run_pre_test_fail, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run
+
