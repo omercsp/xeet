@@ -1,43 +1,43 @@
-from xeet.xtest import (XTEST_NOT_RUN, XTEST_FAILED, XTEST_SKIPPED, XTEST_EXPECTED_FAILURE,
-                        XTEST_UNEXPECTED_PASS)
+from xeet import TestCriteria
+from xeet.xtest import TestStatus, TestResult, TestStatusCategory, Xtest, status_catgoery
 
 
-class IterInfo(object):
-    def __init__(self) -> None:
-        self.failed_tests = []
-        self.skipped_tests = []
-        self.successful_tests = []
-        self.not_run_tests = []
-        self.expected_failures = []
-        self.unexpected_pass = []
+class IterationInfo:
+    def __init__(self, iter_n: int) -> None:
+        self.iter_n = iter_n
+        self.tests = {s: [] for s in TestStatus}
+
+    def add_test(self, test_name: str, status: TestStatus) -> None:
+        self.tests[status].append(test_name)
 
 
-class RunInfo(object):
-    def __init__(self, iterations: int) -> None:
+class RunInfo:
+    def __init__(self, iterations: int, tests: list[Xtest], criteria: TestCriteria) -> None:
         self.iterations: int = iterations
-        self.iterations_info = [IterInfo() for _ in range(iterations)]
-        self.__failed = False
+        self.iterations_info = [IterationInfo(i) for i in range(iterations)]
+        self.criteria = criteria
+        self._tests = tests
+        self.results = {}
 
-    def add_test_result(self, test_name: str, iteration: int, result: int) -> None:
-        if result == XTEST_SKIPPED:
-            self.iterations_info[iteration].skipped_tests.append(test_name)
-        elif result == XTEST_NOT_RUN:
-            self.__failed = True
-            self.iterations_info[iteration].not_run_tests.append(test_name)
-        elif result == XTEST_FAILED:
-            self.__failed = True
-            self.iterations_info[iteration].failed_tests.append(test_name)
-        elif result == XTEST_UNEXPECTED_PASS:
-            self.__failed = True
-            self.iterations_info[iteration].unexpected_pass.append(test_name)
-        elif result == XTEST_EXPECTED_FAILURE:
-            self.iterations_info[iteration].expected_failures.append(test_name)
-        else:
-            self.iterations_info[iteration].successful_tests.append(test_name)
+        self.not_run_tests: bool = False
+        self.failed_tests: bool = False
 
     @property
-    def failed(self) -> bool:
-        return self.__failed
+    def tests(self) -> list[Xtest]:
+        return self._tests
 
-    def iter_info(self, iteration: int) -> IterInfo:
-        return self.iterations_info[iteration]
+    def _test_result_key(self, test_name: str, iteration: int) -> str:
+        return f"{test_name}_{iteration}"
+
+    def add_test_result(self, test_name: str, iteration: int, result: TestResult) -> None:
+        catgoery = status_catgoery(result.status)
+        if catgoery == TestStatusCategory.NotRun:
+            self.not_run_tests = True
+        elif catgoery == TestStatusCategory.Failed:
+            self.failed_tests = True
+
+        self.iterations_info[iteration].add_test(test_name, result.status)
+        self.results[self._test_result_key(test_name, iteration)] = result
+
+    def test_result(self, test_name: str, iteration: int) -> TestResult:
+        return self.results[self._test_result_key(test_name, iteration)]
