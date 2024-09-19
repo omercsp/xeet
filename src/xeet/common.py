@@ -1,15 +1,14 @@
-from xeet.log import start_raw_logging, stop_raw_logging, log_verbose, log_warn
-import sys
+from pydantic import Field, RootModel, ValidationError, BaseModel
+from typing import Any, Callable, Iterable
+#  from jsonpath_ng import parse
+from jsonpath_ng.ext import parse as parse_ext
+from jsonpath_ng.exceptions import JsonPathParserError
+from functools import cache
+from pathlib import PureWindowsPath
+import time
+import threading
 import re
 import os
-import traceback
-import json
-from typing import Any, Tuple
-
-XEET_YES_TOKEN = 'yes'
-XEET_NO_TOKEN = 'no'
-
-# Common keys
 
 
 class XeetException(Exception):
@@ -20,155 +19,265 @@ class XeetException(Exception):
         return self.error
 
 
-def _dict_path_elements(path: str) -> list:
-    elements = []
-    for element in path.split('/'):
-        if element.startswith("#"):
-            try:
-                index_el = int(element[1:])
-                element = index_el
-            except (IndexError, ValueError):
-                pass
-        elements.append(element)
-    return elements
+class KeysBaseModel(BaseModel):
+    field_keys: set[str] = Field(default_factory=set, exclude=True)
+    inherited_keys: set[str] = Field(default_factory=set, exclude=True)
+
+    def has_key(self, key: str, check_inherited: bool = False) -> bool:
+        return key in self.field_keys
+
+    def inherited_key(self, key: str) -> bool:
+        return key in self.inherited_keys
+
+    def inherit_attr(self, key: str, value: Any) -> None:
+        setattr(self, key, value)
+        self.inherited_keys.add(key)
+
+    def model_post_init(self, __: Any):
+        self.field_keys = set(self.model_dump(exclude_unset=True).keys())
+        self.inherited_keys = set()
 
 
-def dict_value(d: dict, path: str, require=False, default=None) -> Any:
-    elements = _dict_path_elements(path)
-    field = d
-    try:
-        for element in elements:
-            field = field[element]
-        return field
-
-    except (KeyError, IndexError):
-        if require:
-            raise XeetException(f"No '{path}' setting was found")
-    return default
+class XeetNoSuchVarException(XeetException):
+    ...
 
 
-class XeetVars(object):
-    _SYSTEM_VAR_PREFIX = "XEET_"
+class XeetRecursiveVarException(XeetException):
+    ...
 
-    def __init__(self) -> None:
-        self._vars = {}
 
-    def __getitem__(self, name: str) -> Any:
-        return self._vars[name]
+class XeetBadVarNameException(XeetException):
+    ...
 
-    def set_var(self, name: str, value: Any, system: bool = False) -> None:
-        if name.startswith(self._SYSTEM_VAR_PREFIX):
-            log_warn((f"Invalid variable name '{name}'. "
-                      f"Variables prefixed with '{self._SYSTEM_VAR_PREFIX}'"
-                      " are reserved for system use"))
-            return
-        if system:
-            name = f"{self._SYSTEM_VAR_PREFIX}{name}"
-        self._vars[name] = value
 
-    def set_vars(self, vars_map: dict, system: bool = False) -> None:
+class XeetVars:
+    _REF_PREFIX = "$ref://"
+    _var_re = re.compile(r'\\*{[a-zA-Z_][a-zA-Z0-9_]*?}')
+    _var_name_re = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+    def __init__(self, start_vars: dict | None = None, parent: "XeetVars | None" = None) -> None:
+        self.parent = parent
+        if start_vars is None:
+            self.vars_map = {}
+        else:
+            self.vars_map = {**start_vars}
+
+    def value_of(self, name: str) -> str:
+        if name in self.vars_map:
+            return self.vars_map[name]
+        if self.parent is not None:
+            return self.parent.value_of(name)
+        raise XeetNoSuchVarException(f"Unknown variable '{name}'")
+
+    def _set_var(self, name: str, value: Any) -> None:
+        if not self._var_name_re.match(name):
+            raise XeetBadVarNameException(f"Invalid variable name '{name}'")
+        self.vars_map[name] = value
+
+    def _pop_var(self, name: str) -> Any:
+        return self.vars_map.pop(name)
+
+    def set_vars(self, vars_map: dict, prefix: str = "") -> None:
         for name, value in vars_map.items():
-            self.set_var(name, value, system)
+            self._set_var(f"{prefix}{name}", value)
+        self._expand_str.cache_clear()
 
-    def set_vars_raw(self, vars_map: dict) -> None:
-        self._vars.update(vars_map)
+    def pop_vars(self, var_names: Iterable) -> None:
+        for name in var_names:
+            self._pop_var(name)
+        self._expand_str.cache_clear()
 
-    def get_vars(self) -> dict:
-        return self._vars
+    def reset(self) -> None:
+        self.vars_map.clear()
+        self._expand_str.cache_clear()
 
-    def system_vars(self) -> dict:
-        return {
-            k: v if v else "" for k, v in self._vars.items()
-            if k.startswith(self._SYSTEM_VAR_PREFIX)
-        }
+    def expand(self, v: Any) -> Any:
+        try:
+            if isinstance(v, str):
+                return self._expand_str(v)
+            if isinstance(v, dict):
+                return {k: self.expand(v) for k, v in v.items()}
+            if isinstance(v, list):
+                return [self.expand(v) for v in v]
+            return v
+        except RecursionError:
+            raise XeetRecursiveVarException("Recursive var expansion for '{s}'")
 
-
-_global_variables = XeetVars()
-
-
-def set_global_vars(vars_map: dict, system: bool = False) -> None:
-    _global_variables.set_vars(vars_map, system)
-
-
-def get_global_vars() -> dict:
-    return _global_variables.get_vars()
-
-
-def dump_global_vars() -> None:
-    start_raw_logging()
-    for k, v in _global_variables.get_vars().items():
-        log_verbose("{}='{}'", k, v)
-    stop_raw_logging()
-
-
-class StringVarExpander(object):
-    var_re = re.compile(r'{{\S*?}}')
-
-    def __init__(self, vars_map: dict) -> None:
-        self.vars_map = vars_map
-        self.expansion_stack = []
-
-    def __call__(self, s: str) -> str:
+    @cache
+    def _expand_str(self, s: str) -> str:
         if not s:
             return s
-        if self.expansion_stack:
-            raise XeetException("Incomplete variable expansion?")
-        return re.sub(self.var_re, self._expand_re, s)
+        if len(s) >= len(self._REF_PREFIX):
+            if s.startswith(self._REF_PREFIX[0]) and s[1:].startswith(self._REF_PREFIX):
+                return s[1:]
+            if s.startswith(self._REF_PREFIX):
+                var_name = s[len(self._REF_PREFIX):]
+                if not var_name:
+                    raise XeetBadVarNameException("Empty variable name")
+                v = self.value_of(var_name)
+                return self.expand(v)
+        return self._expand_str_literals(s)
 
-    def _expand_re(self, match) -> str:
-        var = match.group()[2:-2]
-        if var in self.expansion_stack:
-            raise XeetException(f"Recursive expanded var '{var}'")
-        if var.startswith("$"):
-            return os.getenv(var[1:], "")
-        value = self.vars_map.get(var, "")
-        if type(value) is list or type(value) is dict:
-            raise XeetException(f"Var expanded path '{var}' doesn't refer to valid type")
-        self.expansion_stack.append(var)
-        s = re.sub(self.var_re, self._expand_re, str(value))
-        self.expansion_stack.pop()
+    def _expand_str_literals(self, s: str) -> str:
+        if not s:
+            return s
+        m = XeetVars._var_re.search(s)
+        if not m:
+            return s
+        ret = s[:m.start()]
+        m_str = m.group()
+        backslash = False
+        while m_str[0] == "\\":
+            m_str = m_str[1:]
+            if backslash:
+                ret += "\\\\"
+                backslash = False
+            else:
+                backslash = True
+
+        if backslash:
+            return ret + m_str + self.expand(s[m.end():])
+
+        m_str = m_str[1:-1]
+        if m_str.startswith("$"):
+            ret += os.getenv(m_str[1:], "")
+        else:
+            ret += str(self.value_of(m_str))
+        e = m.end()
+        s2 = s[e:]
+        ret += s2
+        return self.expand(ret)
+
+
+#  Read the last n lines of a text file. Allows at most max_bytes to be read.
+#  this isn't very efficient for large files if max_bytes value is big, but
+#  it's intended for small text content.
+def text_file_tail(file_path: str, n_lines: int = 30, max_bytes=4096) -> str:
+    if n_lines <= 0 or max_bytes <= 0:
+        raise ValueError("Invalid n_lines or max_bytes")
+
+    file_size = os.path.getsize(file_path)
+    with open(file_path, 'rb') as f:
+        if file_size < max_bytes:
+            f.seek(0)
+            content: bytes = f.read()
+        else:
+            f.seek(-max_bytes, 2)
+            content: bytes = f.read()
+
+    new_line = b'\r\n' if in_windows() else b'\n'
+    new_line_len = len(new_line)
+
+    #  Find the n_line'th occurrence of '\n' from the end
+    pos = len(content) - 1
+    for _ in range(n_lines):
+        pos = content.rfind(new_line, 0, pos)
+        if pos == -1:  # Less than n_lines, return everything
+            return content.decode('utf-8')
+    return content[pos + new_line_len:].decode('utf-8')
+
+
+class NonEmptyStr(RootModel):
+    root: str = Field(..., min_length=1)
+
+
+class VarDef(RootModel):
+    root: dict[NonEmptyStr, str] = Field(..., min_length=1, max_length=1)
+
+
+def pydantic_errmsg(ve: ValidationError) -> str:
+    errs = []
+    for e in ve.errors():
+        try:
+            loc_len = len(e["loc"])
+            loc = ""
+            if loc_len > 0:
+                if loc_len == 1 and isinstance(e["loc"][0], int):
+                    token = e["loc"][0]
+                    loc = f"index {token}"
+                else:
+                    loc = "/".join(str(i) for i in e["loc"])
+                loc = f"'{loc}': "
+            errs.append(f"{loc}{e['msg']}")
+        except Exception:
+            errs.append(str(e))
+    return "\n".join(errs)
+
+
+def yes_no_str(value: bool) -> str:
+    return "Yes" if value else "No"
+
+
+def in_windows() -> bool:
+    return os.name == "nt"
+
+
+def platform_path(path: str) -> str:
+    if in_windows():
+        return PureWindowsPath(path).as_posix()
+    return path
+
+
+#  Return a list of values found by the JSONPath expression
+def json_values(obj: dict, path: str) -> list[Any]:
+    try:
+        expr = parse_ext(path)
+        return [match.value for match in expr.find(obj)]
+    except JsonPathParserError as e:
+        raise XeetException(f"Invalid JSONPath expression: {path} - {e}")
+
+
+#  Return the first value found by the JSONPath expression. If no value is found, return None
+#  If multiple values are found, raise an exception
+def json_value(obj: dict, path: str) -> tuple[Any, bool]:
+    values = json_values(obj, path)
+    if len(values) == 0:
+        return None, False
+    if len(values) > 1:
+        raise XeetException(f"Multiple values found for JSONPath expression: {path}")
+    return values[0], True
+
+
+def short_str(s: str, max_len: int) -> str:
+    if len(s) <= max_len:
         return s
+    return s[:max_len - 3] + "..."
 
 
-def parse_assignment_str(s: str) -> Tuple[str, str]:
-    parts = s.split('=', maxsplit=1)
-    if len(parts) == 1:
-        return s, ""
-    return parts[0], parts[1]
+class FileTailer:
+    def __init__(self, file_path: str, poll_interval: float = 0.05, pr_func: Callable = print
+                 ) -> None:
+        self.file_path = file_path
+        self.poll_interval = poll_interval
+        self.stop_event = threading.Event()
+        self.kill_event = threading.Event()
+        self.pr_func = pr_func
+        self.thread = threading.Thread(target=self.go)
 
+    def start(self) -> None:
+        self.thread.start()
 
-def bt() -> None:
-    traceback.print_stack(file=sys.stdout)
+    def go(self) -> None:
+        try:
+            with open(self.file_path, 'r') as file:
+                while True:
+                    if self.kill_event.is_set():
+                        return
+                    if self.stop_event.is_set() and file.tell() >= os.path.getsize(self.file_path):
+                        return
+                    where = file.tell()
+                    line = file.readline()
+                    if line:
+                        self.pr_func(line, end="")
+                    else:
+                        time.sleep(self.poll_interval)
+                        file.seek(where)  # Reset file pointer if no new data
+        except Exception as e:
+            self.pr_func(f"Error tailing file: {e}")
 
-
-def print_dict(d: dict) -> None:
-    print(json.dumps(d, indent=4))
-
-
-def text_file_head(file_path: str, lines: int = 5) -> str:
-    ret = ""
-    try:
-        with open(file_path, 'r') as f:
-            for _ in range(lines):
-                line = f.readline()
-                if not line:
-                    break
-                ret += line
-    except OSError:
-        pass
-    return ret.rstrip("\n")
-
-def text_file_tail(file_path: str, lines: int = 5) -> str:
-    ret = ""
-    try:
-        with open(file_path, 'r') as f:
-            f.seek(0, os.SEEK_END)
-            f.seek(f.tell() - 1, os.SEEK_SET)
-            if f.read(1) == '\n':
-                f.seek(f.tell() - 1, os.SEEK_SET)
-            for _ in range(lines):
-                line = f.readline()
-                ret += line
-    except OSError:
-        pass
-    return ret.rstrip("\n")
+    def stop(self, kill: bool = False) -> None:
+        self.stop_event.set()
+        if kill:
+            self.kill_event.set()
+        if self.thread.is_alive():
+            self.thread.join()
