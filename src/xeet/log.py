@@ -1,31 +1,22 @@
-from xeet.pr import pr_err, pr_warn, pr_info, pr_verbose
-from xeet import xeet_version
+from xeet.pr import pr_warn, pr_error, pr_info, pr_header, pr_ok
 import logging
 import datetime
 import inspect
-from os.path import basename
-from typing import Callable, Tuple
 import os
+import sys
 
 
 __logger = None
 
-INFO = logging.INFO
-WARN = logging.WARN
-ERROR = logging.ERROR
-VERBOSE = logging.DEBUG
 
-
-def _frame_str(extra_frames: int = 0) -> str:
-    frame = inspect.stack()[4 + extra_frames]
-    return f"[{basename(frame.filename)}:{frame.lineno}] {frame.function}".ljust(38, '.')
-
-
-class _XeetLogging(object):
-    def __init__(self, log_file: str, log_level: int) -> None:
-        self._logger = logging.getLogger()
+class VrdLogger(object):
+    def __init__(self, log_file: str, log_level: int, logger_name=None) -> None:
+        if logger_name is None:
+            logger_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        self._logger = logging.getLogger(logger_name)
         self._raw_formatter = logging.Formatter('%(message)s')
-        self._default_formatter = logging.Formatter('%(levelname).1s %(message)s')
+        self._default_formatter = logging.Formatter('%(asctime)s %(levelname).1s %(message)s',
+                                                    "%H:%M:%S")
         self._file_handler = logging.FileHandler(log_file, encoding='utf-8')
         self._file_handler.setFormatter(self._default_formatter)
         self._file_handler.setLevel(log_level)
@@ -44,27 +35,52 @@ class _XeetLogging(object):
     def is_enabled_for(self, level: int) -> bool:
         return self._logger.isEnabledFor(level)
 
-    def log(self, verbosity, msg, extra_frames: int = 0) -> None:
-        if not self.raw_format:
-            frame_str = _frame_str(extra_frames=extra_frames)
+    @staticmethod
+    def _frame_str(depth: int = 0) -> str:
+        try:
+            frame = inspect.stack()[3 + depth]
+        except IndexError:
+            return "<unknown> "
+        return f"[{os.path.basename(frame.filename)[:-3]}.{frame.function}:{frame.lineno}]"
+
+    def log(self, verbosity: int, *args, depth: int = 0) -> None:
+        if not self._logger.isEnabledFor(verbosity):
+            return
+        if self.raw_format:
+            self._logger.log(verbosity, args[0], *args[1:])
         else:
-            frame_str = ""
-        self._logger.log(verbosity, frame_str + msg)
+            msg = self._frame_str(depth).ljust(33, ".") + " ".join([str(x) for x in args])
+            self._logger.log(verbosity, msg)
 
 
 def start_raw_logging() -> None:
+    global __logger
     if __logger is None:
         return
     __logger.set_raw_format()
 
 
 def stop_raw_logging() -> None:
+    global __logger
     if __logger is None:
         return
     __logger.set_default_format()
 
 
+def log_raw(msg, pr: bool = False) -> None:
+    if pr:
+        print(msg)
+
+    global __logger
+    if __logger is None:
+        return
+    __logger.set_raw_format()
+    __logger.log(logging.INFO, msg)
+    __logger.set_default_format()
+
+
 def log_blank(count=1) -> None:
+    global __logger
     if __logger is None:
         return
     __logger.set_raw_format()
@@ -73,58 +89,72 @@ def log_blank(count=1) -> None:
     __logger.set_default_format()
 
 
-def init_logging(log_file: str, logfile_verbosity: int) -> Tuple[bool, str]:
+def init_logging(title, log_file_path, verbose: bool) -> None:
     global __logger
     assert __logger is None
-    if not log_file:
-        return True, ""
-    log_dir = os.path.dirname(log_file)
-    if log_dir:
+
+    log_dir = os.path.dirname(log_file_path)
+    if log_dir and not os.path.exists(log_dir):
         try:
-            if not os.path.exists(log_dir):
-                os.makedirs(log_dir)
-        except OSError:
-            return False, f"Unable to create log directory: {log_dir}"
-    if os.path.exists(log_file) and not os.path.isfile(log_file):
-        return False, f"Log file exists but not a file: {log_file}"
-    __logger = _XeetLogging(log_file, logging.INFO if logfile_verbosity == 0 else logging.DEBUG)
+            os.makedirs(log_dir)
+        except OSError as e:
+            pr_warn(f"Error creating log directory - {e}")
+            pr_warn("Logging is disabled")
+            return
+    if os.path.exists(log_file_path) and not os.path.isfile(log_file_path):
+        pr_warn(f"Log file path '{log_file_path}' is not a file")
+        pr_warn("Logging is disabled")
+        return
+    try:
+        verbosity = logging.DEBUG if verbose else logging.INFO
+        __logger = VrdLogger(log_file_path, verbosity, logger_name="xeet")
+    except OSError as e:
+        pr_warn(f"Error initializing log file - {e}")
+        pr_warn("Logging is disabled")
+        return
     log_blank(2)
-    __logger.set_raw_format()
     date_str = datetime.datetime.now().strftime("%I:%M:%S on %B %d, %Y")
-    log_info("======================================================================")
-    log_info(f"Xeet v{xeet_version}, {date_str}")
-    log_info("======================================================================")
+    header_title = f"{title}, {date_str}"
+    wrap_line = "=" * len(header_title)
+    __logger.set_raw_format()
+    log_info(f"{wrap_line}\n{header_title}\n{wrap_line}", pr=False)
     __logger.set_default_format()
-    return True, ""
+    log_info(f"Log file path is '{log_file_path}'", pr=False)
+    return log_file_path
 
 
-def logging_enabled_for(level: int) -> bool:
+#  Return true if logging is enabled. If the optional level arguemt is used, will return true if
+#  logging is enabled to this parricular log level
+def logging_enabled(level: int = logging.NOTSET) -> bool:
+    global __logger
     if not __logger:
         return False
+    if level == logging.NOTSET:
+        return True
     return __logger.is_enabled_for(level)
 
 
-def gen_log_func(verbosity: int, pr_func: Callable) -> Callable:
-    def _log_func(*args, **kwargs) -> None:
-        extra_frames = kwargs.pop('extra_frames', 0)
-        if kwargs.pop('pr', False):
+def _create_log_func(log_level, default_pr_func):
+    def log_func(*args, **kwargs):
+        depth = kwargs.pop("depth", 0)
+        pr_func = kwargs.pop("pr", default_pr_func)
+        pr_prefix = kwargs.pop("pr_prefix", None)
+        pr_suffix = kwargs.pop("pr_suffix", None)
+        pr_cond = kwargs.pop("pr_cond", True)
+        if __logger:
+            __logger.log(log_level, *args, depth=depth)
+        if pr_func and pr_cond:
+            if pr_prefix is not None:
+                pr_func(pr_prefix, end="")
             pr_func(*args, **kwargs)
-        if __logger is None:
-            return
-        msg = " ".join([str(x) for x in args])
-        __logger.log(verbosity, msg, extra_frames=extra_frames)
-    return _log_func
+            if pr_suffix is not None:
+                pr_func(pr_suffix, end="")
+    return log_func
 
 
-log_verbose = gen_log_func(logging.DEBUG, pr_verbose)
-log_info = gen_log_func(logging.INFO, pr_info)
-log_warn = gen_log_func(logging.WARN, pr_warn)
-log_error = gen_log_func(logging.ERROR, pr_err)
-
-
-def log_raw(*args, **kwargs) -> None:
-    if __logger is None:
-        return
-    __logger.set_raw_format()
-    log_info(*args, **kwargs)
-    __logger.set_default_format()
+log_verbose = _create_log_func(logging.DEBUG, None)
+log_info = _create_log_func(logging.INFO, None)
+log_warn = _create_log_func(logging.WARN, pr_warn)
+log_error = _create_log_func(logging.ERROR, pr_error)
+log_ok = _create_log_func(logging.INFO, pr_ok)
+log_header = _create_log_func(logging.INFO, pr_header)
