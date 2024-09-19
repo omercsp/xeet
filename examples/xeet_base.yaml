@@ -1,0 +1,24 @@
+variables:
+  scripts_dir: '{XG_ROOT}/../scripts/testing'
+  echo: 'python {scripts_dir}/echo.py'
+  rc_cmd: 'python {scripts_dir}/rc.py'
+  true_cmd: '{rc_cmd} 0'
+  false_cmd: '{rc_cmd} 1'
+  sleep_cmd: 'python {scripts_dir}/sleep.py'
+  rand_rc_cmd: 'python {scripts_dir}/rc.py'
+  echo_cmd: 'python {scripts_dir}/echo.py'
+  pwd_cmd: 'python {scripts_dir}/pwd.py'
+  showenv_cmd: 'python {scripts_dir}/showenv.py'
+settings:
+  xeet:
+    default_step_type: exec
+  common_steps:
+    "_true":
+      type: exec
+      cmd: '{rc_cmd} 0'
+    "_false":
+      type: exec
+      cmd: '{rc_cmd} 1'
+    "hello":
+      type: exec
+      cmd: "{echo} 'Hello World!'"
