@@ -1,6 +1,8 @@
 from xeet.common import print_dict
 import jsonschema
 from typing import Optional
+#  from pydantic import BaseModel, ConfigDict, Field, RootModel
+#  from enum import Enum
 
 
 def _validate_json_schema(data: dict, schema: dict) -> Optional[str]:
@@ -47,6 +49,21 @@ _CONFIG_SCHEMA = {
     }
 }
 
+#  class _NonEmptyStr(RootModel):
+#      __root__: str = Field(..., min_length=1)
+
+#  class _VarDef(RootModel):
+#      __root__: dict[str, str] = Field(..., min_length=1, max_length=1)
+
+#  #  _CONFIG_SCHAMA as pydantic model
+#  class ConfigModel(BaseModel):
+#      model_config = ConfigDict(extra='forbid')
+#      json_schema: str | None = Field(None, alias="$schema")
+#      include: list[_NonEmptyStr] | None = Field(None, alias="include")
+#      tests: list[dict] | None = Field(None)
+#      variables: dict[str, str] | None = Field(None)
+#      default_shell_path: str | None = Field(None, alias="default_shell_path", min_length=1)
+
 
 def validate_config_schema(config):
     return _validate_json_schema(config, _CONFIG_SCHEMA)
@@ -91,6 +108,7 @@ _COMMAND_SCHEMA = {
         {"type": "array", "items": {"type": "string", "minLength": 1}}
     ]
 }
+
 
 _ENV_SCHEMA = {
     "type": "object",
@@ -149,6 +167,42 @@ _XTEST_SCHEMA = {
     "additionalProperties": False,
     "required": [NAME]
 }
+
+#  class _OutputBehavior(str, Enum):
+#      Unify = "unify"
+#      Split = "split"
+
+
+#  class _XtestModel(BaseModel):
+#      name: _NonEmptyStr
+#      base: _NonEmptyStr | None = None
+#      short_desc: str = Field("", max_length=75)
+#      long_desc: str = ""
+#      groups: list[_NonEmptyStr] = []
+#      test_cmd: _NonEmptyStr | list[_NonEmptyStr]
+#      allowed_return_codes: list[int] = [0]
+#      timeout: int
+#      pre_test_cmd: str | list[str] = ""
+#      pre_test_cmd_shell: bool = False
+#      post_test_cmd: str | list[str] = ""
+#      post_test_cmd_shell: bool = False
+#      verify_cmd: str | list[str] = ""
+#      verify_cmd_shell: bool = False
+#      expected_failure: bool = False
+#      output_behavior: _OutputBehavior = _OutputBehavior.Unify
+#      cwd: str = Field(..., min_length=1)
+#      shell: bool
+#      shell_path: str = Field(..., min_length=1)
+#      env: dict[str, str]
+#      env_file: str = Field(..., min_length=1)
+#      inherit_os_env: bool = False
+#      inherit_env: bool = False
+#      abstract: bool = False
+#      skip: bool = False
+#      skip_reason: str
+#      variables: dict[str, str]
+#      inherit_variables: bool = False
+#      inherit_groups: bool = False
 
 
 def validate_xtest_schema(xtest):

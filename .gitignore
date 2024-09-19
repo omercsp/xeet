@@ -12,6 +12,8 @@ _version.py
 .tasks.yaml
 tasks.json
 tasks.yaml
+.session.vim
+sandbox/
 
 # Virtual Environments
 .env/
