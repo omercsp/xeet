@@ -15,6 +15,8 @@
 - Add save results to file option
 -- Add compare with last run time support
 -- Add run only last failed tests
-- Add log retention policy option (number of runs to keep)
+-- Add log retention policy option (number of runs to keep)
+- Add YAML support
 - Add test CLI editor
 - Add test rename capability (should rename result file as well)
+- Add pre/post suite execution commands
