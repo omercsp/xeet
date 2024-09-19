@@ -1,20 +1,34 @@
+# Ongoing
+- Info command
+- Arrange common code
+
+# Missing features
+- Add coverage testing (UT + test)
+- Platform specific support
+- Exec step: save diff file
+- Allow a test to be excluded from an 'all' run
+- Implicit test names filtering
 - Add variable matrix support
-- Validate multi configuration files support
 - Add colored log support
-- Improve logging: time stamp
 - Add quiet mode 1 - no unrelated test output (splash and so)
 - Add quiet mode 2 - no output at all but errors
 - Add quiet mode 3 - no output at all
 - Add parallel execution
 - Add test randomization
-- Add empty output option
 - Add auto variables: output file(s), RC, diff file, expected output file
-- Separate test excution and test print outs - preperation for server mode
 - Add server mode
 - Add time output
 - Add save results to file option
 -- Add compare with last run time support
 -- Add run only last failed tests
-- Add log retention policy option (number of runs to keep)
+-- Add log retention policy option (number of runs to keep)
 - Add test CLI editor
 - Add test rename capability (should rename result file as well)
+- Add pre/post suite execution commands
+- Add skip test command (should be able to skip a test based on a condition)
+- Seperate test running from UI (CLI) and infra. The latter should be able to run for other clients, hence
+  it should yield the results in a format that can be consumed by the client.
+- Migrate all the testing components to be plugin based (pre-test, test, verify, post-test)
+- Add multiple iterarion test
+- Add option to stop on first failure
+- Add option to create test sequences, not necessarily from the same group, outside of test defintions
