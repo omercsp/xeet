@@ -1,0 +1,6 @@
+Test name: 014_show_auto_vars_internal
+Test output dir: /home/omer/devel/xeet/tests/00_sanity/xeet.out/014_show_auto_vars_internal
+Test stdout: /home/omer/devel/xeet/tests/00_sanity/xeet.out/014_show_auto_vars_internal/stdout
+Test stderr: /home/omer/devel/xeet/tests/00_sanity/xeet.out/014_show_auto_vars_internal/stderr
+Xeet root: /home/omer/devel/xeet/tests/00_sanity
+Xeet output dir: /home/omer/devel/xeet/tests/00_sanity/xeet.out
