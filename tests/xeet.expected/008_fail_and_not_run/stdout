@@ -1,15 +1,15 @@
 Starting run
-Running tests: 002_fail, 004_bad_desc
+------------
+Running tests: 004_fail_over_rc, 008_bad_desc
 
-002_fail                                                     ....... [Failed ] rc=1, allowed=0
-stdout file: xeet.out/002_fail/stdout (empty)
-stderr file: xeet.out/002_fail/stderr (empty)
+004_fail_over_rc                                             ....... [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
 
-004_bad_desc                                                 ....... [Not Run]
-Schema validation error: Additional properties are not allowed ('blat' was unexpected)
+008_bad_desc                                                 ....... [Run error] Initialization error
+'bad_setting': Extra inputs are not permitted
 
 
-Finished iteration (#0/0)
-Failed: 002_fail
-Not ran: 004_bad_desc
+Initialization error: 008_bad_desc
+Failed: 004_fail_over_rc
 
