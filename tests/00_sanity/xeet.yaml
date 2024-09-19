@@ -1,0 +1,94 @@
+variables:
+  scripts_dir: '{XEET_ROOT}/../../scripts/testing'
+  echo: 'python {scripts_dir}/echo.py'
+  false_cmd: 'python {scripts_dir}/rc.py 1'
+settings:
+  common_steps:
+    - &base_step
+      type: dummy
+      return_value: "something"
+    - &incomplete_step
+      type: dummy
+      completed: false
+    - &failing_step
+      type: dummy
+      fail: true
+tests:
+  - name: 001_pass
+    run:
+      - <<: *base_step
+    groups: [passing]
+  - name: 002_fail
+    run:
+      - <<: *failing_step
+    groups: [failing]
+  - name: 002_incomplete
+    run:
+      - <<: *incomplete_step
+    groups: [not_run]
+
+  - name: 003_two_steps
+    run:
+      - <<: *base_step
+      - <<: *base_step
+    groups: [passing]
+
+  - name: 004_two_steps_fail
+    run:
+      - <<: *base_step
+      - <<: *failing_step
+    groups: [passing]
+
+  - name: 005_two_steps_incomplete
+    run:
+      - <<: *base_step
+      - <<: *incomplete_step
+    groups: [not_run]
+
+  - name: 006_pre_run_pass
+    pre_run:
+      - <<: *base_step
+    run:
+      - <<: *base_step
+    groups: [passing]
+
+  - name: 007_pre_run_fail
+    pre_run:
+      - <<: *failing_step
+    run:
+      - <<: *base_step
+    groups: [not_run]
+
+  - name: 008_post_run_pass
+    run:
+      - <<: *base_step
+    post_run:
+      - <<: *base_step
+    groups: [passing]
+
+  - name: 009_post_run_fail
+    run:
+      - <<: *base_step
+    post_run:
+      - <<: *failing_step
+    groups: [passing]
+
+  - name: 010_pre_run_fail_post_run_fail
+    pre_run:
+      - <<: *failing_step
+    run:
+      - <<: *base_step
+    post_run:
+      - <<: *failing_step
+    groups: [not_run]
+
+  - name: 011_expected_failure
+    run:
+      - <<: *failing_step
+    expected_failure: true
+    groups: [passing]
+  - name: 012
+    run:
+      - <<: *base_step
+    expected_failure: true
+    groups: [failing]
