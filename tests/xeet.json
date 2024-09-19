@@ -2,14 +2,19 @@
 	"variables":{
 		"base_cmd": "{{XEET_ROOT}}/runtests_internal.sh",
 		"run_cmd": "{{base_cmd}} run",
-		"sanity_cmd": "{{run_cmd}} -c 00_sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"output_test_cmd": "{{run_cmd}} -c 01_output/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"list_cmd": "{{base_cmd}} list -c 03_list_and_info/xeet.json"
+		"sanity_cmd": "{{run_cmd}} -c 00_sanity/xeet.yaml --log-file=/tmp/xeet_sanity.log",
+		"list_cmd": "{{base_cmd}} list -c 03_list_and_info/xeet.yaml"
 	},
 	"tests": [
 		{
 			"name": "test_base",
 			"cwd": "{{XEET_ROOT}}",
+			"env": {
+				"XEET_ROOT": "{{XEET_ROOT}}",
+				"TEST_NAME": "{{XEET_TEST_NAME}}",
+				"XEET_DEBUG": "{{XEET_TEST_DEBUG}}",
+				"TEST_OUTPUT_DIR": "{{XEET_TEST_OUTPUT_DIR}}"
+			},
 			"verify_cmd": "scripts/dflt_output_compare.sh",
 			"abstract": true
 		},
@@ -18,11 +23,11 @@
 			"base": "test_base",
 			"short_desc": "Test sanity for development code",
 			"test_cmd": "{{sanity_cmd}}",
-			"allowed_return_codes": [1],
+			"allowed_return_codes": [0],
 			"groups": ["sanity", "multi", "failing"]
 		},
 		{
-			"name": "002_single-test-pass",
+			"name": "002_single_test_pass",
 			"base": "test_base",
 			"short_desc": "Test single group,passing",
 			"test_cmd": "{{sanity_cmd}} -t 001_pass",
@@ -30,33 +35,30 @@
 		},
 		{
 			"base": "test_base",
-			"name": "003_single-test-fail",
+			"name": "003_single_test_fail",
 			"short_desc": "Test single group,passing",
-			"test_cmd": "{{sanity_cmd}} -t 002_fail",
-			"allowed_return_codes": [1],
+			"test_cmd": "{{sanity_cmd}} -t 002b_fail_output_compare",
 			"groups": ["sanity", "single", "failing"]
 		},
 		{
-			"name": "004_single-group-passing",
+			"name": "004_single_group_passing",
 			"base": "test_base",
 			"short_desc": "Test single group,passing",
 			"test_cmd": "{{sanity_cmd}} -g passing",
 			"groups": ["sanity", "group", "passing"]
 		},
 		{
-			"name": "005_single-group-not-run",
+			"name": "005_single_group_not_run",
 			"base": "test_base",
 			"short_desc": "Test single group, not running",
 			"test_cmd": "{{sanity_cmd}} -g not_run",
-			"allowed_return_codes": [1],
 			"groups": ["sanity", "group", "not-run"]
 		},
 		{
-			"name": "006_single-group-failing",
+			"name": "006_single_group_failing",
 			"base": "test_base",
 			"short_desc": "Test single group, failing",
 			"test_cmd": "{{sanity_cmd}} -g failing",
-			"allowed_return_codes": [1],
 			"groups": ["sanity", "group"]
 		},
 		{
@@ -69,34 +71,23 @@
 		{
 			"name": "008_fail_and_not_run",
 			"base": "test_base",
-			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
-			"test_cmd": "{{sanity_cmd}} -t 002_fail -t 004_bad_desc",
-			"allowed_return_codes": [1],
+			"short_desc": "Two tests, 1st should fail, 2nd shouldn't run",
+			"test_cmd": "{{sanity_cmd}} -t 002a_fail_rc -t 004_bad_desc",
 			"groups": ["sanity", "group"]
 		},
 		{
 			"name": "009_pass_and_not_run_groups",
 			"base": "test_base",
-			"short_desc": "Two tests, 1st should pass, 2nd should be skipped",
 			"test_cmd": "{{sanity_cmd}} -g passing -g not_run",
-			"allowed_return_codes": [1],
 			"groups": ["sanity", "group"]
 		},
 		{
 			"name": "050_environment_tests",
 			"base": "test_base",
 			"short_desc": "Test environment variables behaviour",
-			"test_cmd": "{{run_cmd}} -c 02_env/xeet.json",
+			"test_cmd": "{{run_cmd}} -c 02_env/xeet.yaml",
 			"verify_cmd": "scripts/filtered_path_output_compare.sh",
-			"allowed_return_codes": [1],
 			"groups": ["env"]
-		},
-		{
-			"name": "100_output_passing",
-			"base": "test_base",
-			"short_desc": "Test output behaviour, passing",
-			"test_cmd": "{{output_test_cmd}} -g passing",
-			"groups": ["output", "group"]
 		},
 		{
 			"name": "200_list_tests",

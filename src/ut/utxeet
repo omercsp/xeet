@@ -1,0 +1,31 @@
+#!/bin/bash
+UT_DIR=$(dirname -- $( readlink -f -- "$0";  ))
+XEET_DIR=${UT_DIR}/../..
+VENV_ACTIVATION_FILE=${XEET_DIR}/.venv/bin/activate
+
+if [[ -z ${VIRTUAL_ENV} ]]; then
+    if [[ -f ${VENV_ACTIVATION_FILE} ]]; then
+            source ${VENV_ACTIVATION_FILE}
+    else
+            echo "Warning: no virtual environment detected"
+    fi
+fi
+
+tests="$*"
+
+# -v flag shows verbose output
+# -f flag stops on first failure
+# python -X tracemalloc=25 -m unittest ${tests} -v -f
+if [[ -z ${tests} ]]; then
+    python -m unittest discover . -v -f
+    # python -m unittest discover tools -v -f
+    # python -m unittest discover expressions -v -f
+else
+    #  IF tests is one word, and it's a directory, then we need to add discover
+    if [[ -d ${tests} ]]; then
+        tests="discover ${tests}"
+    fi
+    python -m unittest ${tests} -v -f
+fi
+
+
