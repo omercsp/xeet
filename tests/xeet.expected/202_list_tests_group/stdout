@@ -1,4 +1,8 @@
 Name                                      Description
 ----                                      -----------
-Test_A                                    Test A short description
-Test_B                                    Test B short description
+008_bad_desc                              <error: 'bad_setting': Extra inputs are not permitted>
+011_bad_cmd                               test with a bad command (not run)
+010_timeout_fail                          timeout test
+016_not_run_pre_test_fail                 Test with failing pre-run command (not run)
+021_inherit_abstract_pre_run_bad          Bad pre-run command (not run)
+022_inherit_abstract_pre_run_bad_add_...  Append to inherited pre-run command (not run)
