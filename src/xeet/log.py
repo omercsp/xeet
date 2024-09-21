@@ -1,4 +1,5 @@
 from xeet.pr import pr_err, pr_warn, pr_info, pr_verbose
+from xeet import xeet_version
 import logging
 import datetime
 import inspect
@@ -89,8 +90,9 @@ def init_logging(log_file: str, logfile_verbosity: int) -> Tuple[bool, str]:
     __logger = _XeetLogging(log_file, logging.INFO if logfile_verbosity == 0 else logging.DEBUG)
     log_blank(2)
     __logger.set_raw_format()
+    date_str = datetime.datetime.now().strftime("%I:%M:%S on %B %d, %Y")
     log_info("======================================================================")
-    log_info("Xeet: {}".format(datetime.datetime.now().strftime("%I:%M:%S on %B %d, %Y")))
+    log_info(f"Xeet v{xeet_version}, {date_str}")
     log_info("======================================================================")
     __logger.set_default_format()
     return True, ""
