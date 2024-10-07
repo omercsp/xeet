@@ -48,9 +48,21 @@ def dict_value(d: dict, path: str, require=False, default=None) -> Any:
 _global_xvars: "_XeetVarsBase" = None  # type: ignore
 
 
+class XeetNoSuchVarException(XeetException):
+    ...
+
+
+class XeetRecursiveVarException(XeetException):
+    ...
+
+
+class XeetBadVarNameException(XeetException):
+    ...
+
+
 class XeetVars:
     _SYSVAR_PREFIX = "XEET"
-    _var_re = re.compile(r'{\S*?}')
+    _var_re = re.compile(r'\\*{[a-zA-Z_][a-zA-Z0-9_]*?}')
     _var_name_re = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
     def __init__(self, start_vars: dict | None = None,
@@ -63,19 +75,19 @@ class XeetVars:
         if start_sys_vars:
             self.set_vars(start_sys_vars, True)
 
-    def __getitem__(self, name: str) -> Any:
+    def __getitem__(self, name: str) -> str:
         try:
             return self.vars_map[name]
         except KeyError:
-            raise XeetException(f"Var '{name}' not found")
+            raise XeetNoSuchVarException(f"Var '{name}' not found")
 
     def _set_var(self, name: str, value: Any, system: bool = False) -> None:
         if not self._var_name_re.match(name):
-            raise XeetException(f"Invalid variable name '{name}'")
+            raise XeetBadVarNameException(f"Invalid variable name '{name}'")
         if name.startswith(self._SYSVAR_PREFIX):
-            raise XeetException((f"Invalid variable name '{name}'. "
-                                 f"Variables prefixed with '{self._SYSVAR_PREFIX}'"
-                                 " are reserved for system use"))
+            raise XeetBadVarNameException((f"Invalid variable name '{name}'. "
+                                           f"Variables prefixed with '{self._SYSVAR_PREFIX}'"
+                                           " are reserved for system use"))
         if system:
             name = f"{self._SYSVAR_PREFIX}_{name}"
         self.vars_map[name] = value
@@ -94,32 +106,38 @@ class XeetVars:
 
     @cache
     def expand(self, s: str) -> str:
+        try:
+            return self._expand(s)
+        except RecursionError:
+            raise XeetRecursiveVarException("Recursive var expansion for '{s}'")
+
+    def _expand(self, s: str) -> str:
         if not s:
             return s
-        return self._StrExpander(self).expand(s)
-
-    class _StrExpander(object):
-        def __init__(self, xvars: "XeetVars") -> None:
-            self.vars = xvars
-            self.expansion_stack = []
-
-        def expand(self, s: str) -> str:
-            return re.sub(XeetVars._var_re, self._expand_re, s)
-
-        def _expand_re(self, match) -> str:
-            var = match.group()[1:-1]
-            if var in self.expansion_stack:
-                raise XeetException(f"Recursive expanded var '{var}'")
-            if var.startswith("$"):
-                return os.getenv(var[1:], "")
-            value = self.vars[var]
-            #  if type(value) is list or type(value) is dict:
-            #      raise XeetException(f"Var expanded path '{var}'
-            #  doesn't refer to valid type")
-            self.expansion_stack.append(var)
-            s = re.sub(XeetVars._var_re, self._expand_re, str(value))
-            self.expansion_stack.pop()
+        m = XeetVars._var_re.search(s)
+        if not m:
             return s
+        ret = s[:m.start()]
+        m_str = m.group()
+        backslash = False
+        while m_str[0] == "\\":
+            m_str = m_str[1:]
+            if backslash:
+                ret += "\\\\"
+                backslash = False
+            else:
+                backslash = True
+
+        if backslash:
+            return ret + m_str + self.expand(s[m.end():])
+
+        m_str = m_str[1:-1]
+        if m_str.startswith("$"):
+            ret += os.getenv(m_str[1:], "")
+        else:
+            ret += self[m_str]
+        ret += s[m.end():]
+        return self.expand(ret)
 
 
 _global_xvars = XeetVars()

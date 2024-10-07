@@ -2,9 +2,9 @@
 	"variables":{
 		"base_cmd": "{{XEET_ROOT}}/runtests_internal.sh",
 		"run_cmd": "{{base_cmd}} run",
-		"sanity_cmd": "{{run_cmd}} -c 00_sanity/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"output_test_cmd": "{{run_cmd}} -c 01_output/xeet.json --log-file=/tmp/xeet_sanity.log",
-		"list_cmd": "{{base_cmd}} list -c 03_list_and_info/xeet.json"
+		"sanity_cmd": "{{run_cmd}} -c 00_sanity/xeet.yaml --log-file=/tmp/xeet_sanity.log",
+		"output_test_cmd": "{{run_cmd}} -c 01_output/xeet.yaml --log-file=/tmp/xeet_sanity.log",
+		"list_cmd": "{{base_cmd}} list -c 03_list_and_info/xeet.yaml"
 	},
 	"tests": [
 		{

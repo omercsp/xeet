@@ -77,7 +77,7 @@ tests:
       - failing
   - name: 013_multi_rc_passing
     short_desc: Multiple return codes, shoudld pass
-    cmd: 'rc=$(( ${{RANDOM}} % 5 + 1 )); echo ''return code: ${{rc}}''; exit ${{rc}}'
+    cmd: 'rc=$(( $\{RANDOM} % 5 + 1 )); echo ''return code: $\{rc}''; exit $\{rc}\'
     shell: true
     allowed_return_codes: [1, 2, 3, 4, 5]
     groups:
@@ -155,7 +155,7 @@ tests:
   - name: 022_post_test_fail_output
     short_desc: Test with invalid post-test command and output
     base: 015a_pre_test_ok
-    post_test_cmd_shell: true
+    post_test_shell: true
     post_cmd: echo failing post test output; false
     groups:
       - passing

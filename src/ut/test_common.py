@@ -1,5 +1,6 @@
 from ut import unittest
-from xeet.common import text_file_tail, XeetException, XeetVars
+from xeet.common import (text_file_tail, XeetException, XeetVars, XeetNoSuchVarException,
+                         XeetRecursiveVarException, XeetBadVarNameException)
 import tempfile
 import os
 
@@ -54,7 +55,7 @@ class TestCommon(unittest.TestCase):
         self.assertEqual(xvars.expand("_{var1}_"), "_value1_")
         self.assertEqual(xvars.expand("{var1}_{var2}"), "value1_value2")
 
-        self.assertRaises(XeetException, xvars.expand, "{var3}")
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, "{var3}")  # unknown var
 
         xvars = XeetVars({
             "var1": "value1",
@@ -76,20 +77,39 @@ class TestCommon(unittest.TestCase):
         xvars = XeetVars({
             "var1": "value1",
         })
-        self.assertRaises(XeetException, xvars.expand, "{{var1}")
-        self.assertRaises(XeetException, xvars.expand, "{{var1}")
-        self.assertRaises(XeetException, xvars.expand, "{{var1}}")
+        self.assertEqual(xvars.expand("{{var1}"), "{value1")
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, "{{var1}}")
         self.assertEqual(xvars.expand("{var1}}"), "value1}")
         self.assertEqual(xvars.expand("{var1}}"), "value1}")
         self.assertEqual(xvars.expand("{var1}}"), "value1}")
 
-        self.assertRaises(XeetException, xvars.set_vars, {"bad name": "value"})
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"bad name": "value"})
         xvars = XeetVars({
             "var1": "{var3} value1",
             "var2": "{var1} value2",
             "var3": "{var2} value3",
         })
-        self.assertRaises(XeetException, xvars.expand, "{var3}")  # recursive expansion
+        self.assertRaises(XeetRecursiveVarException, xvars.expand, "{var3}")  # recursive expansion
         self.assertIsNone(xvars.set_vars({"var1": "value1"}))
         self.assertEqual(xvars.expand("{var1}"), "value1")
         self.assertEqual(xvars.expand("{var3}"), "value1 value2 value3")
+
+        self.assertEqual(xvars.expand(r"\{var1}"), "{var1}")
+        self.assertEqual(xvars.expand(r"\\{var1}"), r"\\value1")
+        self.assertEqual(xvars.expand(r"\\\t{var1}"), r"\\\tvalue1")
+        self.assertEqual(xvars.expand(r"\\\t{var1}\\{var1}_\{var1}  \\\\{var2}\\\n{{var1}"),
+                         r"\\\tvalue1\\value1_{var1}  \\\\value1 value2\\\n{value1")
+
+        xvars = XeetVars({
+            "var1": "value1",
+            "var2": "var1",
+        })
+        xvars.expand("{{var2}}")
+        self.assertEqual(xvars.expand("{{var2}}"), "value1")
+
+        xvars = XeetVars({
+            "var1": "value1",
+            "var2": "{var1}",
+        })
+        self.assertEqual(xvars.expand(r"\{{var2}}"), "{value1}")
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, "{{var2}}")
