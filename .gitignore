@@ -14,6 +14,8 @@ tasks.json
 tasks.yaml
 .session.vim
 sandbox/
+src/ut/out/
+src/ut/log/
 
 # Virtual Environments
 .env/

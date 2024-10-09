@@ -6,10 +6,6 @@ import re
 import os
 
 
-XEET_YES_TOKEN = 'yes'
-XEET_NO_TOKEN = 'no'
-
-
 class XeetException(Exception):
     def __init__(self, error: str) -> None:
         self.error = error

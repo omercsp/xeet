@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError, ConfigDict, AliasChoices
 from timeit import default_timer as timer
 from typing import ClassVar
-from enum import auto, StrEnum
+from enum import auto, Enum
 from dataclasses import dataclass, field
 import shlex
 import subprocess
@@ -25,7 +25,7 @@ class XeetRunException(XeetException):
     ...
 
 
-class TestStatus(StrEnum):
+class TestStatus(str, Enum):
     @staticmethod
     def _generate_next_value_(name: str, *_) -> str:  # type: ignore
         if name == "Expected_failure":
@@ -73,7 +73,7 @@ class TestResult:
         return self.post_cmd_rc == 0 or self.post_cmd_rc is None
 
 
-class _OutputBehavior(StrEnum):
+class _OutputBehavior(str, Enum):
     Unify = auto()
     Split = auto()
 

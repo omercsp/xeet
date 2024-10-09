@@ -1,6 +1,6 @@
 tests:
   - name: output_compare
-    verify_cmd: '{XEET_ROOT}/../scripts/dflt_output_compare.sh'
+    verify_cmd: '{XEET_ROOT}/../../../scripts/dflt_output_compare.sh'
     env:
       XEET_ROOT: "{XEET_ROOT}"
       XEET_DEBUG: "{XEET_DEBUG}"
