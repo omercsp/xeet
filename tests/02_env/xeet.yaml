@@ -1,0 +1,28 @@
+tests:
+  - name: compare_output
+    verify_cmd: '{XEET_ROOT}/../scripts/dflt_output_compare.sh'
+    abstract: true
+  - name: 001_env_simple
+    base: compare_output
+    shell: true
+    env:
+      TEST_ENV1: test_env_value1
+      TEST_ENV3: test_env_value3
+    cmd: printenv TEST_ENV1; printenv TEST_ENV2; printenv TEST_ENV3
+  - name: 002_with_file
+    base: compare_output
+    env_file: '{XEET_ROOT}/env_file.json'
+    shell: true
+    cmd: printenv TEST_ENV1; printenv TEST_ENV2
+  - name: 003_with_file_override_by_local
+    base: compare_output
+    env_file: '{XEET_ROOT}/env_file.json'
+    env:
+      TEST_ENV1: test_env1_value_override
+      TEST_ENV3: value3
+    shell: true
+    cmd: printenv TEST_ENV1; printenv TEST_ENV2; printenv TEST_ENV3
+  - name: 004_missing_env_file
+    base: compare_output
+    env_file: '{XEET_ROOT}/not_existing_env_file.json'
+    cmd: printenv TEST_ENV1

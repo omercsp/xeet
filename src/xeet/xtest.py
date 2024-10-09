@@ -109,7 +109,9 @@ class XtestModel(BaseModel):
     env_file: str | None = None
     skip: bool | None = None
     skip_reason: str | None = None
-    var_map: dict[str, str] | None = None
+    var_map: dict[str, str] | None =Field(
+        None, validation_alias=AliasChoices("var_map", "variables", "vars"))
+ 
     use_os_env: bool | None = None
 
     # Inheritance behavior

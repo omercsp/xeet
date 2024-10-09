@@ -144,7 +144,6 @@ def xrun() -> int:
             actions.dump_schema(args.schema)
             return 0
 
-        #  expand = cmd_name == RUN_CMD or (cmd_name == INFO_CMD and args.expand)
         config = read_config_file(args.conf)
         rc = 0
         if cmd_name == _RUN_CMD:

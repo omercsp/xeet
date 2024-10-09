@@ -1,0 +1,38 @@
+Starting run
+Included groups: not_run, passing
+Running tests: 001_pass, 004_bad_desc, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_test_ok, 015b_pre_test_fail, 015d_test_verification_ok, 015e_bad_pre_test_cmd, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
+
+001_pass                                                     ....... [Passed ]
+004_bad_desc                                                 ....... [Not Run]
+Schema validation error: Additional properties are not allowed ('blat' was unexpected)
+
+007 with spaces                                              ....... [Passed ]
+008a_bad_command_not_run                                     ....... [Not Run]
+[Errno 2] No such file or directory: 'no'
+
+008b_inherits_bad_command_to_good                            ....... [Passed ]
+009_env_pass                                                 ....... [Passed ]
+013_multi_rc_passing                                         ....... [Passed ]
+014a_show_auto_vars_internal                                 ....... [Passed ]
+014b_show_auto_vars_env                                      ....... [Passed ]
+015a_pre_test_ok                                             ....... [Passed ]
+015b_pre_test_fail                                           ....... [Not Run] Pre-test failed w/no output
+015d_test_verification_ok                                    ....... [Passed ]
+015e_bad_pre_test_cmd                                        ....... [Not Run] Pre-test run failure
+[Errno 2] No such file or directory: 'does_not_exist'
+
+020_post_test_ok                                             ....... [Passed ]
+021_post_test_fail                                           ....... [Passed ]
+NOTICE: post-test command failed with rc=1
+
+022_post_test_fail_output                                    ....... [Passed ]
+NOTICE: post-test command failed with rc=1
+------Verification run output head------
+failing post test output
+----------------------------------------
+
+
+Finished iteration (#0/0)
+Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014a_show_auto_vars_internal, 014b_show_auto_vars_env, 015a_pre_test_ok, 015d_test_verification_ok, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
+Not ran: 004_bad_desc, 008a_bad_command_not_run, 015b_pre_test_fail, 015e_bad_pre_test_cmd
+

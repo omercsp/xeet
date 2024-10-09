@@ -8,6 +8,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _OUT_DIR = os.path.join(_HERE, "out")
 _EXPECTED_OUTPUT_DIR = os.path.join(_HERE, "expected")
 _LOG_DIR = os.path.join(_HERE, "log")
+_STDOUT_FILENAME = "stdout"
+_STDERR_FILENAME = "stderr"
 
 
 def _file_content(file_path: str) -> str:
@@ -28,32 +30,24 @@ class XeetCmdInfo:
         self.use_log = True
 
     @property
-    def out_file_name(self) -> str:
-        return f"{self.name}.out"
-
-    @property
-    def err_file_name(self) -> str:
-        return f"{self.name}.err"
-
-    @property
     def main_xeet_cmd(self) -> str:
         raise NotImplementedError
 
     @property
     def stdout_path(self) -> str:
-        return os.path.join(_OUT_DIR, self.out_file_name)
+        return os.path.join(_OUT_DIR, self.name, _STDOUT_FILENAME)
 
     @property
     def stderr_path(self) -> str:
-        return os.path.join(_OUT_DIR, self.err_file_name)
+        return os.path.join(_OUT_DIR, self.name, _STDERR_FILENAME)
 
     @property
     def expected_stdout_file(self) -> str:
-        return os.path.join(_EXPECTED_OUTPUT_DIR, self.out_file_name)
+        return os.path.join(_EXPECTED_OUTPUT_DIR, self.name, _STDOUT_FILENAME)
 
     @property
     def expected_stderr_file(self) -> str:
-        return os.path.join(_EXPECTED_OUTPUT_DIR, self.err_file_name)
+        return os.path.join(_EXPECTED_OUTPUT_DIR, self.name, _STDERR_FILENAME)
 
     def filter_output(self, output: str) -> str:
         lines = output.splitlines()
@@ -66,6 +60,8 @@ class XeetCmdInfo:
         if self.use_log:
             cmd += f" --log-file '{os.path.join(_LOG_DIR, self.name)}.log'"
         cmd = shlex.split(cmd)
+        os.makedirs(os.path.dirname(self.stdout_path), exist_ok=True)
+        os.makedirs(os.path.dirname(self.stderr_path), exist_ok=True)
         with open(self.stdout_path, "w") as stdout, open(self.stderr_path, "w") as stderr:
             self.completed_process = subprocess.run(cmd, stdout=stdout, stderr=stderr)
 

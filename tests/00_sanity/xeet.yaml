@@ -85,12 +85,12 @@ tests:
   - name: 014a_show_auto_vars_internal
     short_desc: Test auto variables
     cmd: |-
-      echo -e Test name: {{XEET_TEST_NAME}}
-      echo -e Test output dir: {{XEET_TEST_OUTPUT_DIR}}
-      echo -e Test stdout: {{XEET_TEST_STDOUT}}
-      echo -e Test stderr: {{XEET_TEST_STDERR}}
-      echo -e Xeet root: {{XEET_ROOT}}
-      echo -e Xeet output dir: {{XEET_OUTPUT_DIR}}
+      echo -e Test name: {XEET_TEST_NAME}
+      echo -e Test output dir: {XEET_TEST_OUTPUT_DIR}
+      echo -e Test stdout: {XEET_TEST_STDOUT}
+      echo -e Test stderr: {XEET_TEST_STDERR}
+      echo -e Xeet root: {XEET_ROOT}
+      echo -e Xeet output dir: {XEET_OUTPUT_DIR}
     shell: true
     groups:
       - passing
@@ -109,7 +109,7 @@ tests:
   - name: 015a_pre_test_ok
     short_desc: Test with passing pre-run command
     pre_cmd: "true"
-    cmd: echo {{XEET_TEST_NAME}}
+    cmd: echo {XEET_TEST_NAME}
     groups:
       - passing
   - name: 015b_pre_test_fail
@@ -127,11 +127,11 @@ tests:
   - name: 015d_test_verification_ok
     short_desc: Post command verification check
     variables:
-      output_file: '{{XEET_TEST_OUTPUT_DIR}}/{{XEET_TEST_NAME}}.txt'
-      verification_file: '{{XEET_ROOT}}/aux/{{XEET_TEST_NAME}}.txt'
-    cmd: echo 'Silence is golden' > {{output_file}}
+      output_file: '{XEET_TEST_OUTPUT_DIR}/{XEET_TEST_NAME}.txt'
+      verification_file: '{XEET_ROOT}/aux/{XEET_TEST_NAME}.txt'
+    cmd: echo 'Silence is golden' > {output_file}
     shell: true
-    verify_cmd: diff -u {{output_file}} {{verification_file}}
+    verify_cmd: diff -u {output_file} {verification_file}
     groups:
       - passing
   - name: 015e_bad_pre_test_cmd
@@ -155,7 +155,7 @@ tests:
   - name: 022_post_test_fail_output
     short_desc: Test with invalid post-test command and output
     base: 015a_pre_test_ok
-    post_test_shell: true
+    post_cmd_shell: true
     post_cmd: echo failing post test output; false
     groups:
       - passing
