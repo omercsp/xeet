@@ -10,8 +10,24 @@
 		{
 			"name": "test_base",
 			"cwd": "{{XEET_ROOT}}",
+			"env": {
+				"XEET_ROOT": "{{XEET_ROOT}}",
+				"TEST_NAME": "{{XEET_TEST_NAME}}",
+				"XEET_DEBUG": "{{XEET_TEST_DEBUG}}",
+				"TEST_OUTPUT_DIR": "{{XEET_TEST_OUTPUT_DIR}}"
+			},
 			"verify_cmd": "scripts/dflt_output_compare.sh",
 			"abstract": true
+		},
+		{
+			"name": "check",
+			"cwd": "{{XEET_ROOT}}",
+			"env": {
+				"XEET_ROOT": "{{XEET_ROOT}}",
+				"TEST_NAME": "{{XEET_TEST_NAME}}",
+				"XEET_DEBUG": "{{XEET_DEBUG}}"
+			},
+			"test_cmd": "printenv XEET_DEBUG"
 		},
 		{
 			"name": "001_all",
@@ -86,7 +102,7 @@
 			"name": "050_environment_tests",
 			"base": "test_base",
 			"short_desc": "Test environment variables behaviour",
-			"test_cmd": "{{run_cmd}} -c 02_env/xeet.json",
+			"test_cmd": "{{run_cmd}} -c 02_env/xeet.yaml",
 			"verify_cmd": "scripts/filtered_path_output_compare.sh",
 			"allowed_return_codes": [1],
 			"groups": ["env"]

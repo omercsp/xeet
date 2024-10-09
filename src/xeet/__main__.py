@@ -1,6 +1,6 @@
 from xeet import xeet_version
 from xeet.config import read_config_file, TestCriteria
-from xeet.common import XeetException, XEET_NO_TOKEN, XEET_YES_TOKEN
+from xeet.common import XeetException
 from xeet.log import init_logging, log_error, log_info
 from xeet.pr import pr_header, disable_colors
 import xeet.actions as actions
@@ -10,17 +10,19 @@ import argparse
 import argcomplete
 
 
-RUN_CMD = "run"
-LIST_CMD = "list"
-GROUPS_CMD = "groups"
-INFO_CMD = "info"
-DUMP_XTEST_CMD = "dump"
-DUMP_CONFIG_CMD = "dump_config"
-DUMP_SCHEMA_CMD = "dump_schema"
+_RUN_CMD = "run"
+_LIST_CMD = "list"
+_GROUPS_CMD = "groups"
+_INFO_CMD = "info"
+_DUMP_CMD = "dump"
+_DUMP_CONFIG_CMD = "dump_config"
+_DUMP_SCHEMA_CMD = "dump_schema"
+_YES_TOKEN = 'yes'
+_NO_TOKEN = 'no'
 
 
 def parse_arguments() -> argparse.Namespace:
-    yes_no: list[str] = [XEET_NO_TOKEN, XEET_YES_TOKEN]
+    yes_no: list[str] = [_NO_TOKEN, _YES_TOKEN]
 
     parser = argparse.ArgumentParser(prog='xeet')
     parser.add_argument('--version', action='version', version=f'v{xeet_version}')
@@ -45,7 +47,7 @@ def parse_arguments() -> argparse.Namespace:
     subparsers = parser.add_subparsers(help='commands', dest='subparsers_name')
     subparsers.required = True
 
-    run_parser = subparsers.add_parser(RUN_CMD, help='run a test',
+    run_parser = subparsers.add_parser(_RUN_CMD, help='run a test',
                                        parents=[common_parser, test_groups_parser])
     run_parser.add_argument('-t', '--test-names', metavar='TESTS', default=[],
                             help='test names', action='append')
@@ -65,13 +67,13 @@ def parse_arguments() -> argparse.Namespace:
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
 
-    info_parser = subparsers.add_parser(INFO_CMD, help='show test info', parents=[common_parser])
+    info_parser = subparsers.add_parser(_INFO_CMD, help='show test info', parents=[common_parser])
     info_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
                              help='set test name', required=True)
     info_parser.add_argument('-x', '--expand', help='expand values', action='store_true',
                              default=False)
 
-    dump_parser = subparsers.add_parser(DUMP_XTEST_CMD, help='dump a test',
+    dump_parser = subparsers.add_parser(_DUMP_CMD, help='dump a test',
                                         parents=[common_parser])
     dump_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
                              help='set test name', required=True)
@@ -79,25 +81,25 @@ def parse_arguments() -> argparse.Namespace:
     dump_parser.add_argument('-i', '--includes', help='with inclusions',
                              action='store_true', default=False)
 
-    list_parser = subparsers.add_parser(LIST_CMD, help='list tests',
+    list_parser = subparsers.add_parser(_LIST_CMD, help='list tests',
                                         parents=[common_parser, test_groups_parser])
     list_parser.add_argument('-a', '--all', action='store_true', default=False,
                              help='show hidden tests')
     list_parser.add_argument('--names-only', action='store_true', default=False,
                              help=argparse.SUPPRESS)
 
-    subparsers.add_parser(GROUPS_CMD, help='list groups',
+    subparsers.add_parser(_GROUPS_CMD, help='list groups',
                           parents=[common_parser, test_groups_parser])
-    dump_parser = subparsers.add_parser(DUMP_SCHEMA_CMD, help='dump configuration file schema',
+    dump_parser = subparsers.add_parser(_DUMP_SCHEMA_CMD, help='dump configuration file schema',
                                         parents=[common_parser])
     dump_parser.add_argument('-s', '--schema', choices=actions.DUMP_TYPES,
                              default=actions.DUMP_TYPES[0])
 
-    subparsers.add_parser(DUMP_CONFIG_CMD, help='dump configuration', parents=[common_parser])
+    subparsers.add_parser(_DUMP_CONFIG_CMD, help='dump configuration', parents=[common_parser])
 
     argcomplete.autocomplete(parser, always_complete_options=False)
     args = parser.parse_args()
-    if args.subparsers_name == RUN_CMD:
+    if args.subparsers_name == _RUN_CMD:
         if args.test_names and (args.group or args.require_group or args.exclude_group):
             parser.error("test name and groups are mutually exclusive")
         if args.repeat < 1:
@@ -138,25 +140,24 @@ def xrun() -> int:
         log_info(f"Running command '{args.subparsers_name}'")
         log_info(f"CWD is '{os.getcwd()}'")
         cmd_name = args.subparsers_name
-        if cmd_name == DUMP_SCHEMA_CMD:
+        if cmd_name == _DUMP_SCHEMA_CMD:
             actions.dump_schema(args.schema)
             return 0
 
-        #  expand = cmd_name == RUN_CMD or (cmd_name == INFO_CMD and args.expand)
         config = read_config_file(args.conf)
         rc = 0
-        if cmd_name == RUN_CMD:
+        if cmd_name == _RUN_CMD:
             run_info = actions.run_tests(config, _gen_run_settings(args))
             rc = 1 if run_info.failed else 0
-        elif cmd_name == LIST_CMD:
+        elif cmd_name == _LIST_CMD:
             actions.list_tests(config, _gen_tests_list_criteria(args), args.names_only)
-        elif cmd_name == GROUPS_CMD:
+        elif cmd_name == _GROUPS_CMD:
             actions.list_groups(config)
-        elif cmd_name == INFO_CMD:
+        elif cmd_name == _INFO_CMD:
             actions.show_test_info(args.conf, args.test_name, args.expand)
-        elif cmd_name == DUMP_CONFIG_CMD:
+        elif cmd_name == _DUMP_CONFIG_CMD:
             actions.dump_config(config)
-        elif cmd_name == DUMP_XTEST_CMD:
+        elif cmd_name == _DUMP_CMD:
             actions.dump_test(config, args.test_name)
 
     except XeetException as e:

@@ -1,0 +1,14 @@
+Starting run
+Running tests: 001_env_simple, 002_with_file, 003_with_file_override_by_local, 004_missing_env_file
+
+001_env_simple                                               ....... [Passed ]
+002_with_file                                                ....... [Passed ]
+003_with_file_override_by_local                              ....... [Passed ]
+004_missing_env_file                                         ....... [Not Run]
+Error reading env file - [Errno 2] No such file or directory: '__XEET_ROOT__/02_env/not_existing_env_file.json'
+
+
+Finished iteration (#0/0)
+Passed: 001_env_simple, 002_with_file, 003_with_file_override_by_local
+Not ran: 004_missing_env_file
+

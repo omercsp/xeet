@@ -184,16 +184,6 @@ def _pre_run_print(name: str, settings: RunSettings) -> None:
     pr_info("", end='', flush=True)
 
 
-__status_str_map = {
-    TestStatus.Passed: "Passed",
-    TestStatus.Failed: "Failed",
-    TestStatus.Skipped: "Skipped",
-    TestStatus.Unexpected_pass: "uxPass",
-    TestStatus.Expected_failure: "xFailed",
-    TestStatus.Not_run: "Not Run",
-}
-
-
 def _post_run_print(res: TestResult, run_settings: RunSettings) -> None:
     if run_settings.debug_mode:
         pr_info("".center(50, '-'))
@@ -205,11 +195,11 @@ def _post_run_print(res: TestResult, run_settings: RunSettings) -> None:
         pr_info()
         return
 
-    status = res.status
-    status_str = __status_str_map[status]
-    msg = f"[{_status_color(status)}{status_str:<7}{_reset_color()}]"
+    msg = f"[{_status_color(res.status)}{res.status:<7}{_reset_color()}]"
     if res.short_comment:
         msg += f" {res.short_comment}"
+    if res.status == TestStatus.Skipped and res.skip_reason:
+        pr_info(res.skip_reason)
     pr_info(msg)
     for comment in res.extra_comments:
         pr_info(comment)
@@ -283,7 +273,7 @@ def run_tests(config: Config, run_settings: RunSettings) -> RunInfo:
         for test in tests:
             test.debug_mode = True
 
-    log_info("Running tests: {}".format(", ".join([x.name for x in tests])))
+    log_info("Running tests: {}".format(", ".join([x.name for x in tests])), pr=pr_info)
 
     iterations = run_settings.iterations
     run_info = RunInfo(iterations=iterations)

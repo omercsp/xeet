@@ -1,0 +1,10 @@
+Starting run
+Running tests: 001_pass, 003_skip
+
+001_pass                                                     ....... [Passed ]
+003_skip                                                     ....... [Skipped] marked as skip
+
+Finished iteration (#0/0)
+Passed: 001_pass
+Skipped: 003_skip
+

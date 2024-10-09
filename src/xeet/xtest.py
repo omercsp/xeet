@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError, ConfigDict, AliasChoices
 from timeit import default_timer as timer
 from typing import ClassVar
-from enum import auto, StrEnum
+from enum import auto, Enum
 from dataclasses import dataclass, field
 import shlex
 import subprocess
@@ -25,18 +25,7 @@ class XeetRunException(XeetException):
     ...
 
 
-class TestStatus(StrEnum):
-    @staticmethod
-    def _generate_next_value_(name: str, *_) -> str:  # type: ignore
-        if name == "Expected_failure":
-            return "xFailed"
-        elif name == "Unexpected_pass":
-            return "uxPass"
-        elif name == "Not_run":
-            return "Not Run"
-        else:
-            return name
-
+class TestStatus(str, Enum):
     Undefined = auto()
     Passed = auto()
     Failed = auto()
@@ -44,6 +33,13 @@ class TestStatus(StrEnum):
     Not_run = auto()
     Expected_failure = auto()
     Unexpected_pass = auto()
+
+    def __str__(self) -> str:
+        if self == TestStatus.Unexpected_pass:
+            return "uxPass"
+        if self == TestStatus.Expected_failure:
+            return "xFailed"
+        return self.name
 
 
 @dataclass
@@ -63,6 +59,7 @@ class TestResult:
     verify_output_file: str = ""
     pre_test_output_file: str = ""
     post_test_output_file: str = ""
+    skip_reason: str = ""
 
     @property
     def pre_test_ok(self) -> bool:
@@ -73,7 +70,7 @@ class TestResult:
         return self.post_cmd_rc == 0 or self.post_cmd_rc is None
 
 
-class _OutputBehavior(StrEnum):
+class _OutputBehavior(str, Enum):
     Unify = auto()
     Split = auto()
 
@@ -109,7 +106,9 @@ class XtestModel(BaseModel):
     env_file: str | None = None
     skip: bool | None = None
     skip_reason: str | None = None
-    var_map: dict[str, str] | None = None
+    var_map: dict[str, str] | None = Field(
+        None, validation_alias=AliasChoices("var_map", "variables", "vars"))
+
     use_os_env: bool | None = None
 
     # Inheritance behavior
@@ -348,10 +347,9 @@ class Xtest:
             res.extra_comments.append(self.init_err)
             return res
         if self.skip:
-            self._log_info("marked to be skipped")
             res.status = TestStatus.Skipped
-            res.short_comment = "marked as skip{}".format(
-                f" - {self.model.skip_reason}" if self.model.skip_reason else "")
+            res.skip_reason = self.skip_reason
+            self._log_info("marked to be skipped")
             return res
         if not self.cmd:
             self._log_info("No command for test, will not run")
@@ -438,7 +436,7 @@ class Xtest:
                 with open(res.pre_test_output_file, "w") as f:
                     p = subprocess.run(**cmd_args, stdout=f, stderr=f)
         except OSError as e:
-            log_error(f"Error running pre-test command- {e}")
+            log_error(f"Error running pre-test command- {e}", pr=None)
             res.status = TestStatus.Not_run
             res.short_comment = f"Pre-test run failure"
             res.extra_comments.append(str(e))

@@ -6,10 +6,6 @@ import re
 import os
 
 
-XEET_YES_TOKEN = 'yes'
-XEET_NO_TOKEN = 'no'
-
-
 class XeetException(Exception):
     def __init__(self, error: str) -> None:
         self.error = error
@@ -163,7 +159,7 @@ def dump_global_vars() -> None:
 #  it's intended for small text content.
 def text_file_tail(file_path: str, n_lines: int = 5, max_bytes=4096) -> str:
     if n_lines <= 0 or max_bytes <= 0:
-        raise XeetException("Invalid n_lines or max_bytes")
+        raise ValueError("Invalid n_lines or max_bytes")
     with open(file_path, 'rb') as f:
         # Move to the end of the file
         f.seek(0, 2)

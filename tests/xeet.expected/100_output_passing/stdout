@@ -1,0 +1,13 @@
+Starting run
+Included groups: passing
+Running tests: 001_out_only, 002_err_only, 003_out_and_err, 004_no_output, 007_unified_output
+
+001_out_only                                                 ....... [Passed ]
+002_err_only                                                 ....... [Passed ]
+003_out_and_err                                              ....... [Passed ]
+004_no_output                                                ....... [Passed ]
+007_unified_output                                           ....... [Passed ]
+
+Finished iteration (#0/0)
+Passed: 001_out_only, 002_err_only, 003_out_and_err, 004_no_output, 007_unified_output
+
