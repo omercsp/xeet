@@ -157,7 +157,7 @@ def dump_global_vars() -> None:
 #  Read the last n lines of a text file. Allows at most max_bytes to be read.
 #  this isn't very efficient for large files if max_bytes value is big, but
 #  it's intended for small text content.
-def text_file_tail(file_path: str, n_lines: int = 5, max_bytes=4096) -> str:
+def text_file_tail(file_path: str, n_lines: int = 30, max_bytes=4096) -> str:
     if n_lines <= 0 or max_bytes <= 0:
         raise ValueError("Invalid n_lines or max_bytes")
     with open(file_path, 'rb') as f:

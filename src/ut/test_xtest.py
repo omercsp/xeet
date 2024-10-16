@@ -26,6 +26,7 @@ else:
     _FALSE_CMD = tests_utils_command("rc.py", "1")
     _SHOWENV_CMD = tests_utils_command("showenv.py")
     _ECHOCMD = tests_utils_command("echo.py")
+_BAD_CMD = "nonexistent"
 
 
 def _file_content(path: str) -> str:
@@ -46,12 +47,14 @@ class TestXtest(unittest.TestCase):
         ConfigTestWrapper.fini_xeet_dir()
 
     @classmethod
-    def set_test(cls, name, reset: bool = False,  save: bool = False,  **kwargs) -> None:
+    def set_test(cls, name, reset: bool = False,  save: bool = False, check_fields: bool = True,
+                 **kwargs) -> None:
         if reset:
             cls.main_config_wrapper.tests.clear()
-        for k in list(kwargs.keys()):
-            if k not in XtestModel.model_fields.keys():
-                raise ValueError(f"Invalid Xtest field '{k}' when trying to set test '{name}'")
+        if check_fields:
+            for k in list(kwargs.keys()):
+                if k not in XtestModel.model_fields.keys():
+                    raise ValueError(f"Invalid Xtest field '{k}' when trying to set test '{name}'")
         cls.main_config_wrapper.add_test(name, **kwargs)
         if save:
             cls.main_config_wrapper.save()
@@ -91,6 +94,12 @@ class TestXtest(unittest.TestCase):
             self.assertEqual(res.rc, rc)
         self.assertEqual(res.status, status)
 
+    def test_bad_test_desc(self):
+        self.set_test(_TEST0, cmd=_TRUE_CMD, bad_setting="text", long_desc="text", reset=True,
+                      check_fields=False, save=True)
+        res = self.run_test(_TEST0)
+        self._check_test(res, rc=None, status=TestStatus.InitErr)
+
     def test_allowed_rc(self):
         self.set_test(_TEST0, cmd=_TRUE_CMD, save=True, reset=True)
         res = self.run_test(_TEST0)
@@ -98,7 +107,7 @@ class TestXtest(unittest.TestCase):
 
         self.set_test(_TEST0, allowed_rc=[1], cmd=_TRUE_CMD, save=True, reset=True)
         res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.VerifyRcFailed)
 
         self.set_test(_TEST0, allowed_rc=[1], cmd=_FALSE_CMD, save=True, reset=True)
         res = self.run_test(_TEST0)
@@ -114,7 +123,7 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST0, allowed_rc=[1], cmd=_FALSE_CMD, reset=True)
         self.set_test(_TEST1, base=_TEST0, cmd=_TRUE_CMD, save=True)
         res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.VerifyRcFailed)
 
         # Inerit allowed_rc, but override it
         self.set_test(_TEST2, base=_TEST0, allowed_rc=[0], cmd=_TRUE_CMD, save=True)
@@ -138,7 +147,7 @@ class TestXtest(unittest.TestCase):
 
         #  Override the test command
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.Failed)
+        self._check_test(res, rc=1, status=TestStatus.VerifyRcFailed)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertIsNone(res.verify_cmd_rc)
         self.assertIsNone(res.post_cmd_rc)
@@ -147,7 +156,7 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST1, base=_TEST0)
         self.set_test(_TEST2, base=_TEST0, pre_cmd=_TRUE_CMD, save=True)
         for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=None, status=TestStatus.Not_run)
+            self._check_test(res, rc=None, status=TestStatus.PreRunErr)
             self.assertEqual(res.pre_cmd_rc, 1)
             self.assertIsNone(res.verify_cmd_rc)
             self.assertIsNone(res.post_cmd_rc)
@@ -162,7 +171,8 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST0, pre_cmd=_TRUE_CMD, cmd=_TRUE_CMD, post_cmd=_FALSE_CMD,
                       reset=True)
         self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, post_cmd=_TRUE_CMD, save=True)
+        self.set_test(_TEST2, base=_TEST0, post_cmd=_TRUE_CMD)
+        self.set_test(_TEST3, base=_TEST0, pre_cmd=_BAD_CMD, save=True)
         for res in self.run_tests_list((_TEST0, _TEST1)):
             self._check_test(res, rc=0, status=TestStatus.Passed)
             self.assertEqual(res.pre_cmd_rc, 0)
@@ -176,11 +186,19 @@ class TestXtest(unittest.TestCase):
         self.assertIsNone(res.verify_cmd_rc)
         self.assertEqual(res.post_cmd_rc, 0)
 
+        #  Validate post-test command override
+        res = self.run_test(_TEST3)
+        self._check_test(res, rc=None, status=TestStatus.PreRunErr)
+        self.assertEqual(res.pre_cmd_rc, None)
+        self.assertIsNone(res.verify_cmd_rc)
+        self.assertEqual(res.post_cmd_rc, 1)
+
         #  Test verify command
         self.set_test(_TEST0, cmd=_TRUE_CMD, verify_cmd=_TRUE_CMD, reset=True)
         self.set_test(_TEST1, base=_TEST0)
         self.set_test(_TEST2, base=_TEST0, verify_cmd=_FALSE_CMD)
-        self.set_test(_TEST3, base=_TEST0, verify_cmd=_FALSE_CMD, post_cmd=_TRUE_CMD, save=True)
+        self.set_test(_TEST3, base=_TEST0, verify_cmd=_FALSE_CMD, post_cmd=_TRUE_CMD)
+        self.set_test(_TEST4, base=_TEST0, verify_cmd=_BAD_CMD, post_cmd=_TRUE_CMD, save=True)
         for res in self.run_tests_list((_TEST0, _TEST1)):
             self._check_test(res, rc=0, status=TestStatus.Passed)
             self.assertIsNone(res.pre_cmd_rc)
@@ -189,16 +207,23 @@ class TestXtest(unittest.TestCase):
 
         #  Override the verify command
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.VerifyFailed)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertEqual(res.verify_cmd_rc, 1)
         self.assertIsNone(res.post_cmd_rc)
 
         #  Validate post-test is ran regardless of verify command
         res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.VerifyFailed)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertEqual(res.verify_cmd_rc, 1)
+        self.assertEqual(res.post_cmd_rc, 0)
+
+        #  Validate bad verify command
+        res = self.run_test(_TEST4)
+        self._check_test(res, rc=0, status=TestStatus.VerifyRunErr)
+        self.assertIsNone(res.pre_cmd_rc)
+        self.assertEqual(res.verify_cmd_rc, None)
         self.assertEqual(res.post_cmd_rc, 0)
 
     def test_cwd(self):
@@ -230,7 +255,7 @@ class TestXtest(unittest.TestCase):
 
         self.set_test(_TEST0, cmd="pwd", cwd="/nonexistent", save=True, reset=True)
         res = self.run_test(_TEST0)
-        self._check_test(res, rc=None, status=TestStatus.Not_run)
+        self._check_test(res, rc=None, status=TestStatus.RunErr)
 
     def test_abstract_tests(self):
         self.run_settings.criteria.hidden_tests = True
@@ -243,7 +268,7 @@ class TestXtest(unittest.TestCase):
         self._check_test(res, rc=0, status=TestStatus.Passed)
 
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.Failed)
+        self._check_test(res, rc=1, status=TestStatus.VerifyRcFailed)
 
         self.run_settings.criteria.hidden_tests = False
 
@@ -255,8 +280,7 @@ class TestXtest(unittest.TestCase):
             self._check_test(res, rc=None, status=TestStatus.Skipped)
             self.assertIsNone(res.pre_cmd_rc)
 
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=None, status=TestStatus.Not_run)
+        self._check_test(self.run_test(_TEST2), rc=None, status=TestStatus.PreRunErr)
 
     def test_expected_failure(self):
         self.set_test(_TEST0, cmd=_FALSE_CMD, expected_failure=True, reset=True)
@@ -264,26 +288,19 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST2, base=_TEST0, expected_failure=False)
         self.set_test(_TEST3, base=_TEST0, cmd=_TRUE_CMD, save=True)
         for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=1, status=TestStatus.Expected_failure)
+            self._check_test(res, rc=1, status=TestStatus.ExpectedFail)
 
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.Failed)
-
-        res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.Unexpected_pass)
+        self._check_test(self.run_test(_TEST2), rc=1, status=TestStatus.VerifyRcFailed)
+        self._check_test(self.run_test(_TEST3), rc=0, status=TestStatus.UnexpectedPass)
 
     def test_timeout(self):
         self.set_test(_TEST0, cmd="sleep 1", timeout=0.5, reset=True)
         self.set_test(_TEST1, base=_TEST0, timeout=2)
         self.set_test(_TEST2, base=_TEST0, timeout=None, save=True)
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=None, status=TestStatus.Failed)
 
-        res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=None, status=TestStatus.Failed)
+        self._check_test(self.run_test(_TEST0), rc=None, status=TestStatus.Timeout)
+        self._check_test(self.run_test(_TEST1), rc=0, status=TestStatus.Passed)
+        self._check_test(self.run_test(_TEST2), rc=None, status=TestStatus.Timeout)
 
     def test_env(self):
         self.set_test(_TEST0, cmd=f"{_SHOWENV_CMD} TEST_ENV",
@@ -364,7 +381,7 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST0, shell=True, cmd=cmd, reset=True)
         # Unifiy stdout and stderr explicitly
         self.set_test(_TEST1, base=_TEST0, output_behavior="unify")
-        self.set_test(_TEST2, base=_TEST0, output_behavior="split", save=True)
+        self.set_test(_TEST2, base=_TEST0, output_behavior="split")
         self.set_test(_TEST3, shell=True, cmd=cmd, output_behavior="split", save=True)
 
         for res in self.run_tests_list([_TEST1]):

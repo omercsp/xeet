@@ -1,5 +1,5 @@
 from ut import unittest
-from xeet.common import (text_file_tail, XeetException, XeetVars, XeetNoSuchVarException,
+from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException,
                          XeetRecursiveVarException, XeetBadVarNameException)
 import tempfile
 import os
@@ -43,8 +43,8 @@ class TestCommon(unittest.TestCase):
         self.assertEqual(text_file_tail(file_path, 5, 15), "\n\nline08\nline09")
         self.assertEqual(text_file_tail(file_path, 5, 16), "7\n\nline08\nline09")
 
-        self.assertRaises(XeetException, text_file_tail, file_path, 0, 1000)
-        self.assertRaises(XeetException, text_file_tail, file_path, -1, )
+        self.assertRaises(ValueError, text_file_tail, file_path, 0, 1000)
+        self.assertRaises(ValueError, text_file_tail, file_path, -1, )
 
         #  delete the temporary file
         os.remove(file_path)

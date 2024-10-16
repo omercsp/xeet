@@ -129,6 +129,8 @@ class Config:
         return self._xtest(desc)
 
     def xtests(self, criteria: TestCriteria) -> list[Xtest]:
+        #  TODO/BUG: groups are not inherited at this point, so inherited tests may not be
+        # filtered correctly
         return [self._xtest(desc) for desc in self.test_descs
                 if criteria.match(desc.get(_NAME, ""),
                                   desc.get(_GROUPS, []), desc.get(_ABSTRACT, False))]
@@ -144,36 +146,6 @@ class Config:
 
 
 _configs = {}
-
-
-#  def _read_config_file(file_path: str, read_files: set) -> Config:
-#      read_files_str = ", ".join(read_files)
-#      log_info(f"Reading configuration file '{file_path}', read_files='{read_files_str}'")
-#      try:
-#          with open(file_path, 'r') as f:
-#              conf = json.load(f)
-#          model = ConfigModel(**conf)
-#          config = Config(file_path, model)
-#      except ValidationError as e:
-#          err = pydantic_errmsg(e)
-#          raise XeetException(f"Invalid configuration file '{file_path}': {err}")
-#      except (IOError, TypeError, ValueError) as e:
-#          raise XeetException(f"Error parsing {file_path} - {e}")
-#      if not model.includes:
-#          return config
-#      includes = [i.root for i in model.includes]
-#      includes_str = ", ".join(includes)
-#      log_info(f"Includes: {includes_str}")
-#      read_files.add(file_path)
-#      file_dir = os.path.dirname(os.path.abspath(file_path))
-#      for f in model.includes:
-#          f = global_vars().expand(f.root)
-#          if f in read_files:
-#              raise XeetException(f"Include loop detected - '{f}'")
-#          included_config = _read_config_file(f"{file_dir}/{f}", read_files)
-#          config.include_config(included_config)
-#      read_files.remove(file_path)
-#      return config
 
 
 class XeetConfigException(XeetException):

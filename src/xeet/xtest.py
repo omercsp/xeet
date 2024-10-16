@@ -1,6 +1,5 @@
-from io import TextIOWrapper
 from xeet import LogLevel
-from xeet.common import XeetException, XeetVars, text_file_tail, NonEmptyStr, pydantic_errmsg
+from xeet.common import XeetException, XeetVars, NonEmptyStr, pydantic_errmsg
 from xeet.log import log_info, log_raw, log_error, log_verbose
 from xeet.pr import create_print_func, pr_info
 from typing import Any
@@ -8,7 +7,8 @@ from pydantic import BaseModel, Field, ValidationError, ConfigDict, AliasChoices
 from timeit import default_timer as timer
 from typing import ClassVar
 from enum import auto, Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from io import TextIOWrapper
 import shlex
 import subprocess
 import signal
@@ -25,32 +25,29 @@ class XeetRunException(XeetException):
     ...
 
 
-class TestStatus(str, Enum):
+class TestStatus(Enum):
     Undefined = auto()
-    Passed = auto()
-    Failed = auto()
     Skipped = auto()
-    Not_run = auto()
-    Expected_failure = auto()
-    Unexpected_pass = auto()
-
-    def __str__(self) -> str:
-        if self == TestStatus.Unexpected_pass:
-            return "uxPass"
-        if self == TestStatus.Expected_failure:
-            return "xFailed"
-        return self.name
+    InitErr = auto()
+    PreRunErr = auto()
+    RunErr = auto()  # This isn't a test failure per se, but a failure to run the test
+    VerifyRunErr = auto()
+    VerifyRcFailed = auto()
+    VerifyFailed = auto()
+    UnexpectedPass = auto()
+    Timeout = auto()
+    Passed = auto()
+    ExpectedFail = auto()
 
 
 @dataclass
 class TestResult:
     status: TestStatus = TestStatus.Undefined
     rc: int | None = None
+    allowed_rc: set[int] | None = None
     pre_cmd_rc: int | None = None
     verify_cmd_rc: int | None = None
     post_cmd_rc: int | None = None
-    short_comment: str = ""
-    extra_comments: list[str] = field(default_factory=list)
     duration: float = 0
     filter_ok = False
     stdout_file: str = ""
@@ -59,7 +56,9 @@ class TestResult:
     verify_output_file: str = ""
     pre_test_output_file: str = ""
     post_test_output_file: str = ""
-    skip_reason: str = ""
+    status_reason: str = ""
+    post_test_err: str = ""
+    timeout_period: float | None = None
 
     @property
     def pre_test_ok(self) -> bool:
@@ -71,8 +70,8 @@ class TestResult:
 
 
 class _OutputBehavior(str, Enum):
-    Unify = auto()
-    Split = auto()
+    Unify = "unify"
+    Split = "split"
 
 
 _EMPTY_STR = ""
@@ -152,7 +151,7 @@ class Xtest:
         try:
             self.model = XtestModel(**desc)
         except ValidationError as e:
-            self.init_err = pydantic_errmsg(e)
+            self.init_err = f"Error parsing test '{self.name}' - {pydantic_errmsg(e)}"
             return
         self._log_info(f"initializing test {self.name}")
         self.output_dir = f"{output_base_dir}/{self.name}"
@@ -343,18 +342,17 @@ class Xtest:
     def run(self) -> TestResult:
         res = TestResult()
         if self.init_err:
-            res.status = TestStatus.Not_run
-            res.extra_comments.append(self.init_err)
+            res.status = TestStatus.InitErr
             return res
         if self.skip:
             res.status = TestStatus.Skipped
-            res.skip_reason = self.skip_reason
+            res.status_reason = self.skip_reason
             self._log_info("marked to be skipped")
             return res
         if not self.cmd:
             self._log_info("No command for test, will not run")
-            res.status = TestStatus.Not_run
-            res.short_comment = "No command"
+            res.status = TestStatus.RunErr
+            res.status_reason = "No command"
             return res
 
         if self.abstract:
@@ -366,15 +364,15 @@ class Xtest:
         else:
             self._log_info("no working directory will be set")
         if self.env:
-            self._log_info("command Environment variables:")
-            for k, v in self.env.items():
+            self._log_info("command environment variables:")
+            for k, v in self.env_expanded.items():
                 log_raw(f"{k}={v}")
 
         try:
             env = self._read_env_vars()
         except XeetRunException as e:
-            res.status = TestStatus.Not_run
-            res.extra_comments.append(str(e))
+            res.status = TestStatus.RunErr
+            res.status_reason = f"Error setting environment variables: {e}"
             return res
 
         self._mkdir_output_dir()
@@ -384,29 +382,23 @@ class Xtest:
         self._verify(res, env)
         self._post_test(res, env)
 
-        if res.status == TestStatus.Passed or res.status == TestStatus.Expected_failure:
+        if res.status == TestStatus.Passed or res.status == TestStatus.ExpectedFail:
             self._log_info("completed successfully")
         return res
 
-    @staticmethod
-    def _debug_pre_step_print(step_name: str, command, shell: bool) -> None:
+    def _debug_pre_step_print(self, step_name: str, command, shell: bool) -> None:
+        if not self.debug_mode:
+            return
         shell_str = " (shell)" if shell else ""
         _pr_orange(f">>>>>>> {step_name} <<<<<<<\nCommand{shell_str}:")
         pr_info(command)
-        _pr_orange("Output:")
+        _pr_orange("Execution output:")
         sys.stdout.flush()  # to make sure colors are reset
 
-    @staticmethod
-    def _debug_step_print(step_name: str, rc: int) -> None:
-        _pr_orange(f"{step_name} rc: {rc}\n")
-
-    @staticmethod
-    def _add_step_err_comment(res: TestResult, step_name: str, msg) -> None:
-        if not msg:
+    def _debug_step_print(self, step_name: str, rc: int) -> None:
+        if not self.debug_mode:
             return
-        res.extra_comments.append(step_name.center(40, "-"))  # type: ignore
-        res.extra_comments.append(msg)
-        res.extra_comments.append("-" * 40)
+        _pr_orange(f"{step_name} rc: {rc}\n")
 
     @staticmethod
     def _cmd_array(cmd: str, shell: bool) -> list[str]:
@@ -418,8 +410,7 @@ class Xtest:
         if not self.pre_cmd_expanded:
             return
         shell = self.pre_cmd_shell
-        if self.debug_mode:
-            self._debug_pre_step_print("Pre-test", self.pre_cmd_expanded, shell)
+        self._debug_pre_step_print("Pre-test", self.pre_cmd_expanded, shell)
         cmd = self._cmd_array(self.pre_cmd_expanded, shell)
         res.pre_test_output_file = f"{self.output_dir}/pre_run_output"
         cmd_args = {
@@ -437,26 +428,18 @@ class Xtest:
                     p = subprocess.run(**cmd_args, stdout=f, stderr=f)
         except OSError as e:
             log_error(f"Error running pre-test command- {e}", pr=None)
-            res.status = TestStatus.Not_run
-            res.short_comment = f"Pre-test run failure"
-            res.extra_comments.append(str(e))
-            res.pre_cmd_rc = -1
+            res.status = TestStatus.PreRunErr
+            res.status_reason = str(e)
             return
 
-        self._log_info(f"Pre-test command returned: {p.returncode}")
         res.pre_cmd_rc = p.returncode
-        if self.debug_mode:
-            self._debug_step_print("Pre-test", p.returncode)
+        self._log_info(f"Pre-test command returned: {p.returncode}")
+        self._debug_step_print("Pre-test", p.returncode)
         if p.returncode == 0:
             return
         self._log_info(f"Pre-test failed")
-        res.status = TestStatus.Not_run
-        res.short_comment = f"Pre-test failed"
-        pre_test_cmd_output_head = text_file_tail(res.pre_test_output_file)
-        if pre_test_cmd_output_head:
-            self._add_step_err_comment(res, "Pre-test output head", pre_test_cmd_output_head)
-        else:
-            res.short_comment += " w/no output"
+        res.status = TestStatus.PreRunErr
+        res.status_reason = f"Pre-test failed with rc={p.returncode}"
 
     def _get_test_io_descriptors(self) -> tuple[TextIOWrapper | int, TextIOWrapper | int]:
         err_file = subprocess.DEVNULL
@@ -466,44 +449,6 @@ class Xtest:
         else:
             err_file = open(self.stderr_file, "w")
         return out_file, err_file
-
-    def _set_run_cmd_result(self, res: TestResult) -> None:
-        if self.ignore_rc or res.rc in self.allowed_rc:
-            if self.expected_failure:
-                self._log_info(f"unexpected pass")
-                res.status = TestStatus.Unexpected_pass
-            else:
-                res.status = TestStatus.Passed
-            return
-        if self.expected_failure:
-            self._log_info(f"expected failure")
-            res.status = TestStatus.Expected_failure
-            return
-        # If we got here, the test failed
-        allowed_str = ",".join([str(x) for x in self.allowed_rc])
-
-        err = f"rc={res.rc}, allowed={allowed_str}"
-        self._log_info(f"failed: {err}")
-        res.status = TestStatus.Failed
-        if self.debug_mode:
-            return
-        res.short_comment = err
-        stdout_print = os.path.relpath(self.stdout_file, self.xeet_root)
-        stdout_tail = text_file_tail(self.stdout_file)
-        empty_msg = "" if stdout_tail else " (empty)"
-        if self.output_behavior == _OutputBehavior.Unify:
-            res.extra_comments.append(f"output file (unified): {stdout_print}{empty_msg}")
-            if stdout_tail:
-                self._add_step_err_comment(res, "Unified output head", stdout_tail)
-        else:
-            assert self.stderr_file is not None
-            res.extra_comments.append(f"stdout file: {stdout_print}{empty_msg}")
-            stderr_head = text_file_tail(self.stderr_file)
-            stderr_print = os.path.relpath(self.stderr_file, self.xeet_root)
-            empty_msg = "" if stderr_head else " (empty)"
-            res.extra_comments.append(f"stderr file: {stderr_print}{empty_msg}")
-            if stderr_head:
-                self._add_step_err_comment(res, "stderr head", stderr_head)
 
     def _read_env_vars(self) -> dict:
         ret = {}
@@ -551,7 +496,7 @@ class Xtest:
             start = timer()
             if self.debug_mode:
                 subproc_args["timeout"] = self.model.timeout
-                self._debug_pre_step_print("Test command", self.cmd, self.cmd_shell)
+                self._debug_pre_step_print("Test command", self.cmd_expanded, self.cmd_shell)
                 p = subprocess.run(**subproc_args)
                 res.rc = p.returncode
                 assert isinstance(res.rc, int)
@@ -564,11 +509,10 @@ class Xtest:
                 res.rc = p.wait(self.timeout)
             res.duration = timer() - start
             self._log_info(f"command finished with rc={res.rc} in {res.duration:.3f}s")
-            self._set_run_cmd_result(res)
         except (OSError, FileNotFoundError) as e:
             self._log_info(str(e))
-            res.status = TestStatus.Not_run
-            res.extra_comments.append(str(e))
+            res.status = TestStatus.RunErr
+            res.status_reason = str(e)
         except subprocess.TimeoutExpired as e:
             assert p is not None
             try:
@@ -577,8 +521,8 @@ class Xtest:
             except OSError as kill_e:
                 log_error(f"Error killing process - {kill_e}")
             self._log_info(str(e))
-            res.status = TestStatus.Failed
-            res.extra_comments.append(str(e))
+            res.status = TestStatus.Timeout
+            res.timeout_period = self.timeout
         except KeyboardInterrupt:
             if p and not self.debug_mode:
                 p.send_signal(signal.SIGINT)  # type: ignore
@@ -590,16 +534,36 @@ class Xtest:
             if isinstance(err_file, TextIOWrapper):
                 err_file.close()
 
-    def _verify(self, res: TestResult, env: dict) -> None:
-        if res.status != TestStatus.Passed:
+    def _verify_test_rc(self, res: TestResult) -> None:
+        if self.debug_mode:
+            pr_info("Verifying rc")
+
+        if res.status != TestStatus.Undefined:
             self._log_info("Skipping verification, prior step failed")
             return
-        if not self.verify_cmd:
-            self._log_info("Skipping verification, no command")
+
+        if self.ignore_rc or res.rc in self.allowed_rc:
             return
+
+        #  RC error
+        allowed_str = ",".join([str(x) for x in self.allowed_rc])
+        err = f"retrun code {res.rc}, not in allowed return codes ({allowed_str})"
+        self._log_info(f"failed: {err}")
+        res.status = TestStatus.VerifyRcFailed
+        res.status_reason = err
         if self.debug_mode:
-            self._debug_pre_step_print("Verification", self.verify_cmd_expanded,
-                                       self.verify_cmd_shell)
+            pr_info(f"Verification failed: {err}")
+
+    def _run_verify_cmd(self, res: TestResult, env: dict) -> None:
+        if not self.verify_cmd:
+            self._log_info("No verification command")
+            return
+
+        if res.status != TestStatus.Undefined:
+            self._log_info("Skipping verification command run, prior step failed")
+            return
+
+        self._debug_pre_step_print("Verification", self.verify_cmd_expanded, self.verify_cmd_shell)
         self._log_info(f"verifying with '{self.verify_cmd}'")
         try:
             res.verify_output_file = f"{self.output_dir}/verification_output"
@@ -617,32 +581,39 @@ class Xtest:
             msg = f"Verification command = {p.returncode}"
             self._log_info(msg)
             res.verify_cmd_rc = p.returncode
-            if self.debug_mode:
-                self._debug_step_print("Verification", p.returncode)
+            self._debug_step_print("Verification", p.returncode)
             if p.returncode == 0:
                 return
-            res.status = TestStatus.Failed
+            res.status = TestStatus.VerifyFailed
             if self.debug_mode:
                 return
-            res.short_comment = f"Verification failed"
-            verify_output_head = text_file_tail(res.verify_output_file, n_lines=8)
-            if verify_output_head:
-                self._add_step_err_comment(res, "Verification run output head", verify_output_head)
-            else:
-                res.short_comment += " w/no output"
+            res.status_reason = f"Verification failed with rc={p.returncode}"
         except OSError as e:
-            res.status = TestStatus.Not_run
+            res.status = TestStatus.VerifyRunErr
             log_error(f"Error running verification command- {e}")
-            res.short_comment = "Verification run error:"
-            res.extra_comments.append(str(e))
+            res.status_reason = f"Verification run error: {e}"
+
+    def _verify(self, res: TestResult, env: dict) -> None:
+        self._verify_test_rc(res)
+        self._run_verify_cmd(res, env)
+
+        # This is a bit of a hack, until verifications are generic plugins. For now we include
+        # the default RC and user command verificaionts.
+        if self.expected_failure:
+            if (res.status == TestStatus.VerifyFailed or
+                    res.status == TestStatus.VerifyRcFailed):
+                res.status = TestStatus.ExpectedFail
+            elif res.status == TestStatus.Undefined:
+                res.status = TestStatus.UnexpectedPass
+
+        if res.status == TestStatus.Undefined:
+            res.status = TestStatus.Passed
 
     def _post_test(self, res: TestResult, env: dict) -> None:
         if not self.post_cmd:
             self._log_info("Skipping post-test, no command")
             return
-        if self.debug_mode:
-            self._debug_pre_step_print("Post-test", self.post_cmd_expanded,
-                                       self.post_cmd_shell)
+        self._debug_pre_step_print("Post-test", self.post_cmd_expanded, self.post_cmd_shell)
         self._log_info(f"post-test command '{self.post_cmd_expanded}'")
         try:
             res.post_test_output_file = f"{self.output_dir}/post_test_output"
@@ -660,18 +631,10 @@ class Xtest:
             msg = f"Post-test RC = {p.returncode}"
             self._log_info(msg)
             res.post_cmd_rc = p.returncode
-            if self.debug_mode:
-                self._debug_step_print("Post-test", p.returncode)
-            if p.returncode == 0 or self.debug_mode:
-                return
-            res.extra_comments.append(
-                f"NOTICE: post-test command failed with rc={p.returncode}")
-            post_run_head = text_file_tail(res.post_test_output_file)
-            if post_run_head:
-                self._add_step_err_comment(res, "Verification run output head", post_run_head)
+            self._debug_step_print("Post-test", p.returncode)
         except OSError as e:
             log_error(f"Post test run failed - {e}", pr=False)
-            res.extra_comments.append(str(e))
+            res.post_test_err = str(e)
 
     @staticmethod
     def _valid_file(file: str | None) -> bool:
