@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from xeet.pr import pr_dict, pr_info, PrintColors, colors_enabled
 from xeet.xtest import Xtest, XtestModel, TestStatus, TestResult
 from xeet.config import Config, ConfigModel, read_config_file, TestCriteria
-from xeet.common import XeetException, update_global_vars
+from xeet.common import XeetException, update_global_vars, text_file_tail
 from xeet.log import log_info, log_blank, start_raw_logging, stop_raw_logging
 from xeet.runtime import RunInfo
 import textwrap
@@ -143,18 +143,31 @@ def list_tests(config: Config, criteria: TestCriteria, names_only: bool) -> None
                                  _display_token(test.short_desc, _max_desc_print_len)))
 
 
-_status_color_map = {
-    TestStatus.Passed: PrintColors.GREEN,
-    TestStatus.Failed: PrintColors.RED,
-    TestStatus.Skipped: PrintColors.RESET,
-    TestStatus.Unexpected_pass: PrintColors.RED,
-    TestStatus.Expected_failure: PrintColors.GREEN,
-    TestStatus.Not_run: PrintColors.YELLOW,
+@dataclass
+class _StatusPrintInfo:
+    color: str
+    category: str
+    string: str
+
+
+_NOT_RUN = "Not run"
+_FAILED = "Failed"
+_PASSED = "Passed"
+
+
+_STATUS_PRINT_INFO = {
+    TestStatus.Passed: _StatusPrintInfo(PrintColors.GREEN, _PASSED, "Passed"),
+    TestStatus.Init_error: _StatusPrintInfo(PrintColors.YELLOW, _NOT_RUN, "Initialization error",),
+    TestStatus.Expected_failure: _StatusPrintInfo(PrintColors.GREEN, _PASSED, "Expected failure"),
+    TestStatus.Verfication_run_err: _StatusPrintInfo(PrintColors.YELLOW, _NOT_RUN,
+                                                     "Verification run error"),
+    TestStatus.Failed: _StatusPrintInfo(PrintColors.RED, _FAILED, "Failed verification"),
+    TestStatus.Pre_run_error: _StatusPrintInfo(PrintColors.YELLOW, _NOT_RUN, "Pre-run error"),
+    TestStatus.Run_error: _StatusPrintInfo(PrintColors.YELLOW, _NOT_RUN, "Run error"),
+    TestStatus.Timeout: _StatusPrintInfo(PrintColors.RED, _FAILED, "Timeout"),
+    TestStatus.Unexpected_pass: _StatusPrintInfo(PrintColors.RED, _FAILED, "Unexpected pass"),
+    TestStatus.Skipped: _StatusPrintInfo(PrintColors.RESET, "Skipped", "Skipped"),
 }
-
-
-def _status_color(status: TestStatus):
-    return _status_color_map.get(status, "") if colors_enabled() else ""
 
 
 def _reset_color():
@@ -186,36 +199,93 @@ def _pre_run_print(name: str, settings: RunSettings) -> None:
 
 def _post_run_print(res: TestResult, run_settings: RunSettings) -> None:
     if run_settings.debug_mode:
-        pr_info("".center(50, '-'))
-        if res.short_comment:
-            pr_info(res.short_comment)
-        for comment in res.extra_comments:
-            pr_info(comment)
-        pr_info("." * 50)
-        pr_info()
         return
 
-    msg = f"[{_status_color(res.status)}{res.status:<7}{_reset_color()}]"
-    if res.short_comment:
-        msg += f" {res.short_comment}"
-    if res.status == TestStatus.Skipped and res.skip_reason:
-        pr_info(res.skip_reason)
-    pr_info(msg)
-    for comment in res.extra_comments:
-        pr_info(comment)
-    if res.extra_comments:
-        pr_info()
+    def _post_print_details(status_suffix: str = "", details: str = "") -> None:
+        #  if run_settings.debug_mode:
+        #      pr_info("".center(50, '-'))
+        #      if small_comment:
+        #          pr_info(res.short_comment)
+        #      for comment in res.extra_comments:
+        #          pr_info(comment)
+        #      pr_info("." * 50)
+        #      pr_info()
+        #      return
+        status_print_info = _STATUS_PRINT_INFO[res.status]
+        msg = f"[{status_print_info.color}{status_print_info.category:<7}{_reset_color()}]"
+        if status_suffix:
+            if len(status_suffix) < 30:
+                msg += f" {status_suffix}"
+            else:
+                msg += f"{status_suffix[:27]}..."
+        if details:
+            msg += f"\n{details}\n"
+        pr_info(msg)
+
+    # First tuple element is the error message, second is the text to print
+    def _file_tail_str(file_path: str | None, title: str) -> str:
+        if file_path is None:
+            return f"No {title} flle path"
+
+        if not os.path.exists(file_path):
+            return f"No {title} flle"
+
+        try:
+            tail_text = text_file_tail(file_path)
+        except OSError:
+            return "Error reading {title} file at '{file_path}'"
+        if len(tail_text) == 0:
+            return f"Empty {title} file"
+        ret = f" {title} tail ".center(50, '-')
+        ret += f"\n{tail_text}"
+        ret += "-" * 50
+        ret += "\n"
+        return ret
+
+    def _test_output_tails() -> str:
+        if res.unified_output:
+            return _file_tail_str(res.stdout_file, "test unified output")
+        return _file_tail_str(res.stdout_file, "stdout") + _file_tail_str(res.stderr_file, "stderr")
+
+    details = ""
+    status_suffix = ""
+    if res.status == TestStatus.Init_error:
+        details = res.status_reason
+    if res.status == TestStatus.Skipped:
+        if res.status_reason:
+            if len(res.status_reason) > 30:
+                details = res.status_reason
+            else:
+                status_suffix = res.status_reason
+    if res.status == TestStatus.Pre_run_error:
+        status_suffix = "Pre-test error"
+        details = _file_tail_str(res.pre_test_output_file, "pre test output")
+    if res.status == TestStatus.Run_error:
+        status_suffix = "Run error"
+        details = _test_output_tails()
+
+    if res.status == TestStatus.Failed:
+        details = _test_output_tails()
+    if res.status == TestStatus.Timeout:
+        status_suffix = f"timeout ({res.timeout_period}s)"
+    if res.status == TestStatus.Expected_failure:
+        status_suffix = "Expected failure"
+    if res.status == TestStatus.Unexpected_pass:
+        status_suffix = "Unexpected pass"
+        details = _test_output_tails()
+    if res.status == TestStatus.Verfication_run_err:
+        details = _file_tail_str(res.pre_test_output_file, "pre test output")
+    _post_print_details(status_suffix, details)
 
 
-def _summarize_iter(run_info: RunInfo, iter_n: int,
-                    show_successful: bool = False) -> None:
-    def summarize_test_list(suffix: str, test_names: list[str], color: str = "") -> None:
-        title = f"{suffix}"
+def _summarize_iter(run_info: RunInfo, iter_n: int) -> None:
+    def summarize_test_list(status: TestStatus) -> None:
+        test_names = run_info.iterations_info[iter_n][status]
+        status_print_info = _STATUS_PRINT_INFO[status]
+        color = status_print_info.color
+        title = status_print_info.string
         test_list_str = ", ".join(test_names)
-        summary_str = "{}{}{}: {}"
-        if not colors_enabled():
-            color = ""
-        pr_info(summary_str.format(color, title, _reset_color(), test_list_str))
+        pr_info(f"{color}{title}{_reset_color()}: {test_list_str}")
 
         start_raw_logging()
         log_info(f"{title} {test_list_str}")
@@ -227,25 +297,16 @@ def _summarize_iter(run_info: RunInfo, iter_n: int,
     log_info(f"Finished iteration (#{iter_n}/{run_info.iterations - 1})")
     if run_info.iterations > 1:
         pr_info(f"\nxeet iteration #{iter_n} summary:")
-
-    if show_successful and iter_info.successful_tests:
-        summarize_test_list("Passed", iter_info.successful_tests, PrintColors.GREEN)
-    if iter_info.expected_failures:
-        summarize_test_list("Expectedly failed", iter_info.expected_failures, PrintColors.GREEN)
-    if iter_info.failed_tests:
-        summarize_test_list("Failed", iter_info.failed_tests, PrintColors.RED)
-    if iter_info.unexpected_pass:
-        summarize_test_list("Unexpectedly passed", iter_info.unexpected_pass, PrintColors.RED)
-    if iter_info.skipped_tests:
-        summarize_test_list("Skipped", iter_info.skipped_tests)
-    if iter_info.not_run_tests:
-        summarize_test_list("Not ran", iter_info.not_run_tests, PrintColors.YELLOW)
+    for status in TestStatus:
+        if not iter_info[status]:
+            continue
+        summarize_test_list(status)
     pr_info()
 
 
 def _run_single_test(test: Xtest, settings: RunSettings) -> TestResult:
     if test.init_err:
-        return TestResult(status=TestStatus.Not_run, short_comment=test.init_err)
+        return TestResult(status=TestStatus.Init_error, status_reason=test.init_err)
 
     test.expand()
     if settings.show_summary:
@@ -273,7 +334,7 @@ def run_tests(config: Config, run_settings: RunSettings) -> RunInfo:
         for test in tests:
             test.debug_mode = True
 
-    log_info("Running tests: {}".format(", ".join([x.name for x in tests])), pr=pr_info)
+    log_info("Running tests: {}\n".format(", ".join([x.name for x in tests])), pr=pr_info)
 
     iterations = run_settings.iterations
     run_info = RunInfo(iterations=iterations)
@@ -289,7 +350,7 @@ def run_tests(config: Config, run_settings: RunSettings) -> RunInfo:
             log_blank()
         if run_settings.debug_mode:
             continue
-        _summarize_iter(run_info, iter_n, show_successful=True)
+        _summarize_iter(run_info, iter_n)
     return run_info
 
 

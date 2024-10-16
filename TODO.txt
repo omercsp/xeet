@@ -20,3 +20,5 @@
 - Add test CLI editor
 - Add test rename capability (should rename result file as well)
 - Add pre/post suite execution commands
+- Add skip test command (should be able to skip a test based on a condition)
+- Move the iteration result out of 

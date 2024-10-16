@@ -98,7 +98,7 @@ class TestXtest(unittest.TestCase):
 
         self.set_test(_TEST0, allowed_rc=[1], cmd=_TRUE_CMD, save=True, reset=True)
         res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.Failed_run)
 
         self.set_test(_TEST0, allowed_rc=[1], cmd=_FALSE_CMD, save=True, reset=True)
         res = self.run_test(_TEST0)
@@ -114,7 +114,7 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST0, allowed_rc=[1], cmd=_FALSE_CMD, reset=True)
         self.set_test(_TEST1, base=_TEST0, cmd=_TRUE_CMD, save=True)
         res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.Failed_run)
 
         # Inerit allowed_rc, but override it
         self.set_test(_TEST2, base=_TEST0, allowed_rc=[0], cmd=_TRUE_CMD, save=True)
@@ -138,7 +138,7 @@ class TestXtest(unittest.TestCase):
 
         #  Override the test command
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.Failed)
+        self._check_test(res, rc=1, status=TestStatus.Failed_run)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertIsNone(res.verify_cmd_rc)
         self.assertIsNone(res.post_cmd_rc)
@@ -189,14 +189,14 @@ class TestXtest(unittest.TestCase):
 
         #  Override the verify command
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.Failed_run)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertEqual(res.verify_cmd_rc, 1)
         self.assertIsNone(res.post_cmd_rc)
 
         #  Validate post-test is ran regardless of verify command
         res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.Failed)
+        self._check_test(res, rc=0, status=TestStatus.Failed_run)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertEqual(res.verify_cmd_rc, 1)
         self.assertEqual(res.post_cmd_rc, 0)
@@ -243,7 +243,7 @@ class TestXtest(unittest.TestCase):
         self._check_test(res, rc=0, status=TestStatus.Passed)
 
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.Failed)
+        self._check_test(res, rc=1, status=TestStatus.Failed_run)
 
         self.run_settings.criteria.hidden_tests = False
 
@@ -267,7 +267,7 @@ class TestXtest(unittest.TestCase):
             self._check_test(res, rc=1, status=TestStatus.Expected_failure)
 
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.Failed)
+        self._check_test(res, rc=1, status=TestStatus.Failed_run)
 
         res = self.run_test(_TEST3)
         self._check_test(res, rc=0, status=TestStatus.Unexpected_pass)
@@ -277,13 +277,13 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST1, base=_TEST0, timeout=2)
         self.set_test(_TEST2, base=_TEST0, timeout=None, save=True)
         res = self.run_test(_TEST0)
-        self._check_test(res, rc=None, status=TestStatus.Failed)
+        self._check_test(res, rc=None, status=TestStatus.Failed_run)
 
         res = self.run_test(_TEST1)
         self._check_test(res, rc=0, status=TestStatus.Passed)
 
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=None, status=TestStatus.Failed)
+        self._check_test(res, rc=None, status=TestStatus.Failed_run)
 
     def test_env(self):
         self.set_test(_TEST0, cmd=f"{_SHOWENV_CMD} TEST_ENV",
@@ -364,7 +364,7 @@ class TestXtest(unittest.TestCase):
         self.set_test(_TEST0, shell=True, cmd=cmd, reset=True)
         # Unifiy stdout and stderr explicitly
         self.set_test(_TEST1, base=_TEST0, output_behavior="unify")
-        self.set_test(_TEST2, base=_TEST0, output_behavior="split", save=True)
+        self.set_test(_TEST2, base=_TEST0, output_behavior="split")
         self.set_test(_TEST3, shell=True, cmd=cmd, output_behavior="split", save=True)
 
         for res in self.run_tests_list([_TEST1]):
