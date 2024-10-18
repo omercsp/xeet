@@ -5,7 +5,6 @@ from xeet.config import Config, ConfigModel, read_config_file, TestCriteria
 from xeet.common import XeetException, update_global_vars, text_file_tail
 from xeet.log import log_info, log_blank, start_raw_logging, stop_raw_logging
 from xeet.runtime import RunInfo
-from enum import Enum, auto
 import textwrap
 import os
 import sys
@@ -199,10 +198,16 @@ def _pre_run_print(name: str, settings: RunSettings) -> None:
     pr_info("", end='', flush=True)
 
 
+def _status_category_str(status: TestStatus) -> str:
+    status_print_info = _STATUS_PRINT_INFO[status]
+    if colors_enabled():
+        return f"{status_print_info.color}{status_print_info.category:<7}{_reset_color()}"
+    return f"{status_print_info.category:<7}"
+
+
 def _post_run_print(res: TestResult, run_settings: RunSettings) -> None:
     def _post_print_details(status_suffix: str = "", details: str = "") -> None:
-        status_print_info = _STATUS_PRINT_INFO[res.status]
-        msg = f"[{status_print_info.color}{status_print_info.category:<7}{_reset_color()}]"
+        msg = f"[{_status_category_str(res.status)}]"
         if status_suffix:
             if len(status_suffix) < 30:
                 msg += f" {status_suffix}"
@@ -223,8 +228,8 @@ def _post_run_print(res: TestResult, run_settings: RunSettings) -> None:
 
         try:
             tail_text = text_file_tail(file_path)
-        except OSError:
-            return "error reading {title} file at '{file_path}'{unified_str}"
+        except OSError as e:
+            return f"error reading {title} file at '{file_path}'{unified_str}: {e.strerror}"
         if len(tail_text) == 0:
             return f"empty {title} file{unified_str}"
         ret = f" {title} tail{unified_str} ".center(50, '-')
@@ -246,6 +251,7 @@ def _post_run_print(res: TestResult, run_settings: RunSettings) -> None:
     details = ""
     status_suffix = ""
     if res.status == TestStatus.InitErr:
+        status_suffix = "Malformed test"
         details = res.status_reason
     elif res.status == TestStatus.Skipped:
         status_suffix = res.status_reason
@@ -284,7 +290,7 @@ def _summarize_iter(run_info: RunInfo, iter_n: int) -> None:
     def summarize_test_list(status: TestStatus) -> None:
         test_names = run_info.iterations_info[iter_n][status]
         status_print_info = _STATUS_PRINT_INFO[status]
-        color = status_print_info.color
+        color = status_print_info.color if colors_enabled() else ""
         title = status_print_info.string
         test_list_str = ", ".join(test_names)
         pr_info(f"{color}{title}{_reset_color()}: {test_list_str}")
@@ -314,6 +320,7 @@ def _run_single_test(test: Xtest, settings: RunSettings) -> TestResult:
     if settings.show_summary:
         _show_test(test, full_details=False, expanded_cmds=True)
         sys.stdout.flush()
+    test.debug_mode = settings.debug_mode
     return test.run()
 
 
@@ -322,19 +329,18 @@ def run_tests(config: Config, run_settings: RunSettings) -> RunInfo:
     _set_global_vars(config.file_path, run_settings.debug_mode)
     criteria = run_settings.criteria
     if criteria.include_groups:
-        log_info("Included groups: {}".format(", ".join(criteria.include_groups)))
+        groups_str = ", ".join(sorted(criteria.include_groups))
+        log_info(f"Included groups: {groups_str}", pr=pr_info)
     if criteria.exclude_groups:
-        log_info("Excluded groups: {}".format(", ".join(criteria.exclude_groups)))
+        groups_str = ", ".join(sorted(criteria.exclude_groups))
+        log_info(f"Excluded groups: {groups_str}", pr=pr_info)
     if criteria.require_groups:
-        log_info("Required groups: {}".format(", ".join(criteria.require_groups)))
+        groups_str = ", ".join(sorted(criteria.require_groups))
+        log_info(f"Required groups: {groups_str}", pr=pr_info)
 
     tests = config.xtests(run_settings.criteria)
     if not tests:
         raise XeetException("No tests to run")
-    log_info(f"{run_settings.debug_mode=}")
-    if run_settings.debug_mode:
-        for test in tests:
-            test.debug_mode = True
 
     log_info("Running tests: {}\n".format(", ".join([x.name for x in tests])), pr=pr_info)
 

@@ -23,3 +23,4 @@
 - Seperate test running from UI (CLI) and infra. The latter should be able to run for other clients, hence
   it should yield the results in a format that can be consumed by the client.
 - Migrate all the testing components to be plugin based (pre-test, test, verify, post-test)
+- Add E2E multiple iterarion test

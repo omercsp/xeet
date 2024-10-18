@@ -2,7 +2,7 @@ from xeet import xeet_version
 from xeet.config import read_config_file, TestCriteria
 from xeet.common import XeetException
 from xeet.log import init_logging, log_error, log_info
-from xeet.pr import pr_header, disable_colors
+from xeet.pr import pr_header, disable_colors, pr_ok
 import xeet.actions as actions
 
 import os
@@ -145,10 +145,8 @@ def xrun() -> int:
             return 0
 
         config = read_config_file(args.conf)
-        rc = 0
         if cmd_name == _RUN_CMD:
-            run_info = actions.run_tests(config, _gen_run_settings(args))
-            rc = 1 if run_info.failed else 0
+            actions.run_tests(config, _gen_run_settings(args))
         elif cmd_name == _LIST_CMD:
             actions.list_tests(config, _gen_tests_list_criteria(args), args.names_only)
         elif cmd_name == _GROUPS_CMD:
@@ -159,11 +157,11 @@ def xrun() -> int:
             actions.dump_config(config)
         elif cmd_name == _DUMP_CMD:
             actions.dump_test(config, args.test_name)
+        return 0
 
     except XeetException as e:
         log_error(f"xeet: {e}")
         return 255
-    return rc
 
 
 if __name__ == "__main__":

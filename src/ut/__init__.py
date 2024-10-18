@@ -73,7 +73,8 @@ def utils_path() -> str:
 
 def tests_utils_command(name: str, *args) -> str:
     path = os.path.join(utils_path(), "testing", name)
-    return f"python3 {path} " + " ".join(args)
+    args = " ".join(args)
+    return f"python3 {path} {args}"
 
 
 __all__ = ["unittest"]

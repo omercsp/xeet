@@ -1,6 +1,17 @@
 tests:
   - name: compare_output
-    verify_cmd: '{XEET_ROOT}/../scripts/dflt_output_compare.sh'
+    variables:
+      expected_stdout: '{XEET_ROOT}/xeet.expected/{XEET_TEST_NAME}/stdout'
+      expected_stderr: '{XEET_ROOT}/xeet.expected/{XEET_TEST_NAME}/stderr'
+    verify_cmd_shell: true
+    verify_cmd: '{XEET_ROOT}/compare_output.sh {XEET_TEST_NAME}'
+    env:
+      XEET_ROOT: "{XEET_ROOT}"
+      XEET_DEBUG: "{XEET_DEBUG}"
+      TEST_NAME: "{XEET_TEST_NAME}"
+      TEST_STDOUT: "{XEET_TEST_STDOUT}"
+      TEST_STDERR: "{XEET_TEST_STDERR}"
+      TEST_OUTPUT_DIR: "{XEET_TEST_OUTPUT_DIR}"
     abstract: true
   - name: 001_env_simple
     base: compare_output

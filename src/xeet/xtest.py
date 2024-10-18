@@ -331,13 +331,13 @@ class Xtest:
                 try:
                     os.remove(os.path.join(self.output_dir, f))
                 except OSError as e:
-                    raise XeetRunException(f"Error removing file '{f}' - {e}")
+                    raise XeetRunException(f"Error removing file '{f}' - {e.strerror}")
         else:
             try:
                 log_verbose("Creating output directory if it doesn't exist: '{}'", self.output_dir)
                 os.makedirs(self.output_dir, exist_ok=False)
             except OSError as e:
-                raise XeetRunException(f"Error creating output directory - {e}")
+                raise XeetRunException(f"Error creating output directory - {e.strerror}")
 
     def run(self) -> TestResult:
         res = TestResult()
@@ -372,7 +372,7 @@ class Xtest:
             env = self._read_env_vars()
         except XeetRunException as e:
             res.status = TestStatus.RunErr
-            res.status_reason = f"Error setting environment variables: {e}"
+            res.status_reason = str(e)
             return res
 
         self._mkdir_output_dir()
@@ -427,7 +427,7 @@ class Xtest:
                 with open(res.pre_test_output_file, "w") as f:
                     p = subprocess.run(**cmd_args, stdout=f, stderr=f)
         except OSError as e:
-            log_error(f"Error running pre-test command- {e}", pr=None)
+            log_error(f"Error running pre-test command- {e.strerror}", pr=None)
             res.status = TestStatus.PreRunErr
             res.status_reason = str(e)
             return
@@ -464,7 +464,7 @@ class Xtest:
                     #      raise XeetRunException(f"Error reading env file - {err}")
                     ret.update(data)
             except OSError as e:
-                raise XeetRunException(f"Error reading env file - {e}")
+                raise XeetRunException(f"Error reading env file - {e.strerror}")
         if self.env_expanded:
             ret.update(self.env_expanded)
         return ret
@@ -509,10 +509,10 @@ class Xtest:
                 res.rc = p.wait(self.timeout)
             res.duration = timer() - start
             self._log_info(f"command finished with rc={res.rc} in {res.duration:.3f}s")
-        except (OSError, FileNotFoundError) as e:
+        except OSError as e:
             self._log_info(str(e))
             res.status = TestStatus.RunErr
-            res.status_reason = str(e)
+            res.status_reason = str(e.strerror)
         except subprocess.TimeoutExpired as e:
             assert p is not None
             try:
@@ -591,7 +591,7 @@ class Xtest:
         except OSError as e:
             res.status = TestStatus.VerifyRunErr
             log_error(f"Error running verification command- {e}")
-            res.status_reason = f"Verification run error: {e}"
+            res.status_reason = f"Verification run error: {e.strerror}"
 
     def _verify(self, res: TestResult, env: dict) -> None:
         self._verify_test_rc(res)

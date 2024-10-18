@@ -98,7 +98,7 @@ def init_logging(title, log_file_path, verbose: bool) -> None:
         try:
             os.makedirs(log_dir)
         except OSError as e:
-            pr_warn(f"Error creating log directory - {e}")
+            pr_warn(f"Error creating log directory - {e.strerror}")
             pr_warn("Logging is disabled")
             return
     if os.path.exists(log_file_path) and not os.path.isfile(log_file_path):
@@ -109,7 +109,7 @@ def init_logging(title, log_file_path, verbose: bool) -> None:
         verbosity = logging.DEBUG if verbose else logging.INFO
         __logger = VrdLogger(log_file_path, verbosity, logger_name="xeet")
     except OSError as e:
-        pr_warn(f"Error initializing log file - {e}")
+        pr_warn(f"Error initializing log file - {e.strerror}")
         pr_warn("Logging is disabled")
         return
     log_blank(2)

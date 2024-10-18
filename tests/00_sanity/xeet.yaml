@@ -1,7 +1,7 @@
 variables:
   expcted_dir: '{XEET_ROOT}/xeet.expected'
 tests:
-  - name: output_compare
+  - name: compare_output
     variables:
       expected_stdout: '{XEET_ROOT}/xeet.expected/{XEET_TEST_NAME}/stdout'
       expected_stderr: '{XEET_ROOT}/xeet.expected/{XEET_TEST_NAME}/stderr'
@@ -17,7 +17,7 @@ tests:
     abstract: true
 
   - name: 001_pass
-    base: output_compare
+    base: compare_output
     short_desc: echoes Hello World!
     cmd: echo 'Hello World!'
     groups: [group1, group2, passing]
@@ -26,11 +26,12 @@ tests:
     short_desc: runs false
     cmd: "false"
     groups: [group1, group3, failing]
+
   - name: 002b_fail_output_compare
-    base: output_compare
+    base: compare_output
     shell: true
     cmd: "echo 'bad stdout str'; echo 'bad stderr str' >&2"
-    groups: [group1, group3, failing, output_compare]
+    groups: [group1, group3, failing, compare_output]
 
   - name: 002c_fail_output_compare_split
     base: 002b_fail_output_compare
@@ -59,7 +60,7 @@ tests:
     groups: [not_run]
 
   - name: 005_expected_fail
-    base: output_compare
+    base: compare_output
     short_desc: runs false but expected to fail
     cmd: "false"
     expected_failure: true
@@ -87,7 +88,7 @@ tests:
 
   - name: 009_env_pass
     short_desc: prints environment variable
-    base: output_compare
+    base: compare_output
     env:
       TEST_ENV_VAR: test value
     cmd: printenv TEST_ENV_VAR
@@ -108,7 +109,7 @@ tests:
     groups: [passing]
 
   - name: 014_show_auto_vars_internal
-    base: output_compare
+    base: compare_output
     short_desc: Test auto variables
     cmd: |-
       echo -e Test name: {XEET_TEST_NAME}
