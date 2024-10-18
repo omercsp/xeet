@@ -1,5 +1,5 @@
 from xeet.log import log_info, log_warn
-from xeet.common import XeetException, global_vars, NonEmptyStr, pydantic_errmsg
+from xeet.common import XeetException, global_vars, NonEmptyStr, pydantic_errmsg, update_global_vars
 from xeet.xtest import Xtest
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, ValidationInfo
 from typing import Any
@@ -196,6 +196,18 @@ def _extract_include_files(file_path: str, included: set[str] | None = None) -> 
     return ret
 
 
+def _set_global_vars(conf_file_path: str) -> None:
+    root = os.path.dirname(conf_file_path)
+    if root == "":
+        root = "./"
+    output_dir = os.path.join(root, "xeet.out")
+    update_global_vars({
+        f"CWD": os.getcwd(),
+        f"ROOT": os.path.dirname(conf_file_path),
+        f"OUTPUT_DIR": output_dir,
+    })
+
+
 def read_config_file(file_path: str) -> Config:
     if not file_path:
         for file in ("xeet.yaml", "xeet.yml", "xeet.json"):
@@ -204,6 +216,7 @@ def read_config_file(file_path: str) -> Config:
                 break
         if not file_path:
             raise XeetConfigException("Empty configuration file path")
+    _set_global_vars(file_path)
     includes = _extract_include_files(file_path)
     if not includes:  # should never happen
         raise XeetConfigException(f"No configuration files found in '{file_path}'")

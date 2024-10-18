@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from xeet.pr import pr_dict, pr_info, PrintColors, colors_enabled
-from xeet.xtest import Xtest, XtestModel, TestStatus, TestResult, status_catgoery
-from xeet.config import Config, ConfigModel, read_config_file, TestCriteria
+from xeet.xtest import Xtest, TestStatus, TestResult, status_catgoery
+from xeet.config import read_config_file, TestCriteria
 from xeet.common import XeetException, update_global_vars, text_file_tail
 from xeet.log import log_info, log_blank, start_raw_logging, stop_raw_logging
 from xeet.runtime import RunInfo
+from xeet.core import fetch_schema, fetch_test_desc, fetch_tests_list, fetch_groups_list
 import textwrap
 import os
 import sys
@@ -83,21 +84,8 @@ def _show_test(test: Xtest, full_details: bool, expanded: bool) -> None:
         print_blob(f"Post-test command{shell_str}", _test_str(cmd))
 
 
-def _set_global_vars(conf_file_path: str, debug_mode: bool = False) -> None:
-    root = os.path.dirname(conf_file_path)
-    output_dir = os.path.join(root, "xeet.out")
-    update_global_vars({
-        f"CWD": os.getcwd(),
-        f"ROOT": os.path.dirname(conf_file_path),
-        f"OUTPUT_DIR": output_dir,
-        f"DEBUG": "1" if debug_mode else "0",
-    })
-
-
 def show_test_info(conf: str, test_name: str, expand: bool) -> None:
     config = read_config_file(conf)
-    if expand:
-        _set_global_vars(config.file_path)
     xtest = config.xtest(test_name)
     if xtest is None:
         raise XeetException(f"No such test: {test_name}")
@@ -106,11 +94,11 @@ def show_test_info(conf: str, test_name: str, expand: bool) -> None:
     _show_test(xtest, full_details=True, expanded=expand)
 
 
-def list_groups(config: Config) -> None:
-    pr_info(", ".join(list(config.all_groups())))
+def list_groups(conf: str) -> None:
+    pr_info(", ".join(fetch_groups_list(conf)))
 
 
-def list_tests(config: Config, criteria: TestCriteria, names_only: bool) -> None:
+def list_tests(conf: str, criteria: TestCriteria, names_only: bool) -> None:
     def _display_token(token: str | None, max_len: int) -> str:
         if not token:
             return ""
@@ -118,7 +106,7 @@ def list_tests(config: Config, criteria: TestCriteria, names_only: bool) -> None
             return token
         return f"{token[:max_len - 3]}..."
 
-    tests = config.xtests(criteria)
+    tests = fetch_tests_list(conf, criteria)
 
     _max_name_print_len = 40
     _max_desc_print_len = 65
@@ -317,9 +305,10 @@ def _run_single_test(test: Xtest, settings: RunSettings) -> TestResult:
     return test.run()
 
 
-def run_tests(config: Config, run_settings: RunSettings) -> RunInfo:
+def run_tests(conf: str, run_settings: RunSettings) -> RunInfo:
     log_info("Starting run", pr=pr_info, pr_suffix="------------\n")
-    _set_global_vars(config.file_path, run_settings.debug_mode)
+    config = read_config_file(conf)
+    update_global_vars({"DEBUG": "1" if run_settings.debug_mode else "0"})
     criteria = run_settings.criteria
     if criteria.include_groups:
         groups_str = ", ".join(sorted(criteria.include_groups))
@@ -355,29 +344,13 @@ def run_tests(config: Config, run_settings: RunSettings) -> RunInfo:
     return run_info
 
 
-def dump_test(config: Config, name: str) -> None:
-    desc = config.test_desc(name)
+def dump_test(conf_path: str, name: str) -> None:
+    desc = fetch_test_desc(conf_path, name)
     if desc is None:
         raise XeetException(f"No such test: {name}")
     pr_info(f"Test '{name}' descriptor:")
     pr_dict(desc, as_json=True)
 
 
-_DUMP_CONFIG_SCHEMA = "config"
-_DUMP_UNIFIED_SCHEMA = "unified"
-_DUMP_XTEST_SCHEMA = "test"
-
-DUMP_TYPES = [_DUMP_UNIFIED_SCHEMA, _DUMP_CONFIG_SCHEMA, _DUMP_XTEST_SCHEMA]
-
-
 def dump_schema(dump_type: str) -> None:
-    if dump_type == _DUMP_CONFIG_SCHEMA:
-        d = ConfigModel.model_json_schema()
-    elif dump_type == _DUMP_XTEST_SCHEMA:
-        d = XtestModel.model_json_schema()
-    elif dump_type == _DUMP_UNIFIED_SCHEMA:
-        d = ConfigModel.model_json_schema()
-        d["properties"]["tests"]["items"] = XtestModel.model_json_schema()
-    else:
-        raise XeetException(f"Invalid dump type: {dump_type}")
-    pr_dict(d, as_json=True)
+    pr_dict(fetch_schema(dump_type), as_json=True)

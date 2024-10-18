@@ -3,7 +3,7 @@ from ut import unittest, ConfigTestWrapper, tests_utils_command
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, XtestModel,
                         status_catgoery, TestStatusCategory)
 from xeet.actions import run_tests, RunSettings
-from xeet.config import Config, read_config_file, TestCriteria
+from xeet.config import TestCriteria, read_config_file
 from xeet.common import XeetException
 import tempfile
 import os
@@ -39,7 +39,6 @@ class TestXtest(unittest.TestCase):
     def setUpClass(cls):
         ConfigTestWrapper.init_xeet_dir()
         cls.main_config_wrapper = ConfigTestWrapper("main.json")
-        cls.main_config: Config = None  # type: ignore
         cls.run_settings = RunSettings(1, False, False, TestCriteria([], [], [], [], False))
 
     @classmethod
@@ -58,27 +57,26 @@ class TestXtest(unittest.TestCase):
         cls.main_config_wrapper.add_test(name, **kwargs)
         if save:
             cls.main_config_wrapper.save()
-            cls.main_config = read_config_file(cls.main_config_wrapper.file_path)
 
     @classmethod
     def run_test(cls, name) -> TestResult:
         cls.run_settings.criteria.names = {name}
-        run_info = run_tests(cls.main_config, cls.run_settings)
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.run_settings)
         res = run_info.test_result(name, 0)
         return res
 
     @classmethod
     def run_tests_list(cls, names: Iterable[str]) -> Iterator[TestResult]:
         cls.run_settings.criteria.names = set(names)
-        run_info = run_tests(cls.main_config, cls.run_settings)
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.run_settings)
         for name in names:
             yield run_info.test_result(name, 0)
 
     @classmethod
     def get_test(cls, name) -> Xtest:
-        return cls.main_config.xtest(name)  # type: ignore
+        return read_config_file(cls.main_config_wrapper.file_path).xtest(name)  # type: ignore
 
-    # Test that the docstrings are not inherited
+    #  Validate docstrings are not inherited
     def test_doc_inheritance(self):
         self.set_test(_TEST0, cmd=_TRUE_CMD, short_desc="text", long_desc="text", reset=True)
         self.set_test(_TEST1, base=_TEST0, save=True)

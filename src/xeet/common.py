@@ -41,7 +41,7 @@ def dict_value(d: dict, path: str, require=False, default=None) -> Any:
     return default
 
 
-_global_xvars: "_XeetVarsBase" = None  # type: ignore
+_global_xvars: "XeetVars" = None  # type: ignore
 
 
 class XeetNoSuchVarException(XeetException):

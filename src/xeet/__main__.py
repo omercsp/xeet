@@ -3,6 +3,7 @@ from xeet.config import read_config_file, TestCriteria
 from xeet.common import XeetException
 from xeet.log import init_logging, log_error, log_info
 from xeet.pr import pr_header, disable_colors
+from xeet.core import SchemaType
 import xeet.actions as actions
 
 import os
@@ -15,7 +16,7 @@ _LIST_CMD = "list"
 _GROUPS_CMD = "groups"
 _INFO_CMD = "info"
 _DUMP_CMD = "dump"
-_DUMP_SCHEMA_CMD = "dump_schema"
+_DUMP_SCHEMA_CMD = "schema"
 _YES_TOKEN = 'yes'
 _NO_TOKEN = 'no'
 
@@ -72,7 +73,7 @@ def parse_arguments() -> argparse.Namespace:
     info_parser.add_argument('-x', '--expand', help='expand values', action='store_true',
                              default=False)
 
-    dump_parser = subparsers.add_parser(_DUMP_CMD, help='dump a test',
+    dump_parser = subparsers.add_parser(_DUMP_CMD, help='dump a test descriptor',
                                         parents=[common_parser])
     dump_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
                              help='set test name', required=True)
@@ -91,8 +92,8 @@ def parse_arguments() -> argparse.Namespace:
                           parents=[common_parser, test_groups_parser])
     dump_parser = subparsers.add_parser(_DUMP_SCHEMA_CMD, help='dump configuration file schema',
                                         parents=[common_parser])
-    dump_parser.add_argument('-s', '--schema', choices=actions.DUMP_TYPES,
-                             default=actions.DUMP_TYPES[0])
+    dump_parser.add_argument('-s', '--schema', choices=[s.value for s in SchemaType],
+                             default=SchemaType.CONFIG.value)
 
     argcomplete.autocomplete(parser, always_complete_options=False)
     args = parser.parse_args()
@@ -137,24 +138,23 @@ def xrun() -> int:
         log_info(f"Running command '{args.subparsers_name}'")
         log_info(f"CWD is '{os.getcwd()}'")
         cmd_name = args.subparsers_name
-        if cmd_name == _DUMP_SCHEMA_CMD:
-            actions.dump_schema(args.schema)
-            return 0
-
-        config = read_config_file(args.conf)
+        rc = 0
         if cmd_name == _RUN_CMD:
-            run_info = actions.run_tests(config, _gen_run_settings(args))
-            return 1 if run_info.had_bad_tests() else 0
-
-        if cmd_name == _LIST_CMD:
-            actions.list_tests(config, _gen_tests_list_criteria(args), args.names_only)
+            run_info = actions.run_tests(args.conf, _gen_run_settings(args))
+            rc = 1 if run_info.had_bad_tests() else 0
+        elif cmd_name == _DUMP_SCHEMA_CMD:
+            actions.dump_schema(args.schema)
+        elif cmd_name == _LIST_CMD:
+            actions.list_tests(args.conf, _gen_tests_list_criteria(args), args.names_only)
         elif cmd_name == _GROUPS_CMD:
-            actions.list_groups(config)
+            actions.list_groups(args.conf)
         elif cmd_name == _INFO_CMD:
             actions.show_test_info(args.conf, args.test_name, args.expand)
         elif cmd_name == _DUMP_CMD:
-            actions.dump_test(config, args.test_name)
-        return 0
+            actions.dump_test(args.conf, args.test_name)
+        else:
+            raise XeetException(f"Unknown command '{cmd_name}'")
+        return rc
 
     except XeetException as e:
         log_error(f"xeet: {e}")

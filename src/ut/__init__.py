@@ -3,6 +3,7 @@ from xeet.pr import mute_prints
 from tempfile import gettempdir
 from dataclasses import dataclass, field
 from typing import ClassVar
+from functools import cached_property
 import json
 import os
 import unittest
@@ -20,8 +21,6 @@ class ConfigTestWrapper:
     path: str = ""
     includes: list[str] = field(default_factory=list)
     tests: list[dict] = field(default_factory=list)
-    _file_path: str | None = None
-    _tmp_dir: tempfile.TemporaryDirectory | None = None
     _xeet_dir: ClassVar[tempfile.TemporaryDirectory] = None  # type: ignore
 
     def __post_init__(self):
@@ -34,11 +33,9 @@ class ConfigTestWrapper:
     def desc(self) -> dict:
         return {"include": self.includes, "tests": self.tests}
 
-    @property
+    @cached_property
     def file_path(self):
-        if not self._file_path:
-            self._file_path = os.path.join(self.path, self.name)
-        return self._file_path
+        return os.path.join(self.path, self.name)
 
     def save(self):
         with open(self.file_path, 'w') as f:
