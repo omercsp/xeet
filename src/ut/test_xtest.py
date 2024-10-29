@@ -2,7 +2,7 @@ from typing import Iterable, Iterator
 from ut import unittest, ConfigTestWrapper, tests_utils_command
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, XtestModel,
                         status_catgoery, TestStatusCategory)
-from xeet.actions import run_tests, RunSettings
+from xeet.actions import run_tests, CliRunSettings
 from xeet.config import TestCriteria, read_config_file
 from xeet.common import XeetException
 import tempfile
@@ -39,7 +39,7 @@ class TestXtest(unittest.TestCase):
     def setUpClass(cls):
         ConfigTestWrapper.init_xeet_dir()
         cls.main_config_wrapper = ConfigTestWrapper("main.json")
-        cls.run_settings = RunSettings(1, False, False, TestCriteria([], [], [], [], False))
+        cls.run_settings = CliRunSettings(1, False, False, TestCriteria([], [], [], [], False))
 
     @classmethod
     def tearDownClass(cls):

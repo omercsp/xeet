@@ -118,9 +118,9 @@ def _gen_tests_list_criteria(args: argparse.Namespace) -> TestCriteria:
                         all_tests)
 
 
-def _gen_run_settings(args: argparse.Namespace) -> actions.RunSettings:
+def _gen_run_settings(args: argparse.Namespace) -> actions.CliRunSettings:
     criteria = _gen_tests_list_criteria(args)
-    return actions.RunSettings(iterations=args.repeat, show_summary=args.show_summary,
+    return actions.CliRunSettings(iterations=args.repeat, show_summary=args.show_summary,
                                debug_mode=args.debug, criteria=criteria)
 
 

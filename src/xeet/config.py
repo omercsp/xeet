@@ -203,7 +203,7 @@ def _set_global_vars(conf_file_path: str) -> None:
     output_dir = os.path.join(root, "xeet.out")
     update_global_vars({
         f"CWD": os.getcwd(),
-        f"ROOT": os.path.dirname(conf_file_path),
+        f"ROOT": root,
         f"OUTPUT_DIR": output_dir,
     })
 
