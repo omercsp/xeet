@@ -1,0 +1,144 @@
+Features:
+========
+  * Tests organization, configuration and orchestration tool
+    - CLI
+    - RESTful server
+    - CI/CD integrations
+    - Web server
+    - Container?
+    - Cloud image?
+
+  * Can handle anything runnable as a test. It isn’t limited to API, Web, CLI, DB etc. Can also mix
+  and match different types of runs and verifications (e.g. run an API test, and check the DB as the
+  verification step)
+
+  * Tests are based on running an executable, not on using a specific library (e.g. Selenium) or
+  specific language (e.g. JS). Verification might be based on the program RC and output, but the
+  internals might do anything (e.g. Verify a DB record or so) and output accordingly. This
+  separation allows Xeet to run anything, unlike other platforms which are contained in a
+  technology/language boundary.
+
+  * Pluggable test steps components (pre-run, test, verification, post-run).Will include some
+  out-of-the-box preliminary plugins for simple steps, like:
+    - Binary running
+    - REST API calling
+    - HTTP status validation
+    - JSON value(s) validation
+    - RC verification
+    - output verification
+    - etc.
+  * Allows users to use xeet to test anything they want:
+    - Using dedicated plugins if suitable (should be for many cases)
+    - Through running their own binary with the included binary plugin
+    - By developing their own test/verify plugin
+
+General points:
+===============
+  * There doesn’t seem to be any “generic” testing framework.  Most tools are dedicated to API or
+    E2E (modern code name for web applications, as if there aren’t any other types). Some tools
+    allow both API and Web tests together.
+  * Existing tests written in Selenium
+  * There doesn’t seem to be any CLI testing framework at all. On can utilize something like ‘task’
+    (https://github.com/go-task/task), which isn’t purposed for testing.
+  * Many tools have many features hard to replicate. Looks like integration with popular tools is
+    more beneficial than re-creating them.
+  * No-code solutions seem to be lacking
+
+Opportunities:
+=============
+  * Tests/Verifications not covered by current frameworks (e.g. CLI, DB etc.)
+  * Projects requiring multiple testing suits (easier integration, report, orchestration, etc)
+  * Projects with un-orchestrated tests (e.g. Tests written in selenium that
+    need to be managed)
+  * Projects that require complicated tests that are hard to maintain using
+    existing tools
+  * Projects in transition from one framework to another
+Open questions:
+
+
+Tools:
+=====
+Testim.io https://www.testim.io/
+  * Paid service
+  * Used for web E2E testing. It has what looks like a very rich UI and features. If the entire
+    application is web based, it is enough by itself to test. Not likely though. Very few
+    applications don’t have backends with API and so.
+  * Declares that it can import selenium tests, seem that this isn’t a very smooth import, as it
+    requires the translation of selenium to testim.io framework
+  * In general, no code service, at least for simple cases
+  * Has API (implies possible dedicated plugin)
+
+Katalon studio
+  * https://katalon.com/
+  * Privately held, https://www.crunchbase.com/organization/katalon, Series A, 250-500 employees
+  * Focuses on no code, like testim.io
+  * Has coding features (JS)
+  * Tests E2E and API, supports Mobile and Desktop as well
+  * Includes orchestration
+
+Cypress
+  * https://www.cypress.io/
+  * Privately held, https://www.crunchbase.com/organization/cypress-io (Series B,
+
+Testigma
+  *
+
+Selenium
+  * Open-source library
+  * Requires coding (has binding to multiple languages)
+    - Because used as code,
+  * Used for E2E testing
+
+Playwright
+  * https://playwright.dev/
+  * Open-source library
+  * E2E testing
+  * NodeJS based
+    - It has some recording ability, but requires coding in general
+  * Open source
+
+Puppeteer
+  * https://pptr.dev/
+  * Open-source library
+  * Requires coding (has binding to multiple languages)
+    - Because used as code,
+  * Used for  E2E testing
+
+Rainforest QA https://www.rainforestqa.com/
+  * Paid service
+  * E2E testing (web)
+
+Postman
+  * Free application/Paide application
+    - Paid versions include premium options like mock requests and
+
+Insomniaor
+
+SoapUI
+
+TestProject
+  * Open source
+  * Can be used to write both API and E2E tests
+  * Requires coding (JS)
+
+TestCafe
+  * https://testcafe.io/
+  * Open source
+  * E2E testing
+  * Requires coding (JS)
+
+Robotframework
+  * Theoretically can test anything
+  * Uses native language binding
+    - Restricted to supported libraries
+    - Limited to what the library exposes as a command
+  * Existing for a long time, doesn’t seem to gain momentum. Not very popular.
+
+Test management
+
+Testrail
+
+Testiny
+
+Qase.io
+
