@@ -1,28 +1,51 @@
-#!/bin/bash
-HERE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd ${HERE} || exit 1
-
-# xeet_tests_venv_activate
-XEET_BIN=$(which xeet 2>/dev/null)
-
-set -e
-if [[ -z ${XEET_BIN} ]]; then
-	echo "xeet is not installed in search path."
-	exit 1
-fi
-
-if [[ -n "${VIRTUAL_ENV}" ]]; then
-	echo "This is a high level xeet test script"
-	echo "Since we use xeet to test itself, the xeet used here shouldn't be from a virtual environment,"
-	echo "but from the system path where a stable version of xeet is installed."
-	echo "Please deactivate the virtual environment and make installed xeet in the system path before running this script."
-	echo ""
-	exit 1
-fi
+#!/usr/bin/env python3
+import sys
+import subprocess
+import os
+import shutil
 
 
-echo "Using xeet from '${XEET_BIN}'"
-if [[ -n ${XEET_PKG_VENV_PATH} ]]; then
-	echo "Internal XEET virtual environment path is set to ${XEET_PKG_VENV_PATH}"
-fi
-${XEET_BIN} run -c ${HERE}/xeet.json "$@"
+def _run_tests():
+    # Get the directory of the current script
+    here = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(here)
+
+    # Locate the 'xeet' binary
+    xeet_bin = shutil.which("xeet")
+
+    # Exit if 'xeet' is not found
+    if xeet_bin is None:
+        print("xeet is not installed in the search path.")
+        sys.exit(1)
+
+    # Check if a virtual environment is active
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        print("This is a high-level xeet test invocation.")
+        print("Since we use xeet to test itself, the xeet used here shouldn't be from a virtual "
+              "environment,")
+        print("but from the system path where a stable version of xeet is installed.")
+        print("Please deactivate the virtual environment and make installed xeet in the system "
+              "path before running this script.")
+        print("")
+        sys.exit(1)
+
+    print(f"Using xeet from '{xeet_bin}'")
+
+    # Check for the XEET_PKG_VENV_PATH environment variable
+    xeet_pkg_venv_path = os.environ.get("XEET_PKG_VENV_PATH")
+    if xeet_pkg_venv_path:
+        print(f"Internal XEET virtual environment path is set to {xeet_pkg_venv_path}")
+
+    # Run the xeet command
+    xeet_json_path = os.path.join(here, "xeet.json")
+    command = [xeet_bin, "run", "-c", xeet_json_path] + sys.argv[1:]
+    subprocess.run(command)
+
+
+if __name__ == '__main__':
+    try:
+        _run_tests()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
