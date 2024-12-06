@@ -1,11 +1,15 @@
-from typing import Iterable, Iterator
-from ut import unittest, ConfigTestWrapper, tests_utils_command
+from ut import ref_str
+from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step, gen_dummy_step_desc,
+                                  gen_dummy_step_result, OK_STEP_DESC, OK_STEP_RESULT,
+                                  FAILING_STEP_DESC, FAILING_STEP_RESULT, INCOMPLETED_STEP_DESC,
+                                  INCOMPLETED_STEP_RESULT)
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, status_catgoery,
                         TestStatusCategory)
-from xeet.core import run_tests, RunSettings, fetch_xtest, fetch_tests_list
-from xeet.config import TestCriteria, read_config_file
-from xeet.common import XeetException
-import tempfile
+from xeet.xstep import XStepListResult
+from xeet.steps.dummy_step import DummyStep, DummyStepResult
+from xeet.core import fetch_xtest, fetch_tests_list
+from xeet.config import TestCriteria
+from xeet.common import XeetVars
 import os
 
 
@@ -16,379 +20,257 @@ _TEST3 = "test3"
 _TEST4 = "test4"
 _TEST5 = "test5"
 
-if os.environ.get("UT_DEBUG", "0") == "1":
-    _TRUE_CMD = "true"
-    _FALSE_CMD = "false"
-    _SHOWENV_CMD = "printenv"
-    _ECHOCMD = "echo"
-else:
-    _TRUE_CMD = tests_utils_command("rc.py", "0")
-    _FALSE_CMD = tests_utils_command("rc.py", "1")
-    _SHOWENV_CMD = tests_utils_command("showenv.py")
-    _ECHOCMD = tests_utils_command("echo.py")
-_BAD_CMD = "nonexistent"
 
-
-def _file_content(path: str) -> str:
-    with open(path, 'r') as f:
-        return f.read()
-
-
-class TestCore(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        ConfigTestWrapper.init_xeet_dir()
-        cls.main_config_wrapper = ConfigTestWrapper("main.json")
-        cls.run_settings = RunSettings(1, False, TestCriteria([], [], [], [], False))
-        cls.criteria = TestCriteria([], [], [], [], False)
-
-    @classmethod
-    def tearDownClass(cls):
-        ConfigTestWrapper.fini_xeet_dir()
-
-    @classmethod
-    def set_test(cls, name, **kwargs) -> None:
-        cls.main_config_wrapper.add_test(name, **kwargs)
-
-    @classmethod
-    def run_test(cls, name) -> TestResult:
-        cls.run_settings.criteria.names = {name}
-        run_info = run_tests(cls.main_config_wrapper.file_path, cls.run_settings)
-        res = run_info.test_result(name, 0)
-        return res
-
-    @classmethod
-    def run_tests_list(cls, names: Iterable[str]) -> Iterator[TestResult]:
-        cls.run_settings.criteria.names = set(names)
-        run_info = run_tests(cls.main_config_wrapper.file_path, cls.run_settings)
-        for name in names:
-            yield run_info.test_result(name, 0)
-
-    @classmethod
-    def get_test(cls, name) -> Xtest:
-        return read_config_file(cls.main_config_wrapper.file_path).xtest(name)  # type: ignore
+class TestCore(DummyTestConfig):
 
     #  Validate docstrings are not inherited
     def test_doc_inheritance(self):
-        self.set_test(_TEST0, cmd=_TRUE_CMD, short_desc="text", long_desc="text", reset=True)
+        self.set_test(_TEST0, short_desc="text", long_desc="text", reset=True)
         self.set_test(_TEST1, base=_TEST0, save=True)
         x = self.get_test(_TEST1)
         self.assertEqual(x.base, _TEST0)
         self.assertEqual(x.short_desc, "")
         self.assertEqual(x.long_desc, "")
 
-    def _check_test(self, res: TestResult, rc: int | None, status: TestStatus):
-        if rc is None:
-            self.assertIsNone(res.rc)
-        else:
-            self.assertEqual(res.rc, rc)
-        self.assertEqual(res.status, status)
+    def test_xstep(self):
+        def _run_step(step: DummyStep, xvars: XeetVars, expected: DummyStepResult) -> None:
+            step.expand(xvars)
+            res: DummyStepResult = step.run()  # type: ignore
+            self.assertStepResultEqual(res, expected)
+
+        xvars = XeetVars({"var0": 5})
+
+        step = gen_dummy_step(gen_dummy_step_desc(dummy_field="test", return_value="test"))
+        expected = gen_dummy_step_result(step, completed=True, failed=False)
+        _run_step(step, xvars, expected)
+
+        step = gen_dummy_step(gen_dummy_step_desc(dummy_field="{var0}", return_value="{var0}"))
+        expected = gen_dummy_step_result(step, completed=True, failed=False)
+        # By default, the generated step will return the value of the step, which is an unexpanded
+        # string
+        expected.return_value = "5"
+        _run_step(step, xvars, expected)
+
+        step = gen_dummy_step(gen_dummy_step_desc(fail=True))
+        expected = gen_dummy_step_result(step, completed=True, failed=True)
+        _run_step(step, xvars, expected)
 
     def test_bad_test_desc(self):
-        self.set_test(_TEST0, cmd=_TRUE_CMD, bad_setting="text", long_desc="text", reset=True,
+        self.set_test(_TEST0, bad_setting="text", long_desc="text", reset=True,
                       check_fields=False, save=True)
         res = self.run_test(_TEST0)
-        self._check_test(res, rc=None, status=TestStatus.InitErr)
+        self.assertEqual(res.status, TestStatus.InitErr)
 
-    def test_allowed_rc(self):
-        self.set_test(_TEST0, cmd=_TRUE_CMD, save=True, reset=True)
+    def test_simple_test(self):
+        self.set_test(_TEST0, run=[OK_STEP_DESC], reset=True, save=True)
+        expected_test_steps_results = XStepListResult(results=[OK_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps_results)
         res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
+        self.assertTestResultEqual(res, expected)
 
-        self.set_test(_TEST0, allowed_rc=[1], cmd=_TRUE_CMD, save=True, reset=True)
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.VerifyRcFailed)
+        self.set_test(_TEST0, run=[FAILING_STEP_DESC], reset=True, save=True)
+        expected_test_steps_results = XStepListResult(results=[FAILING_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Failed, run_res=expected_test_steps_results)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
-        self.set_test(_TEST0, allowed_rc=[1], cmd=_FALSE_CMD, save=True, reset=True)
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=1, status=TestStatus.Passed)
+        self.set_test(_TEST0, run=[INCOMPLETED_STEP_DESC], reset=True, save=True)
+        expected_test_steps_results = XStepListResult(results=[INCOMPLETED_STEP_RESULT])
+        expected = TestResult(status=TestStatus.RunErr, run_res=expected_test_steps_results)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
-        # Test ignore_rc
-        self.set_test(_TEST0, allowed_rc=[0], ignore_rc=True,
-                      cmd=_FALSE_CMD, save=True, reset=True)
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=1, status=TestStatus.Passed)
-
-        # Inerit allowed_rc
-        self.set_test(_TEST0, allowed_rc=[1], cmd=_FALSE_CMD, reset=True)
-        self.set_test(_TEST1, base=_TEST0, cmd=_TRUE_CMD, save=True)
-        res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.VerifyRcFailed)
-
-        # Inerit allowed_rc, but override it
-        self.set_test(_TEST2, base=_TEST0, allowed_rc=[0], cmd=_TRUE_CMD, save=True)
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-
-        # Inerit allowed_rc, but ignore it
-        self.set_test(_TEST3, base=_TEST0, cmd=_TRUE_CMD, ignore_rc=True, save=True)
-        res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-
-    def test_xtest_commands(self):
-        self.set_test(_TEST0, cmd=_TRUE_CMD, reset=True)
+    def test_simple_test_steps_inheritance(self):
+        self.set_test(_TEST0, run=[OK_STEP_DESC], reset=True)
         self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, cmd=_FALSE_CMD, save=True)
-        for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=0, status=TestStatus.Passed)
-            self.assertIsNone(res.pre_cmd_rc)
-            self.assertIsNone(res.verify_cmd_rc)
-            self.assertIsNone(res.post_cmd_rc)
+        self.set_test(_TEST2, base=_TEST0, run=[FAILING_STEP_DESC], save=True)
 
-        #  Override the test command
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.VerifyRcFailed)
-        self.assertIsNone(res.pre_cmd_rc)
-        self.assertIsNone(res.verify_cmd_rc)
-        self.assertIsNone(res.post_cmd_rc)
+        expected_test_steps = XStepListResult(results=[OK_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps)
+        for res in self.run_tests_list([_TEST0]):
+            self.assertTestResultEqual(res, expected)
 
-        self.set_test(_TEST0, pre_cmd=_FALSE_CMD, cmd=_TRUE_CMD, reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, pre_cmd=_TRUE_CMD, save=True)
-        for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=None, status=TestStatus.PreRunErr)
-            self.assertEqual(res.pre_cmd_rc, 1)
-            self.assertIsNone(res.verify_cmd_rc)
-            self.assertIsNone(res.post_cmd_rc)
+        expected_test_steps = XStepListResult(results=[FAILING_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Failed, run_res=expected_test_steps)
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
-        #  Validate pre-test command override
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(res.pre_cmd_rc, 0)
-        self.assertIsNone(res.verify_cmd_rc)
-        self.assertIsNone(res.post_cmd_rc)
+    #  def test_xtest_commands(self):
+    def test_step_lists(self):
+        self.set_test(_TEST0, run=[OK_STEP_DESC, OK_STEP_DESC, OK_STEP_DESC], reset=True)
+        self.set_test(_TEST1, run=[OK_STEP_DESC, FAILING_STEP_DESC, OK_STEP_DESC])
+        self.set_test(_TEST2, run=[OK_STEP_DESC, INCOMPLETED_STEP_DESC, OK_STEP_DESC], save=True)
 
-        self.set_test(_TEST0, pre_cmd=_TRUE_CMD, cmd=_TRUE_CMD, post_cmd=_FALSE_CMD,
-                      reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, post_cmd=_TRUE_CMD)
-        self.set_test(_TEST3, base=_TEST0, pre_cmd=_BAD_CMD, save=True)
-        for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=0, status=TestStatus.Passed)
-            self.assertEqual(res.pre_cmd_rc, 0)
-            self.assertIsNone(res.verify_cmd_rc)
-            self.assertEqual(res.post_cmd_rc, 1)
+        expected_test_steps = XStepListResult(results=[OK_STEP_RESULT, OK_STEP_RESULT,
+                                                       OK_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
-        #  Validate post-test command override
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(res.pre_cmd_rc, 0)
-        self.assertIsNone(res.verify_cmd_rc)
-        self.assertEqual(res.post_cmd_rc, 0)
+        expected_test_steps = XStepListResult(results=[OK_STEP_RESULT, FAILING_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Failed, run_res=expected_test_steps)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
 
-        #  Validate post-test command override
-        res = self.run_test(_TEST3)
-        self._check_test(res, rc=None, status=TestStatus.PreRunErr)
-        self.assertEqual(res.pre_cmd_rc, None)
-        self.assertIsNone(res.verify_cmd_rc)
-        self.assertEqual(res.post_cmd_rc, 1)
+        expected_test_steps = XStepListResult(results=[OK_STEP_RESULT, INCOMPLETED_STEP_RESULT])
+        expected = TestResult(status=TestStatus.RunErr, run_res=expected_test_steps)
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
-        #  Test verify command
-        self.set_test(_TEST0, cmd=_TRUE_CMD, verify_cmd=_TRUE_CMD, reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, verify_cmd=_FALSE_CMD)
-        self.set_test(_TEST3, base=_TEST0, verify_cmd=_FALSE_CMD, post_cmd=_TRUE_CMD)
-        self.set_test(_TEST4, base=_TEST0, verify_cmd=_BAD_CMD, post_cmd=_TRUE_CMD, save=True)
-        for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=0, status=TestStatus.Passed)
-            self.assertIsNone(res.pre_cmd_rc)
-            self.assertEqual(res.verify_cmd_rc, 0)
-            self.assertIsNone(res.post_cmd_rc)
+        ok_ok_list = [OK_STEP_DESC, OK_STEP_DESC]
+        ok_ok_res = XStepListResult(results=[OK_STEP_RESULT, OK_STEP_RESULT])
+        ok_ok_ok_list = [OK_STEP_DESC, OK_STEP_DESC, OK_STEP_DESC]
+        ok_ok_ok_res = XStepListResult(results=[OK_STEP_RESULT, OK_STEP_RESULT, OK_STEP_RESULT])
+        ok_fail_ok_list = [OK_STEP_DESC, FAILING_STEP_DESC, OK_STEP_DESC]
+        ok_fail_ok_res = XStepListResult(
+            results=[OK_STEP_RESULT, FAILING_STEP_RESULT, OK_STEP_RESULT])
+        ok_fail_res = XStepListResult(results=[OK_STEP_RESULT, FAILING_STEP_RESULT])
+        ok_incomplete_ok_list = [OK_STEP_DESC, INCOMPLETED_STEP_DESC, OK_STEP_DESC]
+        ok_incomplete_ok_res = XStepListResult(results=[OK_STEP_RESULT, INCOMPLETED_STEP_RESULT,
+                                                        OK_STEP_RESULT])
+        ok_incomplete_res = XStepListResult(results=[OK_STEP_RESULT, INCOMPLETED_STEP_RESULT])
 
-        #  Override the verify command
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.VerifyFailed)
-        self.assertIsNone(res.pre_cmd_rc)
-        self.assertEqual(res.verify_cmd_rc, 1)
-        self.assertIsNone(res.post_cmd_rc)
+        self.set_test(_TEST0, pre_run=ok_ok_list, run=ok_ok_ok_list,
+                      post_run=ok_ok_list, reset=True)
+        # The following 3 tess should all not-run due to the failing pre-run step.
+        self.set_test(_TEST1, pre_run=ok_fail_ok_list, run=ok_ok_list, post_run=ok_ok_list)
+        self.set_test(_TEST2, base=_TEST1)
+        self.set_test(_TEST3, base=_TEST0, pre_run=ok_fail_ok_list, save=True)
 
-        #  Validate post-test is ran regardless of verify command
-        res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.VerifyFailed)
-        self.assertIsNone(res.pre_cmd_rc)
-        self.assertEqual(res.verify_cmd_rc, 1)
-        self.assertEqual(res.post_cmd_rc, 0)
+        self.assertTestResultEqual(self.run_test(_TEST0),
+                                   TestResult(status=TestStatus.Passed,
+                                   pre_run_res=ok_ok_res,
+                                   run_res=ok_ok_ok_res,
+                                   post_run_res=ok_ok_res))
+        expected = TestResult(status=TestStatus.PreRunErr,
+                              pre_run_res=ok_fail_res, post_run_res=ok_ok_res)
 
-        #  Validate bad verify command
-        res = self.run_test(_TEST4)
-        self._check_test(res, rc=0, status=TestStatus.VerifyRunErr)
-        self.assertIsNone(res.pre_cmd_rc)
-        self.assertEqual(res.verify_cmd_rc, None)
-        self.assertEqual(res.post_cmd_rc, 0)
+        for t in (_TEST1, _TEST2, _TEST3):
+            self.assertTestResultEqual(self.run_test(t), expected)
 
-    def test_cwd(self):
-        self.set_test(_TEST0, cmd="pwd", save=True, reset=True)
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), os.getcwd())
-
-        tmp_dir = tempfile.gettempdir()
-        self.set_test(_TEST0, cmd="pwd", cwd=tmp_dir, save=True, reset=True)
-        self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), tmp_dir)
-
+        #  Check failing run step
+        self.set_test(_TEST0, pre_run=ok_ok_list, run=ok_fail_ok_list,
+                      post_run=ok_ok_list, reset=True)
         self.set_test(_TEST1, base=_TEST0, save=True)
-        res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), tmp_dir)
+        expected = TestResult(status=TestStatus.Failed, pre_run_res=ok_ok_res, run_res=ok_fail_res,
+                              post_run_res=ok_ok_res)
+        for t in (_TEST0, _TEST1):
+            self.assertTestResultEqual(self.run_test(t), expected)
 
-        self.set_test(_TEST2, base=_TEST0, save=True)
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), tmp_dir)
+        #  Check incomplete run step
+        self.set_test(_TEST0, pre_run=ok_ok_list, run=ok_incomplete_ok_list,
+                      post_run=ok_ok_list, reset=True)
+        self.set_test(_TEST1, base=_TEST0)
+        # Add some vairations, and validate post-run always runs
+        self.set_test(_TEST2, base=_TEST0, post_run=[])
+        self.set_test(_TEST3, base=_TEST2, post_run=ok_incomplete_ok_list)
+        self.set_test(_TEST4, base=_TEST3, post_run=ok_fail_ok_list, save=True)
+        expected = TestResult(status=TestStatus.RunErr, pre_run_res=ok_ok_res,
+                              run_res=ok_incomplete_res, post_run_res=ok_ok_res)
+        for t in (_TEST0, _TEST1):
+            self.assertTestResultEqual(self.run_test(t), expected)
+        expected.post_run_res = XStepListResult()
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
-        self.set_test(_TEST3, base=_TEST0, cwd="{XEET_CWD}", save=True)
-        res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), os.getcwd())
+        expected.post_run_res = ok_incomplete_ok_res
+        self.assertTestResultEqual(self.run_test(_TEST3), expected)
 
-        self.set_test(_TEST0, cmd="pwd", cwd="/nonexistent", save=True, reset=True)
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=None, status=TestStatus.RunErr)
+        expected.post_run_res = ok_fail_ok_res
+        self.assertTestResultEqual(self.run_test(_TEST4), expected)
 
     def test_abstract_tests(self):
         self.run_settings.criteria.hidden_tests = True
-        self.set_test(_TEST0, cmd=_TRUE_CMD, abstract=True, reset=True)
+        self.set_test(_TEST0, run=[OK_STEP_DESC], abstract=True, reset=True)
         self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, cmd=_FALSE_CMD, save=True)
+        self.set_test(_TEST2, base=_TEST0, run=[FAILING_STEP_DESC], save=True)
         self.assertRaises(XeetRunException, self.run_test, _TEST0)
 
-        res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
+        expected_test_steps = XStepListResult(results=[OK_STEP_RESULT])
+        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
 
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=1, status=TestStatus.VerifyRcFailed)
-
-        self.run_settings.criteria.hidden_tests = False
+        expected.status = TestStatus.Failed
+        expected.run_res = XStepListResult(results=[FAILING_STEP_RESULT])
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
     def test_skipped_tests(self):
-        self.set_test(_TEST0, pre_cmd=_FALSE_CMD, cmd=_TRUE_CMD, skip=True, reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, skip=False, save=True)
-        for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=None, status=TestStatus.Skipped)
-            self.assertIsNone(res.pre_cmd_rc)
+        self.set_test(_TEST0, pre_run=[FAILING_STEP_DESC], run=[
+                      OK_STEP_DESC], skip=True, reset=True)
+        self.set_test(_TEST1, base=_TEST0, skip=True)  # Skipp isn't inherited
+        self.set_test(_TEST2, base=_TEST0, save=True)
 
-        self._check_test(self.run_test(_TEST2), rc=None, status=TestStatus.PreRunErr)
+        expected = TestResult(status=TestStatus.Skipped)
+        for res in self.run_tests_list([_TEST0, _TEST1]):
+            self.assertTestResultEqual(res, expected)
+
+        expected.status = TestStatus.PreRunErr
+        expected.pre_run_res = XStepListResult(results=[FAILING_STEP_RESULT])
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
     def test_expected_failure(self):
-        self.set_test(_TEST0, cmd=_FALSE_CMD, expected_failure=True, reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, expected_failure=False)
-        self.set_test(_TEST3, base=_TEST0, cmd=_TRUE_CMD, save=True)
-        for res in self.run_tests_list((_TEST0, _TEST1)):
-            self._check_test(res, rc=1, status=TestStatus.ExpectedFail)
+        self.set_test(_TEST0, run=[FAILING_STEP_DESC], expected_failure=True, reset=True)
+        self.set_test(_TEST1, base=_TEST0, expected_failure=True)
+        self.set_test(_TEST2, base=_TEST0, post_run=[INCOMPLETED_STEP_DESC])
+        self.set_test(_TEST3, base=_TEST2, run=[OK_STEP_DESC], save=True)
 
-        self._check_test(self.run_test(_TEST2), rc=1, status=TestStatus.VerifyRcFailed)
-        self._check_test(self.run_test(_TEST3), rc=0, status=TestStatus.UnexpectedPass)
+        expected = TestResult(status=TestStatus.ExpectedFail,
+                              run_res=XStepListResult(results=[FAILING_STEP_RESULT]))
+        for res in self.run_tests_list([_TEST0, _TEST1]):
+            self.assertTestResultEqual(res, expected)
 
-    def test_timeout(self):
-        self.set_test(_TEST0, cmd="sleep 1", timeout=0.5, reset=True)
-        self.set_test(_TEST1, base=_TEST0, timeout=2)
-        self.set_test(_TEST2, base=_TEST0, timeout=None, save=True)
+        expected.status = TestStatus.Failed
+        expected.post_run_res = XStepListResult(results=[INCOMPLETED_STEP_RESULT])
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
-        self._check_test(self.run_test(_TEST0), rc=None, status=TestStatus.Timeout)
-        self._check_test(self.run_test(_TEST1), rc=0, status=TestStatus.Passed)
-        self._check_test(self.run_test(_TEST2), rc=None, status=TestStatus.Timeout)
-
-    def test_env(self):
-        self.set_test(_TEST0, cmd=f"{_SHOWENV_CMD} TEST_ENV",
-                      env={"TEST_ENV": "test"}, reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, env={"TEST_ENV": "test2"})
-        self.set_test(_TEST3, base=_TEST0, inherit_env_variables=False)
-        os.environ["OS_TEST_ENV"] = "os test"
-        self.set_test(_TEST4,  cmd=f"{_SHOWENV_CMD} OS_TEST_ENV")
-        self.set_test(_TEST5, base=_TEST4, use_os_env=False, save=True)
-
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "test")
-
-        res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "test")
-
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "test2")
-
-        res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "")
-
-        res = self.run_test(_TEST4)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "os test")
-
-        res = self.run_test(_TEST5)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "")
+        expected.status = TestStatus.Passed
+        expected.run_res = XStepListResult(results=[OK_STEP_RESULT])
+        self.assertTestResultEqual(self.run_test(_TEST3), expected)
 
     def test_variables(self):
-        self.set_test(_TEST0, cmd=f"{_ECHOCMD} {{TEST_VAR}}",
-                      var_map={"TEST_VAR": "test"}, reset=True)
-        self.set_test(_TEST1, base=_TEST0)
-        self.set_test(_TEST2, base=_TEST0, var_map={"TEST_VAR": "test2"})
-        self.set_test(_TEST3, base=_TEST0, inherit_variables=False, save=True)
+        var_map = {"var0": "test", "var1": 5, "var2": "test2"}
+        step_desc0 = gen_dummy_step_desc(return_value="{var0}")
+        step0 = gen_dummy_step(step_desc0)
+        step_result0 = gen_dummy_step_result(step0, completed=True, failed=False)
+        step_result0.return_value = "test"
 
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "test")
+        step_desc1 = gen_dummy_step_desc(return_value=ref_str("var1"))
+        step1 = gen_dummy_step(step_desc1)
+        step_result1 = gen_dummy_step_result(step1, completed=True, failed=False)
+        step_result1.return_value = 5
 
-        res = self.run_test(_TEST1)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "test")
+        step_desc2 = gen_dummy_step_desc(return_value="{var1} {var2}")
+        step2 = gen_dummy_step(step_desc2)
+        step_result2 = gen_dummy_step_result(step2, completed=True, failed=False)
+        step_result2.return_value = "5 test2"
 
-        res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        self.assertEqual(_file_content(res.stdout_file).strip(), "test2")
-
-        self.assertRaises(XeetException, self.run_test, _TEST3)
+        self.set_test(_TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True,
+                      var_map=var_map)
+        expected = TestResult(status=TestStatus.Passed,
+                              run_res=XStepListResult(results=[step_result0, step_result1,
+                                                               step_result2]))
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
     def test_autovars(self):
-        test_cmd = _ECHOCMD + \
-            (" {XEET_TEST_NAME} {XEET_TEST_STDOUT} {XEET_TEST_STDERR} {XEET_TEST_OUTPUT_DIR}")
+        xeet_root = os.path.dirname(self.main_config_wrapper.file_path)
+        out_dir = f"{xeet_root}/xeet.out"
 
-        self.set_test(_TEST0, cmd=test_cmd, reset=True)
-        self.set_test(_TEST1, base=_TEST0, var_map={"XEET_TEST_NAME": "bad"}, save=True)
+        #  Auto global vars
+        step_desc0 = gen_dummy_step_desc(return_value="{XEET_ROOT} {XEET_CWD} {XEET_OUTPUT_DIR}")
+        step0 = gen_dummy_step(step_desc0)
+        step_result0 = gen_dummy_step_result(step0, completed=True, failed=False)
+        step_result0.return_value = f"{xeet_root} {os.getcwd()} {out_dir}"
 
-        res = self.run_test(_TEST0)
-        self._check_test(res, rc=0, status=TestStatus.Passed)
-        output_dir = os.path.dirname(res.stdout_file)
-        expected = f"{_TEST0} {res.stdout_file} {res.stderr_file} {output_dir}"
-        self.assertEqual(_file_content(res.stdout_file).strip(), expected)
-        self.assertRaises(XeetException, self.run_test, _TEST1)  # XEET prefix is reserved
+        #  Test sepecific
+        step_desc1 = gen_dummy_step_desc(return_value="{XEET_TEST_NAME} {XEET_TEST_OUTDIR}")
+        step1 = gen_dummy_step(step_desc1)
+        step_result1 = gen_dummy_step_result(step1, completed=True, failed=False)
+        step_result1.return_value = f"{_TEST0} {out_dir}/{_TEST0}"
 
-    def test_groups(self):
-        self.set_test(_TEST0, cmd=_TRUE_CMD, groups=["group1"], reset=True)
-        self.set_test(_TEST1, base=_TEST0, groups=["group2"])
-        self.set_test(_TEST2, base=_TEST0, groups=["group1", "group2"], save=True)
+        self.set_test(_TEST0, run=[step_desc0, step_desc1], reset=True, save=True)
+        expected = TestResult(status=TestStatus.Passed,
+                              run_res=XStepListResult(results=[step_result0, step_result1]))
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
-    def test_output_behavior(self):
-        cmd = f"{_ECHOCMD} stdout; {_ECHOCMD} stderr 1>&2"
-        self.set_test(_TEST0, shell=True, cmd=cmd, reset=True)
-        # Unifiy stdout and stderr explicitly
-        self.set_test(_TEST1, base=_TEST0, output_behavior="unify")
-        self.set_test(_TEST2, base=_TEST0, output_behavior="split")
-        self.set_test(_TEST3, shell=True, cmd=cmd, output_behavior="split", save=True)
-
-        for res in self.run_tests_list([_TEST0, _TEST1]):
-            self._check_test(res, rc=0, status=TestStatus.Passed)
-            self.assertEqual(_file_content(res.stdout_file).strip(), "stdout\nstderr")
-
-        for res in self.run_tests_list([_TEST2, _TEST3]):
-            self._check_test(res, rc=0, status=TestStatus.Passed)
-            self.assertEqual(_file_content(res.stdout_file).strip(), "stdout")
-            self.assertEqual(_file_content(res.stderr_file).strip(), "stderr")
-
-    #  Fetch functionality is only basically tested, as it is just a wrapper around the  config file
-    #  functionality,  which has its own extensive tests in test_config.py
     def test_test_status_categories(self):
         for status in TestStatus:
             self.assertNotEqual(status_catgoery(status), TestStatusCategory.Unknown)
 
+    #  Fetch functionality is only basically tested, as it is just a wrapper around the config file
+    #  functionality,  which has its own extensive tests in test_config.py
     def test_fetch_test(self):
         self.set_test(_TEST0, reset=True)
         self.set_test(_TEST1, bad="bad", check_fields=False, save=True)

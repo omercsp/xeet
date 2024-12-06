@@ -3,14 +3,17 @@
 # If it is between 1 and 255, exit with that code. Otherwise, exit with 1.
 
 import sys
+import random
 
-arg = sys.argv[1]
-try:
-    arg = int(arg)
-except ValueError:
-    sys.exit(1)
+rc = -1
+if len(sys.argv) > 1:
+    try:
+        rc = int(sys.argv[1])
+    except ValueError:
+        ...
 
-if 0 <= arg <= 255:
-    sys.exit(arg)
-else:
-    sys.exit(1)
+if rc < 0 or rc > 255:
+    #  create a random number between 1 and 255
+    rc = random.randint(0, 255)
+
+sys.exit(rc)

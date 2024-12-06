@@ -48,38 +48,41 @@ def _show_test(test: Xtest, full_details: bool, expanded: bool) -> None:
         return
     if test.base:
         print_val("Base test", test.base)
+    if test.pre_run_steps:
+        for pre_step in test.pre_run_steps:
+            print_blob("Step", pre_step.summary())
 
-    if test.cmd_shell or test.pre_cmd_shell or test.post_cmd_shell:
-        print_val("Shell path", test.shell_path)
+    #  if test.cmd_shell or test.pre_cmd_shell or test.post_cmd_shell:
+    #      print_val("Shell path", test.shell_path)
 
-    print_bool("Inherit OS environment", test.use_os_env)
-    if test.env_file:
-        print_val("Environment file", test.env_file)
-    if test.env:
-        pr_info("Environment")
-        env_dict = test.env_expanded if expanded else test.env
-        for count, (k, v) in enumerate(env_dict.items()):
-            print_blob(f"     [{count}]", f"{k}={v}")
-    if test.cwd:
-        print_blob("Working directory", _test_str(test.cwd))
-    if test.groups:
-        print_blob("Groups", ", ".join(test.groups))
-    if test.pre_cmd:
-        cmd = test.pre_cmd_expanded if expanded else test.pre_cmd
-        shell_str = " (shell)" if test.pre_cmd_shell else ""
-        print_blob(f"Pre-test command{shell_str}", _test_str(cmd))
-    if test.cmd:
-        cmd = test.cmd_expanded if expanded else test.cmd
-        shell_str = " (shell)" if test.cmd_shell else ""
-        print_blob(f"Test command{shell_str}", _test_str(cmd))
-    if test.verify_cmd:
-        cmd = test.verify_cmd_expanded if expanded else test.verify_cmd
-        shell_str = " (shell)" if test.verify_cmd_shell else ""
-        print_blob(f"Verification command{shell_str}", _test_str(cmd))
-    if test.post_cmd:
-        cmd = test.post_cmd_expanded if expanded else test.post_cmd
-        shell_str = " (shell)" if test.post_cmd_shell else ""
-        print_blob(f"Post-test command{shell_str}", _test_str(cmd))
+    #  print_bool("Inherit OS environment", test.use_os_env)
+    #  if test.env_file:
+    #      print_val("Environment file", test.env_file)
+    #  if test.env:
+    #      pr_info("Environment")
+    #      env_dict = test.env_expanded if expanded else test.env
+    #      for count, (k, v) in enumerate(env_dict.items()):
+    #          print_blob(f"     [{count}]", f"{k}={v}")
+    #  if test.cwd:
+    #      print_blob("Working directory", _test_str(test.cwd))
+    #  if test.groups:
+    #      print_blob("Groups", ", ".join(test.groups))
+    #  if test.pre_cmd:
+    #      cmd = test.pre_cmd_expanded if expanded else test.pre_cmd
+    #      shell_str = " (shell)" if test.pre_cmd_shell else ""
+    #      print_blob(f"Pre-test command{shell_str}", _test_str(cmd))
+    #  if test.cmd:
+    #      cmd = test.cmd_expanded if expanded else test.cmd
+    #      shell_str = " (shell)" if test.cmd_shell else ""
+    #      print_blob(f"Test command{shell_str}", _test_str(cmd))
+    #  if test.verify_cmd:
+    #      cmd = test.verify_cmd_expanded if expanded else test.verify_cmd
+    #      shell_str = " (shell)" if test.verify_cmd_shell else ""
+    #      print_blob(f"Verification command{shell_str}", _test_str(cmd))
+    #  if test.post_cmd:
+    #      cmd = test.post_cmd_expanded if expanded else test.post_cmd
+    #      shell_str = " (shell)" if test.post_cmd_shell else ""
+    #      print_blob(f"Post-test command{shell_str}", _test_str(cmd))
 
 
 def show_test_info(conf: str, test_name: str, expand: bool) -> None:
@@ -137,12 +140,9 @@ _STATUS_PRINT_INFO = {
     TestStatus.Passed: _StatusPrintInfo(PrintColors.GREEN, "Passed"),
     TestStatus.InitErr: _StatusPrintInfo(PrintColors.YELLOW, "Initialization error",),
     TestStatus.ExpectedFail: _StatusPrintInfo(PrintColors.GREEN, "Expected failure"),
-    TestStatus.VerifyRunErr: _StatusPrintInfo(PrintColors.YELLOW, "Verification run error"),
-    TestStatus.VerifyFailed: _StatusPrintInfo(PrintColors.RED, "Failed verification"),
-    TestStatus.VerifyRcFailed: _StatusPrintInfo(PrintColors.RED, "Failed RC verification"),
+    TestStatus.Failed: _StatusPrintInfo(PrintColors.RED, "Failed verification"),
     TestStatus.PreRunErr: _StatusPrintInfo(PrintColors.YELLOW, "Pre-run error"),
     TestStatus.RunErr: _StatusPrintInfo(PrintColors.YELLOW, "Run error"),
-    TestStatus.Timeout: _StatusPrintInfo(PrintColors.RED, "Timeout"),
     TestStatus.UnexpectedPass: _StatusPrintInfo(PrintColors.RED, "Unexpected pass"),
     TestStatus.Skipped: _StatusPrintInfo(PrintColors.RESET, "Skipped"),
 }
@@ -190,14 +190,13 @@ class CliRunSettings(core.RunSettings):
 
     def on_test_end(self,  # pyright: ignore[reportIncompatibleMethodOverride]
                     result: TestResult,  **_) -> None:
-        def _status_category_str(status: TestStatus) -> str:
-            category = status_catgoery(status).value
-            if colors_enabled():
-                return f"{_STATUS_PRINT_INFO[status].color}{category:<7}{_reset_color()}"
-            return f"{category:<7}"
-
         def _post_print_details(status_suffix: str = "", details: str = "") -> None:
-            msg = f"[{_status_category_str(result.status)}]"
+            category = status_catgoery(result.status).value
+            if colors_enabled():
+                stts_str = f"{_STATUS_PRINT_INFO[result.status].color}{category:<7}{_reset_color()}"
+            else:
+                stts_str = f"{category:<7}"
+            msg = f"[{stts_str}]"
             if status_suffix:
                 if len(status_suffix) < 30:
                     msg += f" {status_suffix}"
@@ -208,32 +207,32 @@ class CliRunSettings(core.RunSettings):
             pr_info(msg)
 
         # First tuple element is the error message, second is the text to print
-        def _file_tail_str(file_path: str | None, title: str, unified: bool = False) -> str:
-            unified_str = " (unified)" if unified else ""
-            if file_path is None:
-                return f"no {title} flle path{unified_str}"
+        #  def _file_tail_str(file_path: str | None, title: str, unified: bool = False) -> str:
+        #      unified_str = " (unified)" if unified else ""
+        #      if file_path is None:
+        #          return f"no {title} flle path{unified_str}"
 
-            if not os.path.exists(file_path):
-                return f"no {title} flle at '{file_path}'{unified_str}"
+        #      if not os.path.exists(file_path):
+        #          return f"no {title} flle at '{file_path}'{unified_str}"
 
-            try:
-                tail_text = text_file_tail(file_path)
-            except OSError as e:
-                return f"error reading {title} file at '{file_path}'{unified_str}: {e.strerror}"
-            if len(tail_text) == 0:
-                return f"empty {title} file{unified_str}"
-            ret = f" {title} tail{unified_str} ".center(50, '-')
-            ret += f"\n{tail_text}"
-            ret += "-" * 50
-            return ret
+        #      try:
+        #          tail_text = text_file_tail(file_path)
+        #      except OSError as e:
+        #          return f"error reading {title} file at '{file_path}'{unified_str}: {e.strerror}"
+        #      if len(tail_text) == 0:
+        #          return f"empty {title} file{unified_str}"
+        #      ret = f" {title} tail{unified_str} ".center(50, '-')
+        #      ret += f"\n{tail_text}"
+        #      ret += "-" * 50
+        #      return ret
 
-        def _test_output_tails() -> str:
-            if result.unified_output:
-                return _file_tail_str(result.stdout_file, "test output", True)
-            return "\n".join([
-                _file_tail_str(result.stdout_file, "test stdout"),
-                "",
-                _file_tail_str(result.stderr_file, "test stderr")])
+        #  def _test_output_tails() -> str:
+        #      if result.unified_output:
+        #          return _file_tail_str(result.stdout_file, "test output", True)
+        #      return "\n".join([
+        #          _file_tail_str(result.stdout_file, "test stdout"),
+        #          "",
+        #          _file_tail_str(result.stderr_file, "test stderr")])
 
         if self.debug_mode:
             return
@@ -241,38 +240,36 @@ class CliRunSettings(core.RunSettings):
         details = ""
         status_suffix = ""
         if result.status == TestStatus.InitErr:
-            status_suffix = "Malformed test"
+            status_suffix = "Init error"
             details = result.status_reason
         elif result.status == TestStatus.Skipped:
             status_suffix = result.status_reason
         elif result.status == TestStatus.PreRunErr:
             status_suffix = "Pre-test error"
-            details = "\n".join([result.status_reason,
-                                 _file_tail_str(result.pre_test_output_file, "pre test output")])
+            if result.pre_run_res is not None:
+                details = result.pre_run_res.error_summary()
+            #  details = "\n".join([result.status_reason,
+            #                       _file_tail_str(result.pre_test_output_file, "pre test output")])
         elif result.status == TestStatus.RunErr:
             status_suffix = "Run error"
             details = result.status_reason
-        elif result.status == TestStatus.VerifyRcFailed:
-            details = "\n".join([result.status_reason, _test_output_tails()])
-        elif result.status == TestStatus.VerifyFailed:
-            details = "\n".join([
-                result.status_reason,
-                _file_tail_str(result.verify_output_file, "verification output"),
-            ])
-        elif result.status == TestStatus.Timeout:
-            status_suffix = f"timeout ({result.timeout_period}s)"
-            details = _test_output_tails()
+        elif result.status == TestStatus.Failed:
+            if result.run_res is not None:
+                details = result.run_res.error_summary()
+            #  details = "\n".join([
+            #      result.status_reason,
+            #      _file_tail_str(result.verify_output_file, "verification output"),
+            #  ])
         elif result.status == TestStatus.ExpectedFail:
             status_suffix = "Expected failure"
         elif result.status == TestStatus.UnexpectedPass:
             status_suffix = "Unexpected pass"
-            details = _test_output_tails()
-        elif result.status == TestStatus.VerifyRunErr:
-            details = result.status_reason
-            details += _file_tail_str(result.verify_output_file, "verification output")
-        elif result.status == TestStatus.Passed and not result.post_test_ok:
+            #  details = result.
+        elif result.status == TestStatus.Passed and result.post_run_res and not \
+                (result.post_run_res.completed or result.post_run_res.failed):
             details = "NOTICE: Post-test failed\n"
-            details += _file_tail_str(result.post_test_output_file, "post test output")
+            #  details += _file_tail_str(result.post_test_output_file, "post test output")
+            details += result.post_run_res.error_summary()
         _post_print_details(status_suffix, details)
 
     def on_iteration_end(self,  # pyright: ignore[reportIncompatibleMethodOverride]
