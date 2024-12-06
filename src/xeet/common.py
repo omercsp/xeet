@@ -1,3 +1,4 @@
+
 from pydantic import Field, RootModel, ValidationError
 from typing import Any, Iterable
 from functools import cache
@@ -83,6 +84,7 @@ class XeetVars:
         for name, value in vars_map.items():
             self._set_var(name, value)
         self._expand_str.cache_clear()
+
     def pop_vars(self, var_names: Iterable) -> None:
         for name in var_names:
             self._pop_var(name)

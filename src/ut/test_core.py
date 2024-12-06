@@ -197,14 +197,14 @@ class TestCore(unittest.TestCase):
 
         #  Override the verify command
         res = self.run_test(_TEST2)
-        self._check_test(res, rc=0, status=TestStatus.VerifyFailed)
+        self._check_test(res, rc=0, status=TestStatus.Failed)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertEqual(res.verify_cmd_rc, 1)
         self.assertIsNone(res.post_cmd_rc)
 
         #  Validate post-test is ran regardless of verify command
         res = self.run_test(_TEST3)
-        self._check_test(res, rc=0, status=TestStatus.VerifyFailed)
+        self._check_test(res, rc=0, status=TestStatus.Failed)
         self.assertIsNone(res.pre_cmd_rc)
         self.assertEqual(res.verify_cmd_rc, 1)
         self.assertEqual(res.post_cmd_rc, 0)
