@@ -1,9 +1,13 @@
 from xeet.log import init_logging
-from xeet.pr import mute_prints
-from xeet.xtest import XtestModel
+from xeet.pr import mute_prints, pr_dict
+from xeet.common import XeetVars
+from xeet.core import RunSettings, run_tests
+from xeet.config import TestCriteria, read_config_file
+from xeet.xtest import TestResult, Xtest
+from xeet.xstep import XStepResult, XStepListResult
 from tempfile import gettempdir
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import ClassVar, Any, Iterable
 from functools import cached_property
 import json
 import os
@@ -14,7 +18,6 @@ import tempfile
 _log_file = os.path.join(gettempdir(), "xeet_ut.log")
 init_logging("xeet", _log_file, False)
 mute_prints()
-_model_fields = XtestModel.model_fields.keys()
 
 
 @dataclass
@@ -23,6 +26,7 @@ class ConfigTestWrapper:
     path: str = ""
     includes: list[str] = field(default_factory=list)
     tests: list[dict] = field(default_factory=list)
+    variables: dict[str, Any] = field(default_factory=dict)
     _xeet_dir: ClassVar[tempfile.TemporaryDirectory] = None  # type: ignore
 
     def __post_init__(self):
@@ -33,7 +37,7 @@ class ConfigTestWrapper:
 
     @property
     def desc(self) -> dict:
-        return {"include": self.includes, "tests": self.tests}
+        return {"include": self.includes, "tests": self.tests, "variables": self.variables}
 
     @cached_property
     def file_path(self):
@@ -43,18 +47,30 @@ class ConfigTestWrapper:
         with open(self.file_path, 'w') as f:
             f.write(json.dumps(self.desc))
 
-    def add_test(self, name, reset: bool = False,  save: bool = False, check_fields: bool = True,
+    def add_test(self, name, reset: bool = False,  save: bool = False, show: bool = False,
                  **kwargs) -> None:
         if reset:
-            self.tests.clear()
-        if check_fields:
-            for k in list(kwargs.keys()):
-                if k not in _model_fields:
-                    raise ValueError(f"Invalid Xtest field '{k}' when trying to set test '{name}'")
+            self._reset()
         desc = {"name": name, **kwargs}
         self.tests.append(desc)
         if save:
             self.save()
+        if show:
+            pr_dict(self.desc, pr_func=print, as_json=True)
+
+    def set_var(self, name: str, value: str, reset: bool = False, save: bool = False,
+                show: bool = False) -> None:
+        if reset:
+            self._reset()
+        self.variables[name] = value
+        if save:
+            self.save()
+        if show:
+            pr_dict(self.desc, pr_func=print, as_json=True)
+
+    def _reset(self):
+        self.tests.clear()
+        self.variables.clear()
 
     @staticmethod
     def init_xeet_dir():
@@ -76,8 +92,74 @@ def project_root() -> str:
 
 def tests_utils_command(name: str, *args) -> str:
     path = os.path.join(project_root(), "scripts", "testing", name)
+    ret = f"python3 {path}"
+    if not args:
+        return ret
     args = " ".join(args)
-    return f"python3 {path} {args}"
+    return f"{ret} {args}"
+
+
+def ref_str(var_name: str) -> str:
+    return f"{XeetVars._REF_PREFIX}{var_name}"
+
+
+class XeetUnittest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        ConfigTestWrapper.init_xeet_dir()
+        cls.main_config_wrapper = ConfigTestWrapper("main.json")
+        cls.run_settings = RunSettings(1, False, TestCriteria([], [], [], [], False))
+        cls.criteria = TestCriteria([], [], [], [], False)
+
+    @classmethod
+    def tearDownClass(cls):
+        ConfigTestWrapper.fini_xeet_dir()
+
+    @classmethod
+    def set_test(cls, name, **kwargs) -> None:
+        cls.main_config_wrapper.add_test(name, **kwargs)
+
+    @classmethod
+    def run_test(cls, name) -> TestResult:
+        cls.run_settings.criteria.names = {name}
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.run_settings)
+        res = run_info.test_result(name, 0)
+        return res
+
+    @classmethod
+    def run_tests_list(cls, names: Iterable[str]) -> Iterable[TestResult]:
+        cls.run_settings.criteria.names = set(names)
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.run_settings)
+        for name in names:
+            yield run_info.test_result(name, 0)
+
+    @classmethod
+    def get_test(cls, name) -> Xtest:
+        return read_config_file(cls.main_config_wrapper.file_path).xtest(name)  # type: ignore
+
+    def assertStepResultEqual(self, res: XStepResult, expected: XStepResult) -> None:
+        self.assertEqual(res.failed, expected.failed)
+        self.assertEqual(res.completed, expected.completed)
+
+    def assertStepResultListEqual(self, res: XStepListResult | None,
+                                  expected: XStepListResult | None) -> None:
+        if expected is None:
+            self.assertIsNone(res)
+            return
+
+        self.assertIsNotNone(res)
+        assert res is not None  # For the type checker
+        self.assertEqual(res.completed, expected.completed)
+        self.assertEqual(res.failed, expected.failed)
+        self.assertEqual(len(res.results), len(expected.results))
+        for r0, r1 in zip(res.results, expected.results):
+            self.assertStepResultEqual(r0, r1)  # type: ignore
+
+    def assertTestResultEqual(self, res: TestResult, expected: TestResult) -> None:
+        self.assertEqual(res.status, expected.status)
+        self.assertStepResultListEqual(res.pre_run_res, expected.pre_run_res)
+        self.assertStepResultListEqual(res.run_res, expected.run_res)
+        self.assertStepResultListEqual(res.post_run_res, expected.post_run_res)
 
 
 __all__ = ["unittest"]

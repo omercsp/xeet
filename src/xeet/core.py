@@ -1,7 +1,7 @@
 from xeet.runtime import RunInfo
 from xeet.xtest import Xtest, XtestModel, TestResult, TestStatus
 from xeet.config import ConfigModel, read_config_file, TestCriteria
-from xeet.common import XeetException, update_global_vars
+from xeet.common import XeetException, global_vars
 from xeet.log import log_info, log_blank, log_verbose
 from enum import Enum
 from dataclasses import dataclass
@@ -81,7 +81,7 @@ def _run_single_test(test: Xtest, settings: RunSettings) -> TestResult:
 def run_tests(conf: str, run_settings: RunSettings) -> RunInfo:
     log_info("Starting run", pr_suffix="------------\n")
     config = read_config_file(conf)
-    update_global_vars({"DEBUG": "1" if run_settings.debug_mode else "0"})
+    global_vars().set_vars({"DEBUG": "1" if run_settings.debug_mode else "0"})
     criteria = run_settings.criteria
     if criteria.include_groups:
         groups_str = ", ".join(sorted(criteria.include_groups))

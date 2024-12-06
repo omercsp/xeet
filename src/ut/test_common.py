@@ -1,4 +1,4 @@
-from ut import unittest
+from ut import unittest, ref_str
 from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException,
                          XeetRecursiveVarException, XeetBadVarNameException)
 import tempfile
@@ -18,10 +18,6 @@ line07
 line08
 line09
 """.strip()
-
-
-def _ref_str(var_name: str) -> str:
-    return f"{XeetVars._REF_PREFIX}{var_name}"
 
 
 class TestCommon(unittest.TestCase):
@@ -55,23 +51,23 @@ class TestCommon(unittest.TestCase):
 
     def test_xeet_vars_simple(self):
         xvars = XeetVars({"var1": "value1", "var2": 5})
-        self.assertEqual(xvars.expand(_ref_str("var1")), "value1")
-        self.assertEqual(xvars.expand(_ref_str("var2")), 5)
-        self.assertRaises(XeetNoSuchVarException, xvars.expand, _ref_str("var3"))
+        self.assertEqual(xvars.expand(ref_str("var1")), "value1")
+        self.assertEqual(xvars.expand(ref_str("var2")), 5)
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, ref_str("var3"))
 
-        ref_str = _ref_str("var1")
-        self.assertEqual(xvars.expand(f"_{ref_str}_"), f"_{ref_str}_")
-        self.assertEqual(xvars.expand(f"${ref_str}"), f"{ref_str}")  # check escaped $
+        ref = ref_str("var1")
+        self.assertEqual(xvars.expand(f"_{ref}_"), f"_{ref}_")
+        self.assertEqual(xvars.expand(f"${ref}"), f"{ref}")  # check escaped $
 
         xvars.set_vars({"l0": ["a", "b", "c"]})
-        xvars.set_vars({"l1": ["a", "{var1}", _ref_str("var2")]})
+        xvars.set_vars({"l1": ["a", "{var1}", ref_str("var2")]})
         xvars.set_vars({"d0": {"a": 1, "b": 2, "c": 3}})
-        xvars.set_vars({"d1": {"a": 1, "b": _ref_str("var2"), "c": _ref_str("l1")}})
-        self.assertListEqual(xvars.expand(_ref_str("l0")), ["a", "b", "c"])
-        self.assertListEqual(xvars.expand(_ref_str("l1")), ["a", "value1", 5])
-        self.assertDictEqual(xvars.expand(_ref_str("d0")), {"a": 1, "b": 2, "c": 3})
+        xvars.set_vars({"d1": {"a": 1, "b": ref_str("var2"), "c": ref_str("l1")}})
+        self.assertListEqual(xvars.expand(ref_str("l0")), ["a", "b", "c"])
+        self.assertListEqual(xvars.expand(ref_str("l1")), ["a", "value1", 5])
+        self.assertDictEqual(xvars.expand(ref_str("d0")), {"a": 1, "b": 2, "c": 3})
 
-        expanded_d1 = xvars.expand(_ref_str("d1"))
+        expanded_d1 = xvars.expand(ref_str("d1"))
         self.assertDictEqual(expanded_d1, {"a": 1, "b": 5, "c": ["a", "value1", 5]})
 
     def test_xeet_vars_string_literals(self):
@@ -138,3 +134,29 @@ class TestCommon(unittest.TestCase):
         })
         self.assertEqual(xvars.expand(r"\{{var2}}"), "{value1}")
         self.assertRaises(XeetNoSuchVarException, xvars.expand, "{{var2}}")
+
+    def test_xeet_vars_scopes(self):
+        xvars0 = XeetVars({"var1": "value1", "var2": 5})
+        xvars1 = XeetVars({"var1": "value2", "var3": 10}, xvars0)
+        xvars2 = XeetVars({"var1": "value3", "var4": 15}, xvars1)
+
+        self.assertEqual(xvars0.expand(ref_str("var1")), "value1")
+        self.assertEqual(xvars1.expand(ref_str("var1")), "value2")
+        self.assertEqual(xvars2.expand(ref_str("var1")), "value3")
+
+        self.assertEqual(xvars0.expand(ref_str("var2")), 5)
+        self.assertEqual(xvars1.expand(ref_str("var2")), 5)
+        self.assertEqual(xvars2.expand(ref_str("var2")), 5)
+
+        self.assertRaises(XeetNoSuchVarException, xvars0.expand, ref_str("var3"))
+        self.assertEqual(xvars1.expand(ref_str("var3")), 10)
+        self.assertEqual(xvars2.expand(ref_str("var3")), 10)
+
+        self.assertRaises(XeetNoSuchVarException, xvars0.expand, ref_str("var4"))
+        self.assertRaises(XeetNoSuchVarException, xvars1.expand, ref_str("var4"))
+        self.assertEqual(xvars2.expand(ref_str("var4")), 15)
+        self.assertRaises(XeetNoSuchVarException, xvars0.expand, ref_str("var4"))
+
+        self.assertRaises(XeetNoSuchVarException, xvars0.expand, ref_str("varx"))
+        self.assertRaises(XeetNoSuchVarException, xvars1.expand, ref_str("varx"))
+        self.assertRaises(XeetNoSuchVarException, xvars2.expand, ref_str("varx"))
