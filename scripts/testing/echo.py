@@ -1,3 +1,4 @@
-# print all arguments to the screen
 import sys
-print(*sys.argv[1:])
+
+p = " ".join(sys.argv[1:])
+print(" ".join(sys.argv[1:]))
