@@ -20,6 +20,10 @@ line09
 """.strip()
 
 
+def _ref_str(var_name: str) -> str:
+    return f"{XeetVars._REF_PREFIX}{var_name}"
+
+
 class TestCommon(unittest.TestCase):
     def test_text_file_tail(self):
         #  Create a temporary file with the content
@@ -49,7 +53,28 @@ class TestCommon(unittest.TestCase):
         #  delete the temporary file
         os.remove(file_path)
 
-    def test_xeet_vars(self):
+    def test_xeet_vars_simple(self):
+        xvars = XeetVars({"var1": "value1", "var2": 5})
+        self.assertEqual(xvars.expand(_ref_str("var1")), "value1")
+        self.assertEqual(xvars.expand(_ref_str("var2")), 5)
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, _ref_str("var3"))
+
+        ref_str = _ref_str("var1")
+        self.assertEqual(xvars.expand(f"_{ref_str}_"), f"_{ref_str}_")
+        self.assertEqual(xvars.expand(f"${ref_str}"), f"{ref_str}")  # check escaped $
+
+        xvars.set_vars({"l0": ["a", "b", "c"]})
+        xvars.set_vars({"l1": ["a", "{var1}", _ref_str("var2")]})
+        xvars.set_vars({"d0": {"a": 1, "b": 2, "c": 3}})
+        xvars.set_vars({"d1": {"a": 1, "b": _ref_str("var2"), "c": _ref_str("l1")}})
+        self.assertListEqual(xvars.expand(_ref_str("l0")), ["a", "b", "c"])
+        self.assertListEqual(xvars.expand(_ref_str("l1")), ["a", "value1", 5])
+        self.assertDictEqual(xvars.expand(_ref_str("d0")), {"a": 1, "b": 2, "c": 3})
+
+        expanded_d1 = xvars.expand(_ref_str("d1"))
+        self.assertDictEqual(expanded_d1, {"a": 1, "b": 5, "c": ["a", "value1", 5]})
+
+    def test_xeet_vars_string_literals(self):
         xvars = XeetVars({"var1": "value1", "var2": "value2"})
         self.assertEqual(xvars.expand("{var1}"), "value1")
         self.assertEqual(xvars.expand("_{var1}_"), "_value1_")

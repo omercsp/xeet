@@ -58,6 +58,7 @@ class XeetBadVarNameException(XeetException):
 
 class XeetVars:
     _SYSVAR_PREFIX = "XEET"
+    _REF_PREFIX = "$ref://"
     _var_re = re.compile(r'\\*{[a-zA-Z_][a-zA-Z0-9_]*?}')
     _var_name_re = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
@@ -72,6 +73,9 @@ class XeetVars:
             self.set_vars(start_sys_vars, True)
 
     def __getitem__(self, name: str) -> str:
+        return self.value_of(name)
+
+    def value_of(self, name: str) -> Any:
         try:
             return self.vars_map[name]
         except KeyError:
@@ -91,7 +95,7 @@ class XeetVars:
     def set_vars(self, vars_map: dict, system: bool = False) -> None:
         for name, value in vars_map.items():
             self._set_var(name, value, system)
-        self.expand.cache_clear()
+        self._expand_str.cache_clear()
 
     @property
     def sys_vars_map(self) -> dict:
@@ -100,14 +104,34 @@ class XeetVars:
             if k.startswith(self._SYSVAR_PREFIX)
         }
 
-    @cache
-    def expand(self, s: str) -> str:
+    def expand(self, v: Any) -> Any:
         try:
-            return self._expand(s)
+            if isinstance(v, str):
+                return self._expand_str(v)
+            if isinstance(v, dict):
+                return {k: self.expand(v) for k, v in v.items()}
+            if isinstance(v, list):
+                return [self.expand(v) for v in v]
+            return v
         except RecursionError:
             raise XeetRecursiveVarException("Recursive var expansion for '{s}'")
 
-    def _expand(self, s: str) -> str:
+    @cache
+    def _expand_str(self, s: str) -> str:
+        if not s:
+            return s
+        if len(s) >= len(self._REF_PREFIX):
+            if s.startswith(self._REF_PREFIX[0]) and s[1:].startswith(self._REF_PREFIX):
+                return s[1:]
+            if s.startswith(self._REF_PREFIX):
+                var_name = s[len(self._REF_PREFIX):]
+                if not var_name:
+                    raise XeetBadVarNameException("Empty variable name")
+                v = self.value_of(var_name)
+                return self.expand(v)
+        return self._expand_str_literals(s)
+
+    def _expand_str_literals(self, s: str) -> str:
         if not s:
             return s
         m = XeetVars._var_re.search(s)
@@ -131,7 +155,7 @@ class XeetVars:
         if m_str.startswith("$"):
             ret += os.getenv(m_str[1:], "")
         else:
-            ret += self[m_str]
+            ret += self.value_of(m_str)
         ret += s[m.end():]
         return self.expand(ret)
 
