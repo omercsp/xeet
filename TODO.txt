@@ -1,3 +1,10 @@
+# New step chagnes
+- Shell usage in windows
+- Debug mode validation
+- Config as singleton
+- Add test/steps referencing ability
+
+# Missing features
 - Add variable matrix support
 - Validate multi configuration files support
 - Add colored log support
