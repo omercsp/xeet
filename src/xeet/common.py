@@ -1,6 +1,5 @@
-from xeet.log import start_raw_logging, stop_raw_logging, log_verbose
 from pydantic import Field, RootModel, ValidationError
-from typing import Any
+from typing import Any, Iterable
 from functools import cache
 import re
 import os
@@ -41,9 +40,6 @@ def dict_value(d: dict, path: str, require=False, default=None) -> Any:
     return default
 
 
-_global_xvars: "XeetVars" = None  # type: ignore
-
-
 class XeetNoSuchVarException(XeetException):
     ...
 
@@ -57,52 +53,40 @@ class XeetBadVarNameException(XeetException):
 
 
 class XeetVars:
-    _SYSVAR_PREFIX = "XEET"
     _REF_PREFIX = "$ref://"
     _var_re = re.compile(r'\\*{[a-zA-Z_][a-zA-Z0-9_]*?}')
     _var_name_re = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
-    def __init__(self, start_vars: dict | None = None,
-                 start_sys_vars: dict | None = None) -> None:
-        self.vars_map = {}
-        if _global_xvars:
-            self.vars_map = {**_global_xvars.vars_map}
-        if start_vars:
-            self.set_vars(start_vars, False)
-        if start_sys_vars:
-            self.set_vars(start_sys_vars, True)
+    def __init__(self, start_vars: dict | None = None, parent: "XeetVars | None" = None) -> None:
+        self.parent = parent
+        if start_vars is None:
+            self.vars_map = {}
+        else:
+            self.vars_map = {**start_vars}
 
-    def __getitem__(self, name: str) -> str:
-        return self.value_of(name)
-
-    def value_of(self, name: str) -> Any:
-        try:
+    def value_of(self, name: str) -> str:
+        if name in self.vars_map:
             return self.vars_map[name]
-        except KeyError:
-            raise XeetNoSuchVarException(f"Var '{name}' not found")
+        if self.parent is not None:
+            return self.parent.value_of(name)
+        raise XeetNoSuchVarException(f"Var '{name}' not found")
 
-    def _set_var(self, name: str, value: Any, system: bool = False) -> None:
+    def _set_var(self, name: str, value: Any) -> None:
         if not self._var_name_re.match(name):
             raise XeetBadVarNameException(f"Invalid variable name '{name}'")
-        if name.startswith(self._SYSVAR_PREFIX):
-            raise XeetBadVarNameException((f"Invalid variable name '{name}'. "
-                                           f"Variables prefixed with '{self._SYSVAR_PREFIX}'"
-                                           " are reserved for system use"))
-        if system:
-            name = f"{self._SYSVAR_PREFIX}_{name}"
         self.vars_map[name] = value
 
-    def set_vars(self, vars_map: dict, system: bool = False) -> None:
-        for name, value in vars_map.items():
-            self._set_var(name, value, system)
-        self._expand_str.cache_clear()
+    def _pop_var(self, name: str) -> Any:
+        return self.vars_map.pop(name)
 
-    @property
-    def sys_vars_map(self) -> dict:
-        return {
-            k: v if v else "" for k, v in self.vars_map.items()
-            if k.startswith(self._SYSVAR_PREFIX)
-        }
+    def set_vars(self, vars_map: dict) -> None:
+        for name, value in vars_map.items():
+            self._set_var(name, value)
+        self._expand_str.cache_clear()
+    def pop_vars(self, var_names: Iterable) -> None:
+        for name in var_names:
+            self._pop_var(name)
+        self._expand_str.cache_clear()
 
     def expand(self, v: Any) -> Any:
         try:
@@ -155,27 +139,14 @@ class XeetVars:
         if m_str.startswith("$"):
             ret += os.getenv(m_str[1:], "")
         else:
-            ret += self.value_of(m_str)
+            ret += str(self.value_of(m_str))
         ret += s[m.end():]
         return self.expand(ret)
 
 
-_global_xvars = XeetVars()
-
-
-def update_global_vars(vars_map: dict) -> None:
-    _global_xvars.set_vars(vars_map, True)
-
-
+@cache
 def global_vars() -> XeetVars:
-    return _global_xvars
-
-
-def dump_global_vars() -> None:
-    start_raw_logging()
-    for k, v in _global_xvars.vars_map.items():
-        log_verbose("{}='{}'", k, v)
-    stop_raw_logging()
+    return XeetVars()
 
 
 #  Read the last n lines of a text file. Allows at most max_bytes to be read.
