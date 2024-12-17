@@ -48,8 +48,8 @@ def _show_test(test: Xtest, full_details: bool, expanded: bool) -> None:
         return
     if test.base:
         print_val("Base test", test.base)
-    if test.pre_steps:
-        for pre_step in test.pre_steps:
+    if test.pre_run_steps:
+        for pre_step in test.pre_run_steps:
             print_blob("Step", pre_step.summary())
 
     #  if test.cmd_shell or test.pre_cmd_shell or test.post_cmd_shell:
@@ -246,16 +246,16 @@ class CliRunSettings(core.RunSettings):
             status_suffix = result.status_reason
         elif result.status == TestStatus.PreRunErr:
             status_suffix = "Pre-test error"
-            if result.pre_steps_res is not None:
-                details = result.pre_steps_res.error_summary()
+            if result.pre_run_res is not None:
+                details = result.pre_run_res.error_summary()
             #  details = "\n".join([result.status_reason,
             #                       _file_tail_str(result.pre_test_output_file, "pre test output")])
         elif result.status == TestStatus.RunErr:
             status_suffix = "Run error"
             details = result.status_reason
         elif result.status == TestStatus.Failed:
-            if result.steps_res is not None:
-                details = result.steps_res.error_summary()
+            if result.run_res is not None:
+                details = result.run_res.error_summary()
             #  details = "\n".join([
             #      result.status_reason,
             #      _file_tail_str(result.verify_output_file, "verification output"),
@@ -265,11 +265,11 @@ class CliRunSettings(core.RunSettings):
         elif result.status == TestStatus.UnexpectedPass:
             status_suffix = "Unexpected pass"
             #  details = result.
-        elif result.status == TestStatus.Passed and result.post_steps_res and not \
-                (result.post_steps_res.completed or result.post_steps_res.failed):
+        elif result.status == TestStatus.Passed and result.post_run_res and not \
+                (result.post_run_res.completed or result.post_run_res.failed):
             details = "NOTICE: Post-test failed\n"
             #  details += _file_tail_str(result.post_test_output_file, "post test output")
-            details += result.post_steps_res.error_summary()
+            details += result.post_run_res.error_summary()
         _post_print_details(status_suffix, details)
 
     def on_iteration_end(self,  # pyright: ignore[reportIncompatibleMethodOverride]

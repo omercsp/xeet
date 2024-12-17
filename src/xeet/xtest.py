@@ -1,14 +1,13 @@
 from xeet import LogLevel
-from xeet.common import XeetException, XeetVars, NonEmptyStr, pydantic_errmsg
+from xeet.common import XeetException, XeetVars, NonEmptyStr, global_vars, pydantic_errmsg
 from xeet.log import log_info, log_raw, log_error, log_verbose
 from xeet.pr import create_print_func, pr_info
-from xeet.xstep import (XStep, XeetStepInitException, XtestStepTestSettings, xstep_factory,
-                        run_xstep_list, XStepListResult)
+from xeet.steps import gen_xstep
+from xeet.xstep import XStep, XeetStepInitException, XStepTestArgs, run_xstep_list, XStepListResult
 from typing import Any
 from pydantic import BaseModel, Field, ValidationError, ConfigDict, AliasChoices
-from typing import ClassVar
 from enum import auto, Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 import sys
 
@@ -68,12 +67,18 @@ class TestResult:
     status_reason: str = ""
     post_test_err: str = ""
     timeout_period: float | None = None
-    pre_steps_res: XStepListResult | None = None
-    steps_res: XStepListResult | None = None
-    post_steps_res: XStepListResult | None = None
+    pre_run_res: XStepListResult = field(default_factory=XStepListResult)
+    run_res: XStepListResult = field(default_factory=XStepListResult)
+    post_run_res: XStepListResult = field(default_factory=XStepListResult)
 
 
 _EMPTY_STR = ""
+
+
+class StepsInheritType(str, Enum):
+    Prepend = "prepend"
+    Append = "append"
+    Replace = "replace"
 
 
 class XtestModel(BaseModel):
@@ -84,32 +89,27 @@ class XtestModel(BaseModel):
     short_desc: str = Field(_EMPTY_STR, max_length=75)
     long_desc: str = _EMPTY_STR
     groups: list[NonEmptyStr] | None = None
-    pre_steps: list[Any] = Field(default_factory=list, validation_alias="pre_test")
-    test_steps: list[Any] = Field(default_factory=list, validation_alias="test")
-    post_steps: list[Any] = Field(default_factory=list, validation_alias="post_test")
+    #  None means inherit from parent
+    pre_run: list[Any] | None = None
+    run: list[Any] | None = None
+    post_run: list[Any] | None = None
 
     expected_failure: bool | None = None
     skip: bool | None = None
     skip_reason: str | None = None
-    var_map: dict[str, str] | None = Field(
+    var_map: dict[str, Any] | None = Field(
         None, validation_alias=AliasChoices("var_map", "variables", "vars"))
 
     # Inheritance behavior
     inherit_variables: bool = True
-    inherit_env_variables: bool = True
-    inhertit_ignore_fields: ClassVar[set[str]] = {"model_config", "name", "base", "abstract",
-                                                  "short_desc", "long_desc", "env", "var_map"}
+    #  inherit_env_variables: bool = True
+    #  inhertit_ignore_fields: ClassVar[set[str]] = {"model_config", "name", "base", "abstract",
+    #                                                "short_desc", "long_desc", "env", "var_map"}
+    pre_test_inheritance: StepsInheritType = StepsInheritType.Replace
+    test_steps_inheritance: StepsInheritType = StepsInheritType.Replace
+    post_test_inheritance: StepsInheritType = StepsInheritType.Replace
 
     def inherit(self, other: "XtestModel") -> None:
-        for f in self.model_fields.keys():
-            if f in self.inhertit_ignore_fields or f.startswith("inherit_"):
-                continue
-            val = getattr(self, f)
-            if val is not None:
-                continue
-            other_val = getattr(other, f)
-            if other_val is not None:
-                setattr(self, f, other_val)
 
         if self.inherit_variables and other.var_map:
             if self.var_map:
@@ -117,11 +117,21 @@ class XtestModel(BaseModel):
             else:
                 self.var_map = {**other.var_map}
 
-        if self.inherit_env_variables and other.env:
-            if self.env:
-                self.env = {**other.env, **self.env}
-            else:
-                self.env = {**other.env}
+        #  for f in self.model_fields.keys():
+        #      if f in self.inhertit_ignore_fields or f.startswith("inherit_"):
+        #          continue
+        #      val = getattr(self, f)
+        #      if val is not None:
+        #          continue
+        #      other_val = getattr(other, f)
+        #      if other_val is not None:
+        #          setattr(self, f, other_val)
+
+        #  if self.inherit_env_variables and other.env:
+        #      if self.env:
+        #          self.env = {**other.env, **self.env}
+        #      else:
+        #          self.env = {**other.env}
 
 
 class Xtest:
@@ -151,34 +161,57 @@ class Xtest:
         #      self.shell_path = dflt_shell_path
         #  if not self.shell_path:
         #      self.shell_path = os.getenv("SHELL", "/usr/bin/sh")
-        common_xstep_settings = XtestStepTestSettings(
+        args = XStepTestArgs(
             log_info=self._log_info, debug_mode=self.debug_mode, output_dir=self.output_dir)
-        self.pre_steps = self._init_step_list(self.model.pre_steps, "pre", common_xstep_settings)
+        self.pre_run_steps = self._init_step_list(self.model.pre_run, args, "pre")
         if self.init_err:
             return
-        self.test_steps = self._init_step_list(self.model.test_steps, "test", common_xstep_settings)
+        self.run_steps = self._init_step_list(self.model.run, args, "test")
         if self.init_err:
             return
-        self.post_steps = self._init_step_list(self.model.post_steps, "post", common_xstep_settings)
+        self.post_run_steps = self._init_step_list(self.model.post_run, args, "post")
 
-    def _init_step_list(self, step_list: list[dict], step_prefix: str,
-                        step_setitings: XtestStepTestSettings) -> list[XStep]:
-        if not step_list:
-            return []
+    def _init_step_list(self, step_list: list[dict] | None, args: XStepTestArgs, prefix: str
+                        ) -> list[XStep] | None:
+        if step_list is None:
+            return None
+        args.stage_prefix = prefix
         steps = []
         try:
             for index, step_desc in enumerate(step_list):
-                steps.append(xstep_factory(step_desc, step_setitings, index, step_prefix))
+                args.index = index
+                steps.append(gen_xstep(step_desc, args))
             return steps
         except XeetStepInitException as e:
             self.init_err = str(e)
-            return []
+            return None
 
     def inherit(self, other: "Xtest") -> None:
+        def _inherit_steps(self_steps, other_steps, inherit_method):
+            if self_steps is None:
+                return other_steps
+            if other_steps is None or inherit_method == StepsInheritType.Replace:
+                return self_steps
+
+            if inherit_method == StepsInheritType.Append:
+                ret = self_steps + other_steps
+            else:
+                ret = other_steps + self_steps
+
+            for i, step in enumerate(ret):
+                step.index = i
+            return ret
         if other.init_err:
             self.init_err = other.init_err
             return
+
         self.model.inherit(other.model)
+        self.pre_run_steps = _inherit_steps(self.pre_run_steps, other.pre_run_steps,
+                                            self.model.pre_test_inheritance)
+        self.run_steps = _inherit_steps(self.run_steps, other.run_steps,
+                                        self.model.test_steps_inheritance)
+        self.post_run_steps = _inherit_steps(self.post_run_steps, other.post_run_steps,
+                                             self.model.post_test_inheritance)
 
     @staticmethod
     def _setting_val(value: Any, dflt: Any) -> Any:
@@ -227,23 +260,23 @@ class Xtest:
         return {g.root.strip() for g in self.model.groups}
 
     def expand(self) -> None:
-        xvars = XeetVars(self.model.var_map)
+        xvars = XeetVars(self.model.var_map, global_vars())
         xvars.set_vars({
-            "TEST_NAME": self.name,
-            "TEST_OUTDIR": self.output_dir,
-        }, system=True)
+            "XEET_TEST_NAME": self.name,
+            "XEET_TEST_OUTDIR": self.output_dir,
+        })
+
         self._log_info(f"Auto variables:")
         for k, v in xvars.vars_map.items():
             log_raw(f"{k}={v}")
         self._log_info(f"Expanding '{self.name}' internals")
         #  self.env_expanded = {xvars.expand(k): xvars.expand(v) for k, v in self.env.items()}
         try:
-            for step in self.pre_steps:
-                step.expand(xvars)
-            for step in self.test_steps:
-                step.expand(xvars)
-            for step in self.post_steps:
-                step.expand(xvars)
+            for steps in (self.pre_run_steps, self.run_steps, self.post_run_steps):
+                if steps is None:
+                    continue
+                for step in steps:
+                    step.expand(xvars)
         except XeetException as e:
             self.init_err = str(e)
             return
@@ -283,7 +316,7 @@ class Xtest:
             res.status_reason = self.skip_reason
             self._log_info("marked to be skipped")
             return res
-        if not self.test_steps:
+        if not self.run_steps:
             self._log_info("No command for test, will not run")
             res.status = TestStatus.RunErr
             res.status_reason = "No command"
@@ -333,15 +366,15 @@ class Xtest:
         _pr_orange(f"{step_name} rc: {rc}\n")
 
     def _pre_test(self, res: TestResult) -> None:
-        if not self.pre_steps:
+        if not self.pre_run_steps:
             self._log_info("No pre-test steps")
             return
         self._log_info("Running pre-test steps")
-        res.pre_steps_res = run_xstep_list(self.pre_steps, stop_on_err=True)
-        if not res.pre_steps_res.completed or res.pre_steps_res.failed:
+        run_xstep_list(self.pre_run_steps, res.pre_run_res, stop_on_err=True)
+        if not res.pre_run_res.completed or res.pre_run_res.failed:
             self._log_info(f"Pre-test failed or didn't complete")
             res.status = TestStatus.PreRunErr
-            res.status_reason = res.pre_steps_res.error_summary()
+            res.status_reason = res.pre_run_res.error_summary()
             return
 
     def _run(self, res: TestResult) -> None:
@@ -349,26 +382,29 @@ class Xtest:
             self._log_info("Skipping run. Prior stage failed")
             return
         self._log_info("Running test steps")
-        res.steps_res = run_xstep_list(self.test_steps, stop_on_err=True)
-        if not res.steps_res.completed:
+        run_xstep_list(self.run_steps, res.run_res, stop_on_err=True)
+        if not res.run_res.completed:
             res.status = TestStatus.RunErr
-            res.status_reason = res.steps_res.error_summary()
+            res.status_reason = res.run_res.error_summary()
             return
-        if res.steps_res.failed:
-            res.status = TestStatus.Failed
-            res.status_reason = res.steps_res.error_summary()
+        if res.run_res.failed:
+            if self.expected_failure:
+                res.status = TestStatus.ExpectedFail
+            else:
+                res.status = TestStatus.Failed
+                res.status_reason = res.run_res.error_summary()
             return
         res.status = TestStatus.Passed
 
     def _post_test(self, res: TestResult) -> None:
-        if not self.post_steps:
+        if not self.post_run_steps:
             self._log_info("Skipping post-test, no steps")
             return
         self._log_info(f"Running post-test steps")
-        res.post_steps_res = run_xstep_list(self.post_steps, stop_on_err=False)
+        run_xstep_list(self.post_run_steps, res.post_run_res, stop_on_err=False)
         #  self._debug_pre_step_print("Post-test", self.post_cmd_expanded, self.post_cmd_shell)
-        if not res.post_steps_res.completed or res.post_steps_res.failed:
-            err = res.post_steps_res.error_summary()
+        if not res.post_run_res.completed or res.post_run_res.failed:
+            err = res.post_run_res.error_summary()
             log_error(f"Post test run failed - {err}")
             res.post_test_err = str(err)
 
