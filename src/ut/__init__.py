@@ -47,36 +47,32 @@ class ConfigTestWrapper:
         with open(self.file_path, 'w') as f:
             f.write(json.dumps(self.desc))
 
-    def add_test(self, name, reset: bool = False,  save: bool = False, show: bool = False,
-                 **kwargs) -> None:
-        if reset:
-            self._reset()
+    @staticmethod
+    def config_set(func):
+        def _inner(self, *args, **kwargs):
+            if kwargs.pop("reset", False):
+                self._reset()
+            save = kwargs.pop("save", False)
+            show = kwargs.pop("show", False)
+            func(self, *args, **kwargs)
+            if save:
+                self.save()
+            if show:
+                pr_dict(self.desc, pr_func=print, as_json=True)
+        return _inner
+
+    @config_set
+    def add_test(self, name, **kwargs) -> None:
         desc = {"name": name, **kwargs}
         self.tests.append(desc)
-        if save:
-            self.save()
-        if show:
-            pr_dict(self.desc, pr_func=print, as_json=True)
 
-    def set_var(self, name: str, value: str, reset: bool = False, save: bool = False,
-                show: bool = False) -> None:
-        if reset:
-            self._reset()
+    @config_set
+    def set_var(self, name: str, value: str) -> None:
         self.variables[name] = value
-        if save:
-            self.save()
-        if show:
-            pr_dict(self.desc, pr_func=print, as_json=True)
 
-    def add_include(self, name: str, reset: bool = False, save: bool = False, show: bool = False
-                    ) -> None:
-        if reset:
-            self._reset()
+    @config_set
+    def add_include(self, name: str) -> None:
         self.includes.append(name)
-        if save:
-            self.save()
-        if show:
-            pr_dict(self.desc, pr_func=print, as_json=True)
 
     def _reset(self):
         self.tests.clear()
