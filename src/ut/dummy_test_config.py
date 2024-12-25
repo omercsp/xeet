@@ -14,6 +14,15 @@ class DummyTestConfig(XeetUnittest):
         self.assertIsInstance(expected, DummyStepResult)
         self.assertEqual(res.return_value, expected.return_value)
 
+    def assertDummyDescsEqual(self, res: dict, expected: dict) -> None:
+        self.assertIsInstance(res, dict)
+        self.assertIsInstance(expected, dict)
+        for k, v in expected.items():
+            self.assertIn(k, res)
+            self.assertEqual(res[k], v)
+        for k in res.keys():
+            self.assertIn(k, expected)
+
 
 _dummy_fields = set(DummyStepModel.model_fields.keys())
 

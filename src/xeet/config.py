@@ -1,6 +1,6 @@
 from xeet.log import log_info, log_warn
 from xeet.common import XeetException, global_vars, NonEmptyStr, pydantic_errmsg
-from xeet.xtest import Xtest
+from xeet.xtest import Xtest, XtestModel
 from xeet.globals import set_settings, set_named_steps
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, ValidationInfo
 from typing import Any
@@ -107,37 +107,50 @@ class Config:
             self.tests_dict[name] = test
         self.test_descs = added_tests + self.test_descs
 
-    def _xtest(self, desc: dict, inherited: set[str] | None = None) -> Xtest:
-        ret = Xtest(desc, output_base_dir=self.output_dir, xeet_root=self.root_path)
-        if ret.init_err or not ret.base:
-            return ret
-        if not inherited:
+    def _xtest_model(self, desc: dict, inherited: set[str] | None = None) -> XtestModel:
+        if inherited is None:
             inherited = set()
-        inherited.add(ret.name)
-        log_info(f"Test '{ret.name}' inherits from '{ret.base}'")
-        if ret.base in inherited:
-            ret.init_err = f"Inheritance loop detected for '{ret.base}'"
+        name = desc.get(_NAME)
+        if not name:
+            desc = {"name": "<Unknown>", "error": "Test has no name"}
+            return XtestModel(**desc)
+        try:
+            ret = XtestModel(**desc)
+        except ValidationError as e:
+            err = pydantic_errmsg(e)
+            desc = {"name": name, "error": err}
+            return XtestModel(**desc)
+
+        base_name = ret.base
+        if not base_name:
             return ret
-        base_desc = self.tests_dict.get(ret.base, None)
+        if base_name in inherited:
+            desc = {"name": name, "error": f"Inheritance loop detected for '{base_name}'"}
+            return XtestModel(**desc)
+        inherited.add(name)
+        base_desc = self.test_desc(base_name)
         if not base_desc:
-            ret.init_err = f"No such base test '{ret.base}'"
-            return ret
-        base_xtest = self._xtest(base_desc, inherited)
-        if base_xtest.init_err:
-            ret.init_err = base_xtest.init_err
-            return ret
-        ret.inherit(base_xtest)
+            desc = {"name": name, "error": f"No such base test '{base_name}'"}
+            return XtestModel(**desc)
+        base_model = self._xtest_model(base_desc, inherited)
+        if base_model.error:
+            return base_model
+        ret.inherit(base_model)
         return ret
 
+    def _xtest(self, desc: dict) -> Xtest:
+        model = self._xtest_model(desc)
+        model.output_base_dir = self.output_dir
+        return Xtest(model)
+
     def xtest(self, name: str) -> Xtest | None:
-        desc = self.tests_dict.get(name, None)
+        desc = self.test_desc(name)
         if not desc:
+            log_info(f"Test '{name}' not found")
             return None
         return self._xtest(desc)
 
     def xtests(self, criteria: TestCriteria) -> list[Xtest]:
-        #  TODO/BUG: groups are not inherited at this point, so inherited tests may not be
-        # filtered correctly
         return [self._xtest(desc) for desc in self.test_descs
                 if criteria.match(desc.get(_NAME, ""),
                                   desc.get(_GROUPS, []), desc.get(_ABSTRACT, False))]

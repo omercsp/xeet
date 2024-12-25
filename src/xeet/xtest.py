@@ -107,12 +107,9 @@ class XtestModel(BaseModel):
     test_steps_inheritance: StepsInheritType = StepsInheritType.Replace
     post_test_inheritance: StepsInheritType = StepsInheritType.Replace
 
-    def inherit(self, other: "XtestModel") -> None:
-        if self.inherit_variables and other.var_map:
-            if self.var_map:
-                self.var_map = {**other.var_map, **self.var_map}
-            else:
-                self.var_map = {**other.var_map}
+    # Internals
+    output_base_dir: str = _EMPTY_STR
+    error: str = Field(_EMPTY_STR, exclude=True)
 
     @model_validator(mode='after')
     def post_validate(self) -> "XtestModel":
@@ -120,30 +117,47 @@ class XtestModel(BaseModel):
             raise ValueError("Abstract tests can't have groups")
         return self
 
+    def inherit(self, other: "XtestModel") -> None:
+        if self.inherit_variables and other.var_map:
+            if self.var_map:
+                self.var_map = {**other.var_map, **self.var_map}
+            else:
+                self.var_map = {**other.var_map}
+
+        def _inherit_steps(self_steps: list | None, other_steps: list | None, inherit_method: str
+                           ) -> list | None:
+            if self_steps is None:
+                return other_steps
+            if other_steps is None or inherit_method == StepsInheritType.Replace:
+                return self_steps
+
+            if inherit_method == StepsInheritType.Append:
+                ret = other_steps + self_steps
+            else:
+                ret = self_steps + other_steps
+            return ret
+        if other.error:
+            self.error = other.error
+            return
+
+        self.pre_run = _inherit_steps(self.pre_run, other.pre_run, self.pre_test_inheritance)
+        self.run = _inherit_steps(self.run, other.run, self.test_steps_inheritance)
+        self.post_run = _inherit_steps(self.post_run, other.post_run, self.post_test_inheritance)
+
 
 class Xtest:
-    def __init__(self, desc: dict, output_base_dir: str, xeet_root: str):
-        self.name: str = desc.get("name")  # type: ignore
-        if not isinstance(self.name, str):
-            self.init_err = "Bad name type"
-            self.name = "<unknown>"
-            return
-        if not self.name:
-            self.init_err = "No name"
-            self.name = "<unknown>"
-            return
-        try:
-            self.model = XtestModel(**desc)
-        except ValidationError as e:
-            self.init_err = f"Error parsing test '{self.name}' - {pydantic_errmsg(e)}"
+    def __init__(self, model: XtestModel) -> None:
+        self.model = model
+        self.name: str = model.name.root
+        if model.error:
+            self.init_err = model.error
             return
         self._log_info(f"initializing test {self.name}")
-        self.output_dir = f"{output_base_dir}/{self.name}"
+        self.output_dir = f"{model.output_base_dir}/{self.name}"
         self._log_info(f"Test output dir: {self.output_dir}")
         self.debug_mode = False
 
         self.base = self.model.base
-        self.xeet_root = xeet_root
         self.init_err = _EMPTY_STR
         args = XStepTestArgs(
             log_info=self._log_info, debug_mode=self.debug_mode, output_dir=self.output_dir)
@@ -169,33 +183,6 @@ class Xtest:
         except XeetStepInitException as e:
             self.init_err = str(e)
             return None
-
-    def inherit(self, other: "Xtest") -> None:
-        def _inherit_steps(self_steps, other_steps, inherit_method):
-            if self_steps is None:
-                return other_steps
-            if other_steps is None or inherit_method == StepsInheritType.Replace:
-                return self_steps
-
-            if inherit_method == StepsInheritType.Append:
-                ret = other_steps + self_steps
-            else:
-                ret = self_steps + other_steps
-
-            for i, step in enumerate(ret):
-                step.index = i
-            return ret
-        if other.init_err:
-            self.init_err = other.init_err
-            return
-
-        self.model.inherit(other.model)
-        self.pre_run_steps = _inherit_steps(self.pre_run_steps, other.pre_run_steps,
-                                            self.model.pre_test_inheritance)
-        self.run_steps = _inherit_steps(self.run_steps, other.run_steps,
-                                        self.model.test_steps_inheritance)
-        self.post_run_steps = _inherit_steps(self.post_run_steps, other.post_run_steps,
-                                             self.model.post_test_inheritance)
 
     @staticmethod
     def _setting_val(value: Any, dflt: Any) -> Any:

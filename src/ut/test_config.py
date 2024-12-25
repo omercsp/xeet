@@ -1,8 +1,9 @@
 from ut import ConfigTestWrapper
-from ut.dummy_test_config import DummyTestConfig, gen_dummy_step_desc, DummyStep
-from xeet.config import TestCriteria, _extract_include_files, XeetIncludeLoopException
+from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step_desc, DummyStep, OK_STEP_DESC,
+                                  FAILING_STEP_DESC)
+from xeet.config import TestCriteria, _extract_include_files, XeetIncludeLoopException, Config
 from xeet.globals import setting_value
-from xeet.xtest import Xtest
+from xeet.xtest import Xtest, StepsInheritType, XtestModel
 
 
 _TEST0 = "test0"
@@ -10,6 +11,8 @@ _TEST1 = "test1"
 _TEST2 = "test2"
 _TEST3 = "test3"
 _TEST4 = "test4"
+_TEST5 = "test5"
+_TEST6 = "test6"
 
 _INC_CONF0 = "xeet_inc0.json"
 _INC_CONF1 = "xeet_inc1.json"
@@ -263,3 +266,55 @@ class TestConfig(DummyTestConfig):
         self.assertTupleEqual(setting_value("setting4"), (True, True))
 
         self.assertTupleEqual(setting_value("no_such_setting"), (None, False))
+
+    def test_step_lists_inheritance(self):
+        def assert_step_desc_list_equal(
+            steps: list[dict] | None,
+            expected: list[dict] | None
+        ) -> None:
+            if expected is None:
+                self.assertIsNone(steps)
+                return
+            self.assertIsNotNone(steps)
+            assert steps is not None
+            self.assertEqual(len(steps), len(expected))
+            for step_desc, expected_step_desc in zip(steps, expected):
+                self.assertDummyDescsEqual(step_desc, expected_step_desc)
+
+        def assert_test_model_steps(name: str,
+                                    config: Config,
+                                    pre_run: list | None = None,
+                                    run: list | None = None,
+                                    post_run: list | None = None) -> None:
+
+            desc = config.test_desc(name)
+            self.assertIsNotNone(desc)
+            self.assertIsInstance(desc, dict)
+            assert desc is not None
+            model = config._xtest_model(desc)
+            self.assertIsInstance(model, XtestModel)
+            assert_step_desc_list_equal(model.pre_run, pre_run)
+            assert_step_desc_list_equal(model.run, run)
+            assert_step_desc_list_equal(model.post_run, post_run)
+
+        self.add_test(_TEST0, run=[OK_STEP_DESC], reset=True)
+        self.add_test(_TEST1, pre_run=[OK_STEP_DESC], base=_TEST0)
+        self.add_test(_TEST2, base=_TEST1, run=[FAILING_STEP_DESC])
+        self.add_test(_TEST3, base=_TEST0, test_steps_inheritance=StepsInheritType.Append,
+                      run=[FAILING_STEP_DESC])
+        self.add_test(_TEST4, base=_TEST0, test_steps_inheritance=StepsInheritType.Prepend,
+                      run=[FAILING_STEP_DESC])
+        self.add_test(_TEST5, base=_TEST1, run=[], post_run=[OK_STEP_DESC, OK_STEP_DESC])
+        self.add_test(_TEST6, base=_TEST5, run=[FAILING_STEP_DESC],
+                      test_steps_inheritance=StepsInheritType.Append, save=True)
+
+        config = self.config_file()
+        assert_test_model_steps(_TEST0, config, run=[OK_STEP_DESC])
+        assert_test_model_steps(_TEST1, config, pre_run=[OK_STEP_DESC], run=[OK_STEP_DESC])
+        assert_test_model_steps(_TEST2, config, pre_run=[OK_STEP_DESC], run=[FAILING_STEP_DESC])
+        assert_test_model_steps(_TEST3, config, run=[OK_STEP_DESC, FAILING_STEP_DESC])
+        assert_test_model_steps(_TEST4, config, run=[FAILING_STEP_DESC, OK_STEP_DESC])
+        assert_test_model_steps(_TEST5, config, pre_run=[OK_STEP_DESC], run=[],
+                                post_run=[OK_STEP_DESC, OK_STEP_DESC])
+        assert_test_model_steps(_TEST6, config, pre_run=[OK_STEP_DESC], run=[FAILING_STEP_DESC],
+                                post_run=[OK_STEP_DESC, OK_STEP_DESC])

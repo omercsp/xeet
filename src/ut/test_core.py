@@ -4,7 +4,7 @@ from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step, gen_dummy_ste
                                   FAILING_STEP_DESC, FAILING_STEP_RESULT, INCOMPLETED_STEP_DESC,
                                   INCOMPLETED_STEP_RESULT)
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, status_catgoery,
-                        TestStatusCategory, StepsInheritType)
+                        TestStatusCategory)
 from xeet.xstep import XStepListResult
 from xeet.steps.dummy_step import DummyStep, DummyStepResult
 from xeet.core import fetch_xtest, fetch_tests_list
@@ -94,28 +94,6 @@ class TestCore(DummyTestConfig):
         expected_test_steps_results = XStepListResult(results=[INCOMPLETED_STEP_RESULT])
         expected = TestResult(status=TestStatus.RunErr, run_res=expected_test_steps_results)
         self.assertTestResultEqual(self.run_test(_TEST0), expected)
-
-    def test_steps_lists_inheritance(self):
-        self.add_test(_TEST0, run=[OK_STEP_DESC], reset=True)
-        self.add_test(_TEST1, base=_TEST0)
-        self.add_test(_TEST2, base=_TEST0, run=[FAILING_STEP_DESC])
-        self.add_test(_TEST3, base=_TEST0, test_steps_inheritance=StepsInheritType.Append,
-                      run=[FAILING_STEP_DESC], save=True)
-        self.add_test(_TEST4, base=_TEST0, test_steps_inheritance=StepsInheritType.Prepend,
-                      run=[FAILING_STEP_DESC], save=True)
-
-        expected_test_steps = XStepListResult(results=[OK_STEP_RESULT])
-        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps)
-        for res in self.run_tests_list([_TEST0, _TEST1]):
-            self.assertTestResultEqual(res, expected)
-
-        expected_test_steps = XStepListResult(results=[FAILING_STEP_RESULT])
-        expected = TestResult(status=TestStatus.Failed, run_res=expected_test_steps)
-        self.assertTestResultEqual(self.run_test(_TEST2), expected)
-
-        expected_test_steps = XStepListResult(results=[FAILING_STEP_RESULT])
-        expected = TestResult(status=TestStatus.Failed, run_res=expected_test_steps)
-        self.assertTestResultEqual(self.run_test(_TEST4), expected)
 
     def test_step_lists(self):
         self.add_test(_TEST0, run=[OK_STEP_DESC, OK_STEP_DESC, OK_STEP_DESC], reset=True)
