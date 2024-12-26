@@ -35,23 +35,10 @@ class XStepTestArgs:
     log_info: Callable = log_info
     debug_mode: bool = False
     output_dir: str = ""
-    stage_prefix: str = ""
-    index: int = 0
-    parent: "XStep | None" = None
 
 
 class XeetStepInitException(XeetStepException):
-    def __init__(self, error: str, step_type, args: XStepTestArgs) -> None:
-        super().__init__(error)
-        self.step_type = step_type
-        self.prefix = args.stage_prefix
-        self.index = args.index
-
-    def __str__(self) -> str:
-        ret = f"Error initializing {self.prefix} step {self.index}"
-        if self.step_type:
-            ret += f" ({self.step_type})"
-        return f"{ret}:\n{self.error}"
+    ...
 
 
 @dataclass
@@ -86,11 +73,8 @@ class XStep:
         self.model = model
         self.test_settings = args
         self.log_info = args.log_info
-        self.index = args.index
-        self.stage_prefix = args.stage_prefix
-        self.parent = args.parent
-        if self.parent:
-            self.model.inherit(self.parent.model)
+        self.index = 0
+        self.stage_prefix = ""
 
     def setup(self, _: XeetVars) -> str:
         ...
@@ -114,9 +98,6 @@ class XStep:
 
     def _run(self, _: XStepResult) -> bool:
         raise NotImplementedError
-
-    def inherit(self, _: "XStep") -> None:
-        ...
 
 
 @dataclass

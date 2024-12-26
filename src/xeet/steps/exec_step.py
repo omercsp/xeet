@@ -133,10 +133,6 @@ class ExecStep(XStep):
         self.log_info(f"stdout will be written to '{self.stdout_file}'")
         self.log_info(f"stderr will be written to '{self.stderr_file}'")
 
-    def inherit(self, parent: "ExecStep") -> None:  # type: ignore
-        super().inherit(parent)
-        self.exec_model.inherit(parent.exec_model)
-
     def setup(self, xvars: XeetVars) -> None:  # type: ignore
         super().setup(xvars)
         self.timeout = xvars.expand(self.exec_model.timeout)

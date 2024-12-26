@@ -4,12 +4,13 @@ from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step, gen_dummy_ste
                                   FAILING_STEP_DESC, FAILING_STEP_RESULT, INCOMPLETED_STEP_DESC,
                                   INCOMPLETED_STEP_RESULT)
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, status_catgoery,
-                        TestStatusCategory)
+                        TestStatusCategory, _gen_xstep_model)
 from xeet.xstep import XStepListResult
-from xeet.steps.dummy_step import DummyStep, DummyStepResult
+from xeet.steps.dummy_step import DummyStep, DummyStepResult, DummyStepModel
 from xeet.core import fetch_xtest, fetch_tests_list
 from xeet.config import TestCriteria
 from xeet.common import XeetVars
+from xeet.globals import set_named_steps
 import os
 
 
@@ -22,7 +23,6 @@ _TEST5 = "test5"
 
 
 class TestCore(DummyTestConfig):
-
     #  Validate docstrings are not inherited
     def test_doc_inheritance(self):
         self.add_test(_TEST0, short_desc="text", long_desc="text", reset=True)
@@ -55,22 +55,25 @@ class TestCore(DummyTestConfig):
         expected = gen_dummy_step_result(step, completed=True, failed=True)
         self._run_step(step, xvars, expected)
 
-    def test_step_inheritance(self):
-        xvars = XeetVars()
-        step0 = gen_dummy_step(gen_dummy_step_desc(dummy_field="test", return_value="test"))
-        step1 = gen_dummy_step(gen_dummy_step_desc(), parent=step0)
-        expected = gen_dummy_step_result(step1, completed=True, failed=False)
-        expected.return_value = "test"
-        self._run_step(step0, xvars, expected)
-        self._run_step(step1, xvars, expected)
+    def test_step_model_inheritance(self):
+        def _gen_step_dummy_model(**kwargs) -> DummyStepModel:
+            return _gen_xstep_model(gen_dummy_step_desc(**kwargs))  # type: ignore
+        set_named_steps({
+            "base_step": OK_STEP_DESC,
+            "base_step2": gen_dummy_step_desc(base="base_step"),
+            "base_step3": gen_dummy_step_desc(base="base_step", return_value="other_from_base")
+        })
+        model: DummyStepModel = _gen_step_dummy_model(base="base_step")
+        self.assertEqual(model.step_type, "dummy")
+        self.assertEqual(model.return_value, "test")
 
-        step2 = gen_dummy_step(gen_dummy_step_desc(fail=True, return_value="other"), parent=step0)
-        expected = gen_dummy_step_result(step2, completed=True, failed=True)
-        self._run_step(step2, xvars, expected)
+        model = _gen_step_dummy_model(base="base_step", return_value="other")
+        self.assertEqual(model.step_type, "dummy")
+        self.assertEqual(model.return_value, "other")
 
-        step3 = gen_dummy_step(gen_dummy_step_desc(fail=True, return_value="another"), parent=step2)
-        expected = gen_dummy_step_result(step3, completed=True, failed=True)
-        self._run_step(step3, xvars, expected)
+        model = _gen_step_dummy_model(base="base_step3")
+        self.assertEqual(model.step_type, "dummy")
+        self.assertEqual(model.return_value, "other_from_base")
 
     def test_bad_test_desc(self):
         self.add_test(_TEST0, bad_setting="text", long_desc="text", reset=True,

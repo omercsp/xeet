@@ -37,9 +37,8 @@ def gen_dummy_step_desc(**kwargs) -> dict:
 _step_args = XStepTestArgs()
 
 
-def gen_dummy_step(args: dict, parent: DummyStep | None = None) -> DummyStep:
+def gen_dummy_step(args: dict) -> DummyStep:
     model = DummyStepModel(**args)
-    _step_args.parent = parent
     return DummyStep(model, _step_args)
 
 

@@ -28,6 +28,7 @@ class ConfigTestWrapper:
     tests: list[dict] = field(default_factory=list)
     variables: dict[str, Any] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
+    base_steps: dict[str, dict] = field(default_factory=dict)
     _xeet_dir: ClassVar[tempfile.TemporaryDirectory] = None  # type: ignore
 
     def __post_init__(self):
@@ -42,7 +43,8 @@ class ConfigTestWrapper:
             "include": self.includes,
             "tests": self.tests,
             "variables": self.variables,
-            "settings": self.settings
+            "settings": self.settings,
+            "base_steps": self.base_steps
         }
 
     @cached_property
@@ -84,11 +86,16 @@ class ConfigTestWrapper:
     def add_settings(self, name: str, value: Any) -> None:
         self.settings[name] = value
 
+    @config_set
+    def add_base_step(self, name: str, desc: dict) -> None:
+        self.base_steps[name] = desc
+
     def _reset(self):
         self.tests.clear()
         self.variables.clear()
         self.includes.clear()
         self.settings.clear()
+        self.base_steps.clear()
 
     @staticmethod
     def init_xeet_dir():
@@ -144,6 +151,10 @@ class XeetUnittest(unittest.TestCase):
     @classmethod
     def add_setting(cls, name, value, **kwargs) -> None:
         cls.main_config_wrapper.add_settings(name, value, **kwargs)
+
+    @classmethod
+    def add_base_step(cls, name, desc, **kwargs) -> None:
+        cls.main_config_wrapper.add_base_step(name, desc, **kwargs)
 
     @classmethod
     def run_test(cls, name) -> TestResult:

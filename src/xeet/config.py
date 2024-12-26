@@ -2,7 +2,8 @@ from xeet.log import log_info, log_warn
 from xeet.common import XeetException, global_vars, NonEmptyStr, pydantic_errmsg
 from xeet.xtest import Xtest, XtestModel
 from xeet.globals import set_settings, set_named_steps
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, ValidationInfo
+from pydantic import (AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator,
+                      ValidationInfo)
 from typing import Any
 from yaml import safe_load
 from yaml.parser import ParserError as YamlParserError
@@ -58,7 +59,8 @@ class ConfigModel(BaseModel):
     tests: list[dict] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, Any] = Field(default_factory=dict)
-    base_steps: dict[str, dict] = Field(default_factory=dict)
+    base_steps: dict[str, dict] = Field(default_factory=dict,
+                                        validation_alias=AliasChoices("base_steps", "steps"))
 
     @field_validator('tests')
     @classmethod

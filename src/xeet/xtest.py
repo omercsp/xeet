@@ -3,7 +3,8 @@ from xeet.common import (XeetException, XeetVars, NonEmptyStr, global_vars, pyda
                          yes_no_str)
 from xeet.log import log_info, log_raw, log_verbose
 from xeet.pr import create_print_func, pr_info
-from xeet.xstep import XStep, XeetStepInitException, XStepTestArgs, run_xstep_list, XStepListResult
+from xeet.xstep import (XStep, XStepModel, XeetStepInitException, XStepTestArgs, run_xstep_list,
+                        XStepListResult)
 from xeet.steps import get_xstep_class
 from xeet.globals import get_named_step
 from typing import Any
@@ -173,16 +174,21 @@ class Xtest:
                         ) -> list[XStep] | None:
         if step_list is None:
             return None
-        args.stage_prefix = prefix
-        steps = []
-        try:
-            for index, step_desc in enumerate(step_list):
-                args.index = index
-                steps.append(_gen_xstep(step_desc, args))
-            return steps
-        except XeetStepInitException as e:
-            self.init_err = str(e)
-            return None
+        ret = []
+        for index, step_desc in enumerate(step_list):
+            try:
+                step_model = _gen_xstep_model(step_desc)
+                step_class = get_xstep_class(step_model.step_type)
+                if step_class is None:  # Shouldn't happen
+                    raise XeetStepInitException(f"Unknown step type '{step_model.step_type}'")
+                step = step_class(step_model, args=args)
+                step.index = index
+                step.stage_prefix = prefix
+                ret.append(step)
+            except XeetStepInitException as e:
+                self.init_err = f"Error initializing {prefix} step {index}: {e}"
+                return None
+        return ret
 
     @staticmethod
     def _setting_val(value: Any, dflt: Any) -> Any:
@@ -365,31 +371,33 @@ class Xtest:
         log_info(f"{self.name}: {msg}", *args, depth=1, **kwargs)
 
 
-def _gen_xstep(desc: dict, args: XStepTestArgs, included: set[str] | None = None) -> XStep:
+def _gen_xstep_model(desc: dict, included: set[str] | None = None) -> XStepModel:
     if included is None:
         included = set()
+
     model_type = desc.get("type")
     if not model_type:
-        raise XeetStepInitException("Step type not specified", "", args)
-    xstep_class = get_xstep_class(model_type)
-    if xstep_class is None:
-        raise XeetStepInitException(f"Unknown step type '{model_type}'", model_type, args)
-    xstep_model_class = xstep_class.model_class()
-    try:
-        xstep_model = xstep_model_class(**desc)
-    except ValidationError as e:
-        raise XeetStepInitException(f"{pydantic_errmsg(e)}", model_type, args)
+        raise XeetStepInitException("Step type not specified")
+
     base = desc.get("base")
     if base in included:
-        raise XeetStepInitException(f"Include loop detected - '{base}'", model_type, args)
+        raise XeetStepInitException(f"Include loop detected - '{base}'")
+
+    base_step = None
     if base:
         base_desc = get_named_step(base)
         if not base_desc:
-            raise XeetStepInitException(f"Base step '{base}' not found", model_type, args)
-        base_step = _gen_xstep(base_desc, args, included)
-        args.parent = base_step
-    else:
-        args.parent = None
-    ret = xstep_class(xstep_model, args=args)
+            raise XeetStepInitException(f"Base step '{base}' not found")
+        base_step = _gen_xstep_model(base_desc, included)
 
-    return ret
+    xstep_class = get_xstep_class(model_type)
+    if xstep_class is None:
+        raise XeetStepInitException(f"Unknown step type '{model_type}'")
+    xstep_model_class = xstep_class.model_class()
+    try:
+        xstep_model = xstep_model_class(**desc)
+        if base_step:
+            xstep_model.inherit(base_step)
+    except ValidationError as e:
+        raise XeetStepInitException(f"{pydantic_errmsg(e)}")
+    return xstep_model
