@@ -143,7 +143,9 @@ class XeetVars:
             ret += os.getenv(m_str[1:], "")
         else:
             ret += str(self.value_of(m_str))
-        ret += s[m.end():]
+        e = m.end()
+        s2 = s[e:]
+        ret += s2
         return self.expand(ret)
 
 

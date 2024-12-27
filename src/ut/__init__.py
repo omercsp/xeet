@@ -1,5 +1,5 @@
-from xeet.log import init_logging
-from xeet.pr import mute_prints, pr_dict
+from xeet.log import init_logging, log_info
+from xeet.pr import mute_prints, pr_dict, DictPrintType
 from xeet.common import XeetVars
 from xeet.core import RunSettings, run_tests
 from xeet.config import Config, TestCriteria, read_config_file
@@ -9,6 +9,7 @@ from tempfile import gettempdir
 from dataclasses import dataclass, field
 from typing import ClassVar, Any, Iterable
 from functools import cached_property
+import yaml
 import json
 import os
 import unittest
@@ -23,19 +24,25 @@ mute_prints()
 @dataclass
 class ConfigTestWrapper:
     name: str
-    path: str = ""
     includes: list[str] = field(default_factory=list)
     tests: list[dict] = field(default_factory=list)
     variables: dict[str, Any] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
     base_steps: dict[str, dict] = field(default_factory=dict)
+
+    file_path: str = ""
     _xeet_dir: ClassVar[tempfile.TemporaryDirectory] = None  # type: ignore
 
     def __post_init__(self):
         if not ConfigTestWrapper._xeet_dir:
             raise RuntimeError("xeet dir not initialized. "
                                "Did you forget to call ConfigTestWrapper.init_xeet_dir?")
-        self.path = os.path.join(ConfigTestWrapper._xeet_dir.name, self.path)
+
+        if os.path.isabs(self.name):
+            self.file_path = self.name
+        else:
+            self.file_path = os.path.join(ConfigTestWrapper._xeet_dir.name, self.name)
+        log_info(self.file_path)
 
     @property
     def desc(self) -> dict:
@@ -47,13 +54,20 @@ class ConfigTestWrapper:
             "base_steps": self.base_steps
         }
 
-    @cached_property
-    def file_path(self):
-        return os.path.join(self.path, self.name)
-
-    def save(self):
+    def save(self, show: bool = False) -> None:
+        file_suffix = os.path.splitext(self.file_path)[1]
+        log_info(f"Saving config to '{self.file_path}'")
         with open(self.file_path, 'w') as f:
-            f.write(json.dumps(self.desc))
+            if file_suffix == ".yaml" or file_suffix == ".yml":
+                f.write(yaml.dump(self.desc))
+                if show:
+                    pr_dict(self.desc, pr_func=print, print_type=DictPrintType.YAML)
+            elif file_suffix == ".json":
+                f.write(json.dumps(self.desc))
+                if show:
+                    pr_dict(self.desc, pr_func=print)
+            else:
+                raise ValueError(f"Unsupported file format '{file_suffix}'")
 
     @staticmethod
     def config_set(func):
@@ -62,20 +76,22 @@ class ConfigTestWrapper:
                 self._reset()
             save = kwargs.pop("save", False)
             show = kwargs.pop("show", False)
-            func(self, *args, **kwargs)
+            ret = func(self, *args, **kwargs)
             if save:
                 self.save()
             if show:
-                pr_dict(self.desc, pr_func=print, as_json=True)
+                pr_dict(self.desc, pr_func=print, print_type=DictPrintType.YAML)
+            return ret
         return _inner
 
     @config_set
-    def add_test(self, name, **kwargs) -> None:
+    def add_test(self, name, **kwargs) -> dict:
         desc = {"name": name, **kwargs}
         self.tests.append(desc)
+        return desc
 
     @config_set
-    def add_var(self, name: str, value: str) -> None:
+    def add_var(self, name: str, value: Any, **_) -> None:
         self.variables[name] = value
 
     @config_set
@@ -83,11 +99,11 @@ class ConfigTestWrapper:
         self.includes.append(name)
 
     @config_set
-    def add_settings(self, name: str, value: Any) -> None:
+    def add_settings(self, name: str, value: dict, **_) -> None:
         self.settings[name] = value
 
     @config_set
-    def add_base_step(self, name: str, desc: dict) -> None:
+    def add_base_step(self, name: str, desc: dict, **_) -> None:
         self.base_steps[name] = desc
 
     def _reset(self):

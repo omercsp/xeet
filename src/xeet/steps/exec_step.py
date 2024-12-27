@@ -54,16 +54,14 @@ class ExecStepModel(XStepModel):
         assert not (self.expected_stderr and self.expected_stderr_file)
         return self
 
-    parent_fields: ClassVar[set[str]] = set(XStepModel.model_fields.keys())
+    base_class_fields: ClassVar[set[str]] = set(XStepModel.model_fields.keys())
 
     def inherit(self, parent: "ExecStepModel") -> None:  # type: ignore
         super().inherit(parent)
-        parent_fields = XStepModel.model_fields
         for attr in self.model_fields:
-            if attr in parent_fields or self._had_key(attr):
+            if attr in self.base_class_fields or self._had_key(attr):
                 continue
-            if getattr(self, attr) is None:
-                setattr(self, attr, getattr(parent, attr))
+            setattr(self, attr, getattr(parent, attr))
 
 
 class _ExecStepSettingsModel(BaseModel):

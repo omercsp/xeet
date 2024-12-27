@@ -1,9 +1,8 @@
-from xeet.log import log_info, log_warn
+from xeet.log import log_info
 from xeet.common import XeetException, global_vars, NonEmptyStr, pydantic_errmsg
 from xeet.xtest import Xtest, XtestModel
 from xeet.globals import set_settings, set_named_steps
-from pydantic import (AliasChoices, BaseModel, ConfigDict, Field, ValidationError, field_validator,
-                      ValidationInfo)
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, model_validator
 from typing import Any
 from yaml import safe_load
 from yaml.parser import ParserError as YamlParserError
@@ -58,21 +57,40 @@ class ConfigModel(BaseModel):
     includes: list[NonEmptyStr] = Field(default_factory=list, alias="include")
     tests: list[dict] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
-    settings: dict[str, Any] = Field(default_factory=dict)
+    settings: dict[str, dict] = Field(default_factory=dict)
     base_steps: dict[str, dict] = Field(default_factory=dict,
                                         validation_alias=AliasChoices("base_steps", "steps"))
 
-    @field_validator('tests')
-    @classmethod
-    def check_alphanumeric(cls, v: list[dict], _: ValidationInfo) -> list[dict]:
-        test_names = set()
-        for test in v:
+    tests_dict: dict[str, dict] = Field(default_factory=dict, alias="test_names", exclude=True)
+
+    @model_validator(mode='after')
+    def check_passwords_match(self) -> "ConfigModel":
+        for t in self.tests:
+            name = t.get(_NAME, "").strip()
+            t[_NAME] = name  # Remove leading/trailing spaces
+            if not name:
+                continue
+            if name in self.tests_dict:
+                raise ValueError(f"Duplicate test name '{name}'")
+            self.tests_dict[name] = t
+        return self
+
+    def include(self, other: "ConfigModel") -> None:
+        self.variables = {**other.variables, **self.variables}
+        other_tests = []
+        for test in other.tests:
             name = test.get(_NAME)
-            if name:
-                if name in test_names:
-                    raise ValueError(f"Duplicate test name '{name}'")
-                test_names.add(name)
-        return v
+            if not name or name in self.tests_dict:
+                continue
+            self.tests_dict[name] = test
+            other_tests.append(test)
+        self.tests = other_tests + self.tests
+        self.base_steps = {**other.base_steps, **self.base_steps}
+        for key, value in other.settings.items():
+            if key in self.settings:
+                self.settings[key] = {**value, **self.settings[key]}
+            else:
+                self.settings[key] = value
 
 
 class Config:
@@ -94,20 +112,6 @@ class Config:
         log_info(f"Output directory: {self.output_dir}")
         set_settings(model.settings)
         set_named_steps(self.base_steps)
-
-    def include_config(self, other: "Config") -> None:
-        self.variables = {**other.variables, **self.variables}
-        added_tests = []
-        for index, test in enumerate(other.test_descs):
-            name = test.get(_NAME)
-            if not name:
-                continue
-            if name in self.tests_dict:
-                log_warn(f"Ignoring shadowed test '{name}' at index {index}, already defined")
-                continue
-            added_tests.append(test)
-            self.tests_dict[name] = test
-        self.test_descs = added_tests + self.test_descs
 
     def _xtest_model(self, desc: dict, inherited: set[str] | None = None) -> XtestModel:
         if inherited is None:
@@ -167,9 +171,6 @@ class Config:
         return ret
 
 
-_configs = {}
-
-
 class XeetConfigException(XeetException):
     ...
 
@@ -179,62 +180,27 @@ class XeetIncludeLoopException(XeetConfigException):
         super().__init__(f"Include loop detected - '{file_path}'")
 
 
-def _extract_include_files(file_path: str, included: set[str] | None = None) -> list[str]:
-    file_path = global_vars().expand(file_path)
-    dir_name = os.path.dirname(file_path)
-
-    if not included:  # first call
-        included = set()
-
-    if file_path in included:
-        raise XeetIncludeLoopException(f"Include loop detected - '{file_path}'")
-
-    try:
-        file_path = os.path.abspath(file_path)
-        file_suffix = os.path.splitext(file_path)[1]
-        with open(file_path, 'r') as f:
-            if file_suffix == ".yaml" or file_suffix == ".yml":
-                conf = safe_load(f)
-            else:
-                conf = json.load(f)
-            model = ConfigModel(**conf)
-            config = Config(file_path, model)
-    except ValidationError as e:
-        err = pydantic_errmsg(e)
-        raise XeetConfigException(f"Invalid configuration file '{file_path}': {err}")
-    except (IOError, TypeError, ValueError, YamlParserError, ConstructorError,
-            ComposerError) as e:
-        raise XeetConfigException(f"Error parsing {file_path} - {e}")
-    _configs[file_path] = config
-
-    ret = []
-    included.add(file_path)
-    for i in model.includes:
-        include_file_path = i.root
-        if not os.path.isabs(include_file_path):
-            include_file_path = os.path.join(dir_name, include_file_path)
-        ret += _extract_include_files(include_file_path, included)
-    ret.append(file_path)
-    included.remove(file_path)
-    return ret
+_root_dir: str = ""
 
 
-def _set_initial_global_vars(conf_file_path: str) -> None:
+def _init(conf_file_path: str) -> None:
+    global _root_dir
     cwd = os.path.abspath(os.getcwd())
-    root = os.path.dirname(conf_file_path)
-    if root == "":
-        root = cwd
+    _root_dir = os.path.dirname(conf_file_path)
+    log_info(f"Xeet root directory: {_root_dir}")
+    if _root_dir == "":
+        _root_dir = cwd
     else:
-        root = os.path.abspath(root)
-    output_dir = os.path.join(root, "xeet.out")
+        _root_dir = os.path.abspath(_root_dir)
+    output_dir = os.path.join(_root_dir, "xeet.out")
     global_vars().set_vars({
         f"XEET_CWD": cwd,
-        f"XEET_ROOT": root,
+        f"XEET_ROOT": _root_dir,
         f"XEET_OUTPUT_DIR": output_dir,
     })
 
 
-def read_config_file(file_path: str) -> Config:
+def _read_config_model(file_path: str, included: set[str] | None = None) -> ConfigModel:
     if not file_path:
         for file in ("xeet.yaml", "xeet.yml", "xeet.json"):
             if os.path.exists(file):
@@ -242,22 +208,42 @@ def read_config_file(file_path: str) -> Config:
                 break
         if not file_path:
             raise XeetConfigException("Empty configuration file path")
-    _set_initial_global_vars(file_path)
-    includes = _extract_include_files(file_path)
-    if not includes:  # should never happen
-        raise XeetConfigException(f"No configuration files found in '{file_path}'")
-    log_info(f"Reading main configuration '{file_path}'")
-    last_config = None
-    read_configs = set()
-    for i in includes:
-        if i in read_configs:
-            continue
-        read_configs.add(i)
-        config: Config = _configs[i]
-        if last_config:
-            config.include_config(last_config)
-        last_config = config
+    if included is None:  # First call, main xeet configuration file
+        included = set()
+        _init(file_path)
 
-    if last_config:
-        global_vars().set_vars(last_config.variables)
-    return last_config  # type: ignore
+    file_path = global_vars().expand(file_path)
+    if not os.path.isabs(file_path):
+        file_path = os.path.join(_root_dir, file_path)
+
+    if file_path in included:
+        raise XeetIncludeLoopException(file_path)
+
+    file_suffix = os.path.splitext(file_path)[1]
+    log_info(f"Reading configuration file '{file_path}'")
+    try:
+        with open(file_path, 'r') as f:
+            if file_suffix == ".yaml" or file_suffix == ".yml":
+                desc = safe_load(f)
+            else:
+                desc = json.load(f)
+            model = ConfigModel(**desc)
+    except (IOError, TypeError, ValueError, YamlParserError, ConstructorError,
+            ComposerError) as e:
+        raise XeetConfigException(f"Error parsing {file_path} - {e}")
+
+    included.add(file_path)
+    if model.includes:
+        includes = [r.root for r in model.includes]
+        log_info(f"Reading included files: {", ".join(includes)}")
+        for i in includes[::-1]:
+            inc_model = _read_config_model(i, included)
+            model.include(inc_model)
+    included.remove(file_path)
+
+    return model
+
+
+def read_config_file(file_path: str) -> Config:
+    model = _read_config_model(file_path)
+    return Config(file_path, model)
