@@ -1,6 +1,7 @@
 from pydantic import Field, RootModel, ValidationError
 from typing import Any, Iterable
-from jsonpath_ng import parse
+#  from jsonpath_ng import parse
+from jsonpath_ng.ext import parse as parse_ext
 from jsonpath_ng.exceptions import JsonPathParserError
 from functools import cache
 import re
@@ -143,13 +144,10 @@ class XeetVars:
             ret += os.getenv(m_str[1:], "")
         else:
             ret += str(self.value_of(m_str))
-        ret += s[m.end():]
+        e = m.end()
+        s2 = s[e:]
+        ret += s2
         return self.expand(ret)
-
-
-@cache
-def global_vars() -> XeetVars:
-    return XeetVars()
 
 
 #  Read the last n lines of a text file. Allows at most max_bytes to be read.
@@ -214,7 +212,7 @@ def in_windows() -> bool:
 #  Return a list of values found by the JSONPath expression
 def json_values(obj: dict, path: str) -> list[Any]:
     try:
-        expr = parse(path)
+        expr = parse_ext(path)
         return [match.value for match in expr.find(obj)]
     except JsonPathParserError as e:
         raise XeetException(f"Invalid JSONPath expression: {path} - {e}")

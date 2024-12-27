@@ -1,12 +1,9 @@
-from xeet import LogLevel
-from xeet.common import (XeetException, XeetVars, NonEmptyStr, global_vars, pydantic_errmsg,
-                         yes_no_str)
-from xeet.log import log_info, log_raw, log_verbose
+from xeet import LogLevel, XeetDefs
+from xeet.common import XeetException, XeetVars, NonEmptyStr, pydantic_errmsg, yes_no_str
+from xeet.log import log_info, log_verbose, log_warn
 from xeet.pr import create_print_func, pr_info
-from xeet.xstep import (XStep, XStepModel, XeetStepInitException, XStepTestArgs, run_xstep_list,
-                        XStepListResult)
+from xeet.xstep import XStep, XStepModel, XeetStepInitException, run_xstep_list, XStepListResult
 from xeet.steps import get_xstep_class
-from xeet.globals import get_named_step
 from typing import Any
 from pydantic import BaseModel, Field, ValidationError, ConfigDict, AliasChoices, model_validator
 from enum import auto, Enum
@@ -68,10 +65,10 @@ class TestResult:
     status: TestStatus = TestStatus.Undefined
     duration: float = 0
     status_reason: str = ""
-    timeout_period: float | None = None
-    pre_run_res: XStepListResult = field(default_factory=XStepListResult)
-    run_res: XStepListResult = field(default_factory=XStepListResult)
-    post_run_res: XStepListResult = field(default_factory=XStepListResult)
+    pre_run_res: XStepListResult = field(default_factory=lambda: XStepListResult(prefix="Pre-run"))
+    run_res: XStepListResult = field(default_factory=lambda: XStepListResult(prefix="Run"))
+    post_run_res: XStepListResult = field(
+        default_factory=lambda: XStepListResult(prefix="Post-run"))
 
 
 _EMPTY_STR = ""
@@ -109,7 +106,6 @@ class XtestModel(BaseModel):
     post_test_inheritance: StepsInheritType = StepsInheritType.Replace
 
     # Internals
-    output_base_dir: str = _EMPTY_STR
     error: str = Field(_EMPTY_STR, exclude=True)
 
     @model_validator(mode='after')
@@ -147,45 +143,49 @@ class XtestModel(BaseModel):
 
 
 class Xtest:
-    def __init__(self, model: XtestModel) -> None:
+    def __init__(self, model: XtestModel, xdefs: XeetDefs) -> None:
         self.model = model
+        self.xdefs = xdefs
         self.name: str = model.name.root
         if model.error:
             self.init_err = model.error
             return
         self._log_info(f"initializing test {self.name}")
-        self.output_dir = f"{model.output_base_dir}/{self.name}"
+        self.output_dir = f"{xdefs.output_dir}/{self.name}"
         self._log_info(f"Test output dir: {self.output_dir}")
         self.debug_mode = False
 
         self.base = self.model.base
         self.init_err = _EMPTY_STR
-        args = XStepTestArgs(
-            log_info=self._log_info, debug_mode=self.debug_mode, output_dir=self.output_dir)
-        self.pre_run_steps = self._init_step_list(self.model.pre_run, args, "pre")
+        self.pre_run_steps = self._init_step_list(self.model.pre_run, "pre")
         if self.init_err:
             return
-        self.run_steps = self._init_step_list(self.model.run, args, "test")
+        self.run_steps = self._init_step_list(self.model.run, "test")
         if self.init_err:
             return
-        self.post_run_steps = self._init_step_list(self.model.post_run, args, "post")
+        self.post_run_steps = self._init_step_list(self.model.post_run, "post")
 
-    def _init_step_list(self, step_list: list[dict] | None, args: XStepTestArgs, prefix: str
-                        ) -> list[XStep] | None:
+        self.xvars = XeetVars(model.var_map, xdefs.xvars)
+        self.xvars.set_vars({
+            "XEET_TEST_NAME": self.name,
+            "XEET_TEST_OUTDIR": self.output_dir,
+        })
+
+    def _init_step_list(self, step_list: list[dict] | None, prefix: str) -> list[XStep] | None:
         if step_list is None:
             return None
         ret = []
         for index, step_desc in enumerate(step_list):
             try:
-                step_model = _gen_xstep_model(step_desc)
+                log_info(f"Initializing {prefix} step {index}")
+                step_model = self._gen_xstep_model(step_desc)
                 step_class = get_xstep_class(step_model.step_type)
                 if step_class is None:  # Shouldn't happen
                     raise XeetStepInitException(f"Unknown step type '{step_model.step_type}'")
-                step = step_class(step_model, args=args)
-                step.index = index
-                step.stage_prefix = prefix
+                step = step_class(step_model, self.xdefs, self.name, self._log_info)
                 ret.append(step)
             except XeetStepInitException as e:
+                log_warn(f"Error initializing {prefix} step {index}: {e}")
                 self.init_err = f"Error initializing {prefix} step {index}: {e}"
                 return None
         return ret
@@ -237,15 +237,6 @@ class Xtest:
         return {g.root.strip() for g in self.model.groups}
 
     def expand(self) -> None:
-        xvars = XeetVars(self.model.var_map, global_vars())
-        xvars.set_vars({
-            "XEET_TEST_NAME": self.name,
-            "XEET_TEST_OUTDIR": self.output_dir,
-        })
-
-        self._log_info(f"Auto variables:")
-        for k, v in xvars.vars_map.items():
-            log_raw(f"{k}={v}")
         self._log_info(f"Expanding '{self.name}' internals")
 
         try:
@@ -253,7 +244,7 @@ class Xtest:
                 if steps is None:
                     continue
                 for step in steps:
-                    step.setup(xvars)
+                    step.setup(self.xvars)
         except XeetException as e:
             self.init_err = str(e)
             return
@@ -370,34 +361,36 @@ class Xtest:
     def _log_info(self, msg, *args, **kwargs) -> None:
         log_info(f"{self.name}: {msg}", *args, depth=1, **kwargs)
 
+    def _gen_xstep_model(self, desc: dict, included: set[str] | None = None) -> XStepModel:
+        if included is None:
+            included = set()
 
-def _gen_xstep_model(desc: dict, included: set[str] | None = None) -> XStepModel:
-    if included is None:
-        included = set()
+        model_type = desc.get("type")
+        if not model_type:
+            raise XeetStepInitException("Step type not specified")
+        log_info(f"Initializing step of type '{model_type}'")
+        base = desc.get("base")
+        if base in included:
+            raise XeetStepInitException(f"Include loop detected - '{base}'")
 
-    model_type = desc.get("type")
-    if not model_type:
-        raise XeetStepInitException("Step type not specified")
+        base_step = None
+        if base:
+            log_info(f"Base step '{base}' found")
+            base_desc, found = self.xdefs.config_ref(base)
+            if not found:
+                raise XeetStepInitException(f"Base step '{base}' not found")
+            if not isinstance(base_desc, dict):
+                raise XeetStepInitException(f"Invalid base step '{base}'")
+            base_step = self._gen_xstep_model(base_desc, included)
 
-    base = desc.get("base")
-    if base in included:
-        raise XeetStepInitException(f"Include loop detected - '{base}'")
-
-    base_step = None
-    if base:
-        base_desc = get_named_step(base)
-        if not base_desc:
-            raise XeetStepInitException(f"Base step '{base}' not found")
-        base_step = _gen_xstep_model(base_desc, included)
-
-    xstep_class = get_xstep_class(model_type)
-    if xstep_class is None:
-        raise XeetStepInitException(f"Unknown step type '{model_type}'")
-    xstep_model_class = xstep_class.model_class()
-    try:
-        xstep_model = xstep_model_class(**desc)
-        if base_step:
-            xstep_model.inherit(base_step)
-    except ValidationError as e:
-        raise XeetStepInitException(f"{pydantic_errmsg(e)}")
-    return xstep_model
+        xstep_class = get_xstep_class(model_type)
+        if xstep_class is None:
+            raise XeetStepInitException(f"Unknown step type '{model_type}'")
+        xstep_model_class = xstep_class.model_class()
+        try:
+            xstep_model = xstep_model_class(**desc)
+            if base_step:
+                xstep_model.inherit(base_step)
+        except ValidationError as e:
+            raise XeetStepInitException(f"{pydantic_errmsg(e)}")
+        return xstep_model

@@ -3,6 +3,7 @@ from typing import Union, Callable, TextIO
 import pprint
 import json
 import sys
+import yaml
 
 
 _allowed_print_level = LogLevel.INFO
@@ -69,11 +70,21 @@ def clear_printed_line():
     sys.stdout.write("\033[F")
 
 
+class DictPrintType:
+    PYTHON = 1
+    JSON = 2
+    YAML = 3
+
+
 def pr_dict(d: Union[dict, list], **kwargs) -> None:
     pr_func = kwargs.pop("pr_func", pr_info)
-    as_json = kwargs.pop("as_json", False)
-    if as_json:
+    print_type = kwargs.pop("print_type", DictPrintType.PYTHON)
+    indent = kwargs.pop("indent", 4)
+    if print_type == DictPrintType.PYTHON:
+        s = pprint.pformat(d, indent=indent)
+    if print_type == DictPrintType.JSON:
         s = json.dumps(d, indent=4)
     else:
-        s = pprint.pformat(d, indent=4)
+        s = yaml.dump(d, indent=indent)
+
     pr_func(s, **kwargs)

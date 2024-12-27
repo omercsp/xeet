@@ -1,10 +1,13 @@
 from ut import tests_utils_command, XeetUnittest
-from xeet.xstep import XStepTestArgs
 from xeet.steps.exec_step import ExecStep, ExecStepModel, ExecStepResult, _OutputBehavior
+from xeet.xstep import XStepListResult, XStepModel
+from xeet.xtest import TestResult, TestStatus, Xtest
 from xeet.common import XeetVars, in_windows
 import tempfile
 import os
 import json
+
+from xeet.xtest import TestResult
 
 
 if os.environ.get("UT_DEBUG", "0") == "1":
@@ -14,7 +17,6 @@ if os.environ.get("UT_DEBUG", "0") == "1":
     _ECHOCMD = "echo"
     _PWD_CMD = "pwd"
     _SLEEP_1_CMD = "sleep 1"
-    _SLEEP_0_3_CMD = "sleep 0.1"
 else:
     _TRUE_CMD = tests_utils_command("rc.py", "0")
     _FALSE_CMD = tests_utils_command("rc.py", "1")
@@ -22,37 +24,41 @@ else:
     _ECHOCMD = tests_utils_command("echo.py")
     _PWD_CMD = tests_utils_command("pwd.py")
     _SLEEP_1_CMD = tests_utils_command("sleep.py", "1")
-    _SLEEP_0_3_CMD = tests_utils_command("sleep.py", "0.1")
 
 _OUTPUT_CMD = tests_utils_command("output.py")
 _BAD_CMD = "nonexistent"
 
 
+exec_fields = set(ExecStepModel.model_fields.keys())
+
+
+def gen_exec_step_desc(**kwargs) -> dict:
+    for k in list(kwargs.keys()):
+        if k not in exec_fields:
+            raise ValueError(f"Invalid ExecStep field '{k}'")
+    return {"type": "exec", **kwargs}
+
+
+_TEST0 = "test0"
+_TEST1 = "test1"
+_TEST2 = "test2"
+_TEST3 = "test3"
+_TEST4 = "test4"
+_TEST5 = "test5"
+_TEST6 = "test6"
+
+def _gen_exec_result(status: TestStatus, **kwargs) -> TestResult:
+    step_res_desc = ExecStepResult(**kwargs)
+    return TestResult(status=status, run_res=XStepListResult(results=[step_res_desc]))
+
+_GOOLD_RES = _gen_exec_result(status=TestStatus.Passed, rc=0, rc_ok=True, completed=True)
+
 class TestExecStep(XeetUnittest):
-    exec_fields = set(ExecStepModel.model_fields.keys())
-
-    @staticmethod
-    def gen_exec_step_desc(**kwargs) -> dict:
-        for k in list(kwargs.keys()):
-            if k not in TestExecStep.exec_fields:
-                raise ValueError(f"Invalid ExecStep field '{k}'")
-        return {"type": "exec", **kwargs}
-
-    @staticmethod
-    def gen_exec_step(args: dict, parent: ExecStep | None = None) -> ExecStep:
-        model = ExecStepModel(**args)
-        TestExecStep.step_args.parent = parent  # Not thread safe, but ut is single threaded for now
-        return ExecStep(model, TestExecStep.step_args)
-
-    @staticmethod
-    def gen_exec_step_result(step: ExecStep, **kwargs) -> ExecStepResult:
-        return ExecStepResult(step=step, **kwargs)
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.output_dir = tempfile.TemporaryDirectory()
-        cls.step_args = XStepTestArgs(stage_prefix="ut", output_dir=cls.output_dir.name)
         cls.default_xvars = XeetVars()
 
     @classmethod
@@ -60,12 +66,12 @@ class TestExecStep(XeetUnittest):
         super().tearDownClass()
         cls.output_dir.cleanup()
 
-    def assertStepResultEqual(self, res: ExecStepResult, expected: ExecStepResult,   # type: ignore
-                              ignore_rc: bool = False) -> None:
+    def assertStepResultEqual(self, res: ExecStepResult, expected: ExecStepResult  # type: ignore
+                              ) -> None:
         super().assertStepResultEqual(res, expected)
         self.assertEqual(res.output_behavior, expected.output_behavior)
         self.assertEqual(bool(res.os_error), bool(expected.os_error))
-        if not ignore_rc:
+        if res.allowed_rc != "*":
             self.assertEqual(res.rc, expected.rc)
         self.assertEqual(res.rc_ok, expected.rc_ok)
         self.assertEqual(bool(res.stdout_diff), bool(expected.stdout_diff))
@@ -81,199 +87,207 @@ class TestExecStep(XeetUnittest):
         self.assertStepResultEqual(res, expected, **kwargs)
 
     def test_simple_exec(self):
-        desc = self.gen_exec_step_desc(cmd=_TRUE_CMD)
-        step = self.gen_exec_step(desc)
-        result = self.gen_exec_step_result(step, rc=0, rc_ok=True, completed=True)
-        self.assertExecStep(step, result)
+        true_cmd_desc = gen_exec_step_desc(cmd=_TRUE_CMD)
+        false_cmd_desc = gen_exec_step_desc(cmd=_FALSE_CMD)
+        bad_cmd_desc = gen_exec_step_desc(cmd=_BAD_CMD)
 
-        desc = self.gen_exec_step_desc(cmd=_FALSE_CMD)
-        step = self.gen_exec_step(desc)
-        result.rc = 1
-        result.rc_ok = False
-        result.failed = True
-        self.assertExecStep(step, result)
+        self.add_test(_TEST0, run=[true_cmd_desc], reset=True)
+        self.add_test(_TEST1, run=[false_cmd_desc])
+        self.add_test(_TEST2, run=[bad_cmd_desc], save=True)
 
-        desc = self.gen_exec_step_desc(cmd=_BAD_CMD)
-        step = self.gen_exec_step(desc)
-        result.rc = None
-        result.os_error = True  # type: ignore
-        result.failed = False
-        result.completed = False
-        self.assertExecStep(step, result)
+        expected = _gen_exec_result(TestStatus.Passed, rc=0, rc_ok=True, completed=True)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
+
+        expected = _gen_exec_result(TestStatus.Failed, rc=1, rc_ok=False, completed=True, failed=True)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
+
+        expected = _gen_exec_result(TestStatus.RunErr, rc=None, os_error=OSError(), completed=False)
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
     def test_allowed_rc(self):
         rc_10_cmd = tests_utils_command("rc.py", "10")
-        desc = self.gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[10])
-        step = self.gen_exec_step(desc)
-        result = self.gen_exec_step_result(step, rc=10, rc_ok=True, completed=True)
-        self.assertExecStep(step, result)
+        rand_rc_cmd = tests_utils_command("rc.py")
 
-        desc = self.gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[10, 100])
-        step = self.gen_exec_step(desc)
-        self.assertExecStep(step, result)
+        step_desc = gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[10])
+        self.add_test(_TEST0, run=[step_desc], reset=True)
+        step_desc = gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[10, 100])
+        self.add_test(_TEST1, run=[step_desc])
+        step_desc = gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[11, 100])
+        self.add_test(_TEST2, run=[step_desc])
+        step_desc = gen_exec_step_desc(cmd=rand_rc_cmd, allowed_rc="*")
+        self.add_test(_TEST3, run=[step_desc], save=True)
 
-        desc = self.gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[11, 100])
-        step = self.gen_exec_step(desc)
-        result.rc_ok = False
-        result.failed = True
-        self.assertExecStep(step, result)
+        expected = _gen_exec_result(TestStatus.Passed, rc=10, rc_ok=True, completed=True)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
 
-        desc = self.gen_exec_step_desc(cmd=rc_10_cmd, allowed_rc=[11, 100])
-        step = self.gen_exec_step(desc)
-        self.assertExecStep(step, result)
+        expected = _gen_exec_result(TestStatus.Failed, rc=10, rc_ok=False, completed=True, failed=True)
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
 
-        desc = self.gen_exec_step_desc(cmd=tests_utils_command("rc.py"), allowed_rc="*")
-        step = self.gen_exec_step(desc)
-        result.failed = False
-        result.rc_ok = True
+        expected = _gen_exec_result(TestStatus.Passed, rc_ok=True, completed=True)
         for _ in range(5):
-            self.assertExecStep(step, result, ignore_rc=True)
+            self.assertTestResultEqual(self.run_test(_TEST3), expected)
 
     def test_cwd(self):
         cwd = tempfile.gettempdir()
-        desc = self.gen_exec_step_desc(cmd=_PWD_CMD, cwd=cwd, expected_stdout=f"{cwd}\n")
-        step = self.gen_exec_step(desc)
-        self.assertExecStep(step, self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True))
+        step_desc = gen_exec_step_desc(cmd=_PWD_CMD, cwd=cwd, expected_stdout=f"{cwd}\n")
+        self.add_test(_TEST0, run=[step_desc], reset=True, save=True)
+        self.assertTestResultEqual(self.run_test(_TEST0), _GOOLD_RES)
 
     def test_timeout(self):
-        desc = self.gen_exec_step_desc(cmd=_SLEEP_1_CMD, timeout=0.5)  # 1 second sleep
-        step = self.gen_exec_step(desc)
-        self.assertExecStep(step, self.gen_exec_step_result(step, completed=False,
-                                                            timeout_period=True))
+        step_desc = gen_exec_step_desc(cmd=_SLEEP_1_CMD, timeout=0.5)  # 1 second sleep
+        self.add_test(_TEST0, run=[step_desc], reset=True, save=True)
+        expected = _gen_exec_result(TestStatus.RunErr, completed=False, timeout_period=True)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
     def test_env(self):
-        desc = self.gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} TEST_ENV", env={"TEST_ENV": "test"},
+        step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} TEST_ENV", env={"TEST_ENV": "test"},
                                        expected_stdout="test\n")
-        step = self.gen_exec_step(desc)
-        self.assertExecStep(step, self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True))
+        self.add_test(_TEST0, run=[step_desc], reset=True)
 
-        desc = self.gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} NOSUCHVAR", expected_stdout="\n")
-        step = self.gen_exec_step(desc)
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} NOSUCHVAR", expected_stdout="\n")
+        self.add_test(_TEST1, run=[step_desc])
 
         os.environ["OS_TEST_ENV"] = "os test"
-        desc = self.gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} OS_TEST_ENV", use_os_env=True,
+        step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} OS_TEST_ENV", use_os_env=True,
                                        expected_stdout="os test\n")
-        step = self.gen_exec_step(desc)
-        self.assertExecStep(step, expected)
+        self.add_test(_TEST2, run=[step_desc])
 
-        step.exec_model.use_os_env = False
-        step.exec_model.expected_stdout = ""
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} OS_TEST_ENV", use_os_env=False,
+                                       expected_stdout="\n")
+        self.add_test(_TEST3, run=[step_desc], save=True)
 
-        #  Create a temorary file to test file env variables
+
+        self.assertTestResultEqual(self.run_test(_TEST0), _GOOLD_RES)
+        self.assertTestResultEqual(self.run_test(_TEST1), _GOOLD_RES)
+        self.assertTestResultEqual(self.run_test(_TEST2), _GOOLD_RES)
+        self.assertTestResultEqual(self.run_test(_TEST3), _GOOLD_RES)
+
         with tempfile.NamedTemporaryFile() as tmpfile:
             env_vars = {"var0": "val0", "var1": "val1"}
             with open(tmpfile.name, "w") as f:
                 f.write(json.dumps(env_vars))
-            desc = self.gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} var0", env_file=tmpfile.name,
+            step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} var0", env_file=tmpfile.name,
                                            expected_stdout="val0\n")
-            step = self.gen_exec_step(desc)
-            self.assertExecStep(step, expected)
+            self.add_test(_TEST0, run=[step_desc], reset=True)
 
-            step.exec_model.cmd = f"{_SHOWENV_CMD} var1"
-            step.exec_model.expected_stdout = "val1\n"
-            self.assertExecStep(step, expected)
+            step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} var1", env_file=tmpfile.name,
+                                           expected_stdout="val1\n")
+            self.add_test(_TEST1, run=[step_desc])
 
-            step.exec_model.cmd = f"{_SHOWENV_CMD} var2"
-            step.exec_model.expected_stdout = "\n"
-            self.assertExecStep(step, expected)
+            step_desc = gen_exec_step_desc(cmd=f"{_SHOWENV_CMD} var2", env_file=tmpfile.name,
+                                           expected_stdout="\n")
+            self.add_test(_TEST2, run=[step_desc], save=True)
+
+            self.assertTestResultEqual(self.run_test(_TEST0), _GOOLD_RES)
+            self.assertTestResultEqual(self.run_test(_TEST1), _GOOLD_RES)
+            self.assertTestResultEqual(self.run_test(_TEST2), _GOOLD_RES)
 
     def test_shell_usage(self):
         if in_windows():
             return
-        cmd = f"{_ECHOCMD} 1; {_ECHOCMD} 2"
-        shell_expected_stdout = "1\n2\n"
-        no_shell_expected_stdout = f"1; {_ECHOCMD} 2\n"
-        desc = self.gen_exec_step_desc(cmd=cmd, use_shell=True,
-                                       expected_stdout=shell_expected_stdout)
-        step = self.gen_exec_step(desc)
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
 
-        step.exec_model.use_shell = False
-        step.exec_model.expected_stdout = no_shell_expected_stdout
-        self.assertExecStep(step, expected)
+        cmd = f"{_ECHOCMD} 1; {_ECHOCMD} 2"
+        step_desc = gen_exec_step_desc(cmd=cmd, use_shell=True, expected_stdout="1\n2\n")
+        self.add_test(_TEST0, run=[step_desc], reset=True, save=True)
+
+        step_desc = gen_exec_step_desc(cmd=cmd, use_shell=False, expected_stdout="f0; {_ECHOCMD} 2\n")
+        self.add_test(_TEST1, run=[step_desc], save=True)
+
+        self.assertTestResultEqual(self.run_test(_TEST0), _GOOLD_RES)
+        self.assertTestResultEqual(self.run_test(_TEST0), _GOOLD_RES)
 
     def test_output_behavior(self):
         cmd = f"{_OUTPUT_CMD} --stdout O --stderr E --stdout O --stderr E"
-        desc = self.gen_exec_step_desc(cmd=cmd, expected_stdout="OEOE")
-        step = self.gen_exec_step(desc)
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="OEOE")
+        self.add_test(_TEST0, run=[step_desc], reset=True)
 
-        step.exec_model.output_behavior = _OutputBehavior.Unify
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="OEOE", output_behavior=_OutputBehavior.Unify)
+        self.add_test(_TEST1, run=[step_desc])
 
-        step.exec_model.output_behavior = _OutputBehavior.Split
-        step.exec_model.expected_stdout = "OO"
-        step.exec_model.expected_stderr = "EE"
-        expected.output_behavior = _OutputBehavior.Split
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="OO", expected_stderr="EE",
+                                       output_behavior=_OutputBehavior.Split)
+        self.add_test(_TEST2, run=[step_desc], save=True)
 
-        step.exec_model.expected_stdout = None
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stderr="EE", output_behavior=_OutputBehavior.Split)
+        self.add_test(_TEST3, run=[step_desc], save=True)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="OO", output_behavior=_OutputBehavior.Split)
+        self.add_test(_TEST4, run=[step_desc], save=True)
 
-        step.exec_model.expected_stderr = None
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="O", output_behavior=_OutputBehavior.Split)
+        self.add_test(_TEST5, run=[step_desc], save=True)
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stderr="E", output_behavior=_OutputBehavior.Split)
+        self.add_test(_TEST6, run=[step_desc], save=True)
 
-        step.exec_model.expected_stdout = "O"
-        expected.failed = True
-        expected.stdout_diff = "yes"
-        self.assertExecStep(step, expected)
+        self.assertTestResultEqual(self.run_test(_TEST0), _GOOLD_RES)
+        self.assertTestResultEqual(self.run_test(_TEST1), _GOOLD_RES)
 
-        step.exec_model.expected_stdout = "OO"
-        step.exec_model.expected_stderr = "E"
-        expected.stdout_diff = ""
-        expected.stderr_diff = "yes"
-        self.assertExecStep(step, expected)
+        expected = _gen_exec_result(TestStatus.Passed, rc=0, rc_ok=True, completed=True,
+                                    output_behavior=_OutputBehavior.Split)
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
+        self.assertTestResultEqual(self.run_test(_TEST3), expected)
+        self.assertTestResultEqual(self.run_test(_TEST4), expected)
 
-    def test_raw_inheritance(self):
-        cwd = tempfile.gettempdir()
-        base_desc = self.gen_exec_step_desc(cmd=_FALSE_CMD, cwd=cwd, expected_stdout=f"{cwd}\n")
-        base_step = self.gen_exec_step(base_desc)
-        expected = self.gen_exec_step_result(base_step, completed=True, rc=1, rc_ok=False)
+        expected = _gen_exec_result(TestStatus.Failed, rc=0, rc_ok=True, completed=True, failed=True,
+                                    output_behavior=_OutputBehavior.Split, stdout_diff="yes")
+        self.assertTestResultEqual(self.run_test(_TEST5), expected)
+        expected = _gen_exec_result(TestStatus.Failed, rc=0, rc_ok=True, completed=True, failed=True,
+                                    output_behavior=_OutputBehavior.Split, stderr_diff="yes")
+        self.assertTestResultEqual(self.run_test(_TEST6), expected)
 
-        #  Inherit from cwd and expected_stdout, override cmd. Should pass.
-        desc = self.gen_exec_step_desc(cmd=_PWD_CMD, cwd=cwd)
-        step = self.gen_exec_step(desc, parent=base_step)
+    def test_exec_model_inheritance(self):
+        dflt_cmd = "cmd"
+        dflt_stdout = "stdout"
+        dflt_stderr = "stderr"
+        dflt_shell_path = "/bin/sh"
+        dflt_timeout = 0.5
+        dflt_cwd = tempfile.gettempdir()
+        dflt_allowed_rc = [1]
 
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
+        def validate_model(test_name: str,
+                           cmd: str = dflt_cmd,
+                           cwd: str = dflt_cwd,
+                           stdout: str = dflt_stdout,
+                           stderr: str = dflt_stderr,
+                           shell_path: str = dflt_shell_path,
+                           timeout: float = dflt_timeout,
+                           use_shell: bool = True,
+                           allowed_rc: list[int] = dflt_allowed_rc
+                           ) -> None:
 
-        desc = self.gen_exec_step_desc(allowed_rc=[1])
-        step = self.gen_exec_step(desc, parent=base_step)
-        #  Fail over output mismatch (still the cwd)
-        expected = self.gen_exec_step_result(
-            step, completed=True, rc=1, rc_ok=True, failed=True, stdout_diff="yes")
-        self.assertExecStep(step, expected)
+            t = self.get_test(test_name)
+            model = self.get_test(test_name).run_steps[0].model  # type: ignore
+            self.assertIsInstance(model, ExecStepModel)
+            assert isinstance(model, ExecStepModel)
+            self.assertEqual(model.cmd, cmd)
+            self.assertEqual(model.cwd, cwd)
+            self.assertEqual(model.expected_stdout, stdout)
+            self.assertEqual(model.expected_stderr, stderr)
+            self.assertEqual(model.shell_path, shell_path)
+            self.assertEqual(model.timeout, timeout)
+            self.assertEqual(model.use_shell, use_shell)
+            self.assertEqual(model.allowed_rc, allowed_rc)
 
-        desc = self.gen_exec_step_desc(allowed_rc=[1], expected_stdout=None)
-        step = self.gen_exec_step(desc, parent=base_step)
-        expected = self.gen_exec_step_result(step, completed=True, rc=1, rc_ok=True)
-        self.assertExecStep(step, expected)
 
-        base_desc = self.gen_exec_step_desc(cmd=_SLEEP_0_3_CMD, timeout=0.1)
-        base_step = self.gen_exec_step(base_desc)
-        expected = self.gen_exec_step_result(base_step, completed=False, timeout_period=True)
-        self.assertExecStep(base_step, expected)
+        base_step_desc = gen_exec_step_desc(cmd=dflt_cmd,
+                                            cwd=dflt_cwd,
+                                            expected_stdout=dflt_stdout,
+                                            expected_stderr=dflt_stderr,
+                                            timeout=dflt_timeout,
+                                            use_shell=True,
+                                            shell_path=dflt_shell_path,
+                                            use_os_env=True,
+                                            allowed_rc=dflt_allowed_rc)
+        self.add_setting("base_step", base_step_desc, reset=True)
 
-        desc = self.gen_exec_step_desc(timeout=1)
-        step = self.gen_exec_step(desc, parent=base_step)
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(base="settings.base_step", cmd="other_cmd", cwd="")
+        self.add_test(_TEST0, run=[step_desc])
 
-        if in_windows():
-            return
-
-        cmd = f"{_ECHOCMD} 1; {_ECHOCMD} 2"
-        base_desc = self.gen_exec_step_desc(cmd=cmd, use_shell=True, expected_stdout="1\n2\n")
-        base_step = self.gen_exec_step(desc, parent=base_step)
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
-
-        desc = self.gen_exec_step_desc(use_shell=False)
-        step = self.gen_exec_step(desc, parent=base_step)
-        expected = self.gen_exec_step_result(step, completed=True, rc=0, rc_ok=True)
-        self.assertExecStep(step, expected)
+        step_desc = gen_exec_step_desc(base="settings.base_step", expected_stdout="other_stdout",
+                                       expected_stderr="other_stderr")
+        self.add_test(_TEST1, run=[step_desc], save=True)
+        step_desc = gen_exec_step_desc(base="settings.base_step", allowed_rc=[0, 2, 5], use_shell=False,
+                                       timeout=1, shell_path="/bin/bash")
+        self.add_test(_TEST2, run=[step_desc], save=True)
+        validate_model(_TEST0, cmd="other_cmd", cwd="")
+        validate_model(_TEST1, stdout="other_stdout", stderr="other_stderr")

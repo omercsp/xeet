@@ -1,13 +1,13 @@
 from xeet.common import XeetVars, text_file_tail, in_windows, XeetException, pydantic_errmsg
 from xeet.log import log_raw, log_error, log_warn
 from xeet.pr import pr_info
-from xeet.xstep import XStep, XStepModel, XStepResult, XStepTestArgs
-from xeet.globals import setting_value
+from xeet import XeetDefs
+from xeet.xstep import XStep, XStepModel, XStepResult
 from pydantic import (field_validator, ValidationInfo, model_validator, BaseModel, ConfigDict,
                       Field, ValidationError)
 from enum import Enum
 from io import TextIOWrapper
-from typing import ClassVar
+from typing import ClassVar, Callable
 from dataclasses import dataclass
 from functools import cache
 import shlex
@@ -54,16 +54,14 @@ class ExecStepModel(XStepModel):
         assert not (self.expected_stderr and self.expected_stderr_file)
         return self
 
-    parent_fields: ClassVar[set[str]] = set(XStepModel.model_fields.keys())
+    base_class_fields: ClassVar[set[str]] = set(XStepModel.model_fields.keys())
 
     def inherit(self, parent: "ExecStepModel") -> None:  # type: ignore
         super().inherit(parent)
-        parent_fields = XStepModel.model_fields
         for attr in self.model_fields:
-            if attr in parent_fields or self._had_key(attr):
+            if attr in self.base_class_fields or self._had_key(attr):
                 continue
-            if getattr(self, attr) is None:
-                setattr(self, attr, getattr(parent, attr))
+            setattr(self, attr, getattr(parent, attr))
 
 
 class _ExecStepSettingsModel(BaseModel):
@@ -72,8 +70,8 @@ class _ExecStepSettingsModel(BaseModel):
 
 
 @cache
-def _settings() -> _ExecStepSettingsModel:
-    _settings_desc = setting_value("exec_step")
+def _settings(xeet: XeetDefs) -> _ExecStepSettingsModel:
+    _settings_desc = xeet.config_ref("exec_step")
     if _settings_desc is not None:
         _settings_desc = {}
     try:
@@ -91,6 +89,7 @@ class ExecStepResult(XStepResult):
     output_behavior: _OutputBehavior = _OutputBehavior.Unify
     os_error: OSError | None = None
     rc: int | None = None
+    allowed_rc: list[int] | str = ""
     rc_ok: bool = False
     stdout_diff: str = ""
     stderr_diff: str = ""
@@ -105,8 +104,9 @@ class ExecStep(XStep):
     def result_class() -> type[XStepResult]:
         return ExecStepResult
 
-    def __init__(self, model: ExecStepModel, args: XStepTestArgs):
-        super().__init__(model, args)
+    def __init__(self, model: ExecStepModel, xdefs: XeetDefs, base_name: str, log_info: Callable
+                 ) -> None:
+        super().__init__(model, xdefs, base_name, log_info)
         self.exec_model = model
         self.timeout: float = 0
         self.shell_path = ""
@@ -116,19 +116,16 @@ class ExecStep(XStep):
         self.env = {}
         self.env_file = ""
         self.output_behavior = _OutputBehavior.Unify
-        base_name = f"{self.stage_prefix}_{self.index}"
-        if self.model.name:
-            base_name += f"_{self.model.name}"
 
         if model.stdout_file:
-            self.stdout_file = os.path.join(self.test_settings.output_dir, model.stdout_file)
+            self.stdout_file = os.path.join(self.xdefs.output_dir, model.stdout_file)
         else:
-            self.stdout_file = os.path.join(self.test_settings.output_dir, f"{base_name}_stdout")
+            self.stdout_file = os.path.join(self.xdefs.output_dir, f"{base_name}_stdout")
 
         if model.stderr_file:
-            self.stderr_file = os.path.join(self.test_settings.output_dir, model.stderr_file)
+            self.stderr_file = os.path.join(self.xdefs.output_dir, model.stderr_file)
         else:
-            self.stderr_file = os.path.join(self.test_settings.output_dir, f"{base_name}_stderr")
+            self.stderr_file = os.path.join(self.xdefs.output_dir, f"{base_name}_stderr")
 
         self.log_info(f"stdout will be written to '{self.stdout_file}'")
         self.log_info(f"stderr will be written to '{self.stderr_file}'")
@@ -138,7 +135,7 @@ class ExecStep(XStep):
         self.timeout = xvars.expand(self.exec_model.timeout)
         self.shell_path = xvars.expand(self.exec_model.shell_path)
         if not self.shell_path:
-            self.shell_path = _settings().default_shell_path
+            self.shell_path, _ = self.xdefs.config_ref("exec_step.default_shell_path")
 
         if self.exec_model.output_behavior is None:
             self.output_behavior = _OutputBehavior.Unify
@@ -194,6 +191,8 @@ class ExecStep(XStep):
             env = self._read_env_vars()
         except OSError as e:
             res.err_summary = f"Error reading env file: {e}"
+            #  TODO: log as warning.
+            self.log_info(res.err_summary)
             return False
 
         subproc_args: dict = {
@@ -216,11 +215,12 @@ class ExecStep(XStep):
         res.stdout_file = self.stdout_file
         res.stderr_file = self.stderr_file
         res.output_behavior = self.output_behavior
+        res.allowed_rc = self.exec_model.allowed_rc
 
         p = None
         out_file, err_file = None, None
         try:
-            if self.test_settings.debug_mode:
+            if self.xdefs.debug_mode:
                 subproc_args["timeout"] = self.timeout
                 p = subprocess.run(**subproc_args)
                 res.rc = p.returncode
@@ -248,7 +248,7 @@ class ExecStep(XStep):
             res.err_summary = f"Timeout expired after {self.timeout}s"
             return False
         except KeyboardInterrupt:
-            if p and not self.test_settings.debug_mode:
+            if p and not self.xdefs.debug_mode:
                 p.send_signal(signal.SIGINT)  # type: ignore
                 p.wait()  # type: ignore
             res.err_summary = "User interrupt"
@@ -264,7 +264,7 @@ class ExecStep(XStep):
         return True
 
     def _verify_rc(self, res: ExecStepResult) -> None:
-        if self.test_settings.debug_mode:
+        if self.xdefs.debug_mode:
             pr_info("Verifying rc")
 
         res.rc_ok = isinstance(self.exec_model.allowed_rc, str) or \
@@ -278,7 +278,7 @@ class ExecStep(XStep):
         allowed_str = ",".join([str(x) for x in self.exec_model.allowed_rc])
         err = f"retrun code {res.rc} not in allowed return codes ({allowed_str})"
         self.log_info(f"failed: {err}")
-        if self.test_settings.debug_mode:
+        if self.xdefs.debug_mode:
             pr_info(f"RC verification failed: {err}")
 
         res.err_summary = err

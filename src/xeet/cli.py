@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from xeet.pr import pr_dict, pr_info, PrintColors, colors_enabled
+from xeet.pr import DictPrintType, pr_dict, pr_info, PrintColors, colors_enabled
 from xeet.xtest import Xtest, TestStatus, TestResult, status_catgoery
 from xeet.config import TestCriteria
 from xeet.common import XeetException, short_str
@@ -89,7 +89,7 @@ def show_test_info(conf: str, test_name: str, expand: bool) -> None:
     if xtest is None:
         raise XeetException(f"No such test: {test_name}")
     if expand:
-        xtest.expand()
+        xtest.expand(conf.xeet_vars)
     _show_test(xtest, full_details=True, expanded=expand)
 
 
@@ -260,8 +260,8 @@ def dump_test(conf_path: str, name: str) -> None:
     if desc is None:
         raise XeetException(f"No such test: {name}")
     pr_info(f"Test '{name}' descriptor:")
-    pr_dict(desc, as_json=True)
+    pr_dict(desc, print_type=DictPrintType.YAML)
 
 
 def dump_schema(dump_type: str) -> None:
-    pr_dict(core.fetch_schema(dump_type), as_json=True)
+    pr_dict(core.fetch_schema(dump_type), print_type=DictPrintType.JSON)

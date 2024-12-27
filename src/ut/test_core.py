@@ -1,16 +1,15 @@
 from ut import ref_str
-from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step, gen_dummy_step_desc,
-                                  gen_dummy_step_result, OK_STEP_DESC, OK_STEP_RESULT,
-                                  FAILING_STEP_DESC, FAILING_STEP_RESULT, INCOMPLETED_STEP_DESC,
+from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step_desc, gen_dummy_step_result,
+                                  OK_STEP_DESC, OK_STEP_RESULT, FAILING_STEP_DESC,
+                                  FAILING_STEP_RESULT, INCOMPLETED_STEP_DESC,
                                   INCOMPLETED_STEP_RESULT)
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, status_catgoery,
-                        TestStatusCategory, _gen_xstep_model)
+                        TestStatusCategory)
 from xeet.xstep import XStepListResult
 from xeet.steps.dummy_step import DummyStep, DummyStepResult, DummyStepModel
 from xeet.core import fetch_xtest, fetch_tests_list
 from xeet.config import TestCriteria
 from xeet.common import XeetVars
-from xeet.globals import set_named_steps
 import os
 
 
@@ -38,46 +37,63 @@ class TestCore(DummyTestConfig):
         self.assertStepResultEqual(res, expected)
 
     def test_xstep(self):
-        xvars = XeetVars({"var0": 5})
+        self.add_var("var0", 5, reset=True)
+        self.add_var("var1", 6)
+        xvars = self.gen_xvars()
+        step_desc0 = gen_dummy_step_desc(dummy_val0="test")
+        step_desc1 = gen_dummy_step_desc(dummy_val0="{var0}", dummy_val1=ref_str("var1"))
+        expected_step_res0 = gen_dummy_step_result(step_desc0)
+        expected_step_res1 = gen_dummy_step_result(step_desc1, xvars=xvars)
+        self.add_test(_TEST0, run=[step_desc0, step_desc1], save=True)
 
-        step = gen_dummy_step(gen_dummy_step_desc(dummy_field="test", return_value="test"))
-        expected = gen_dummy_step_result(step, completed=True, failed=False)
-        self._run_step(step, xvars, expected)
-
-        step = gen_dummy_step(gen_dummy_step_desc(dummy_field="{var0}", return_value="{var0}"))
-        expected = gen_dummy_step_result(step, completed=True, failed=False)
-        # By default, the generated step will return the value of the step, which is an unexpanded
-        # string
-        expected.return_value = "5"
-        self._run_step(step, xvars, expected)
-
-        step = gen_dummy_step(gen_dummy_step_desc(fail=True))
-        expected = gen_dummy_step_result(step, completed=True, failed=True)
-        self._run_step(step, xvars, expected)
+        expected_test_steps_results = XStepListResult(
+            results=[expected_step_res0, expected_step_res1])
+        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps_results)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
     def test_step_model_inheritance(self):
-        def _gen_step_dummy_model(**kwargs) -> DummyStepModel:
-            return _gen_xstep_model(gen_dummy_step_desc(**kwargs))  # type: ignore
-        set_named_steps({
-            "base_step": OK_STEP_DESC,
-            "base_step2": gen_dummy_step_desc(base="base_step"),
-            "base_step3": gen_dummy_step_desc(base="base_step", return_value="other_from_base")
-        })
-        model: DummyStepModel = _gen_step_dummy_model(base="base_step")
-        self.assertEqual(model.step_type, "dummy")
-        self.assertEqual(model.return_value, "test")
+        save_steps_path = "settings.my_steps"
+        self.add_setting("my_steps", {
+            "base_step0": gen_dummy_step_desc(dummy_val0="test"),
+            "base_step1": gen_dummy_step_desc(base=f"{save_steps_path}.base_step0"),
+            "base_step2": gen_dummy_step_desc(base=f"{save_steps_path}.base_step1",
+                                              dummy_val0="other_from_base")
+        }, reset=True)
+        #  config = read_config_file(self.main_config_wrapper.file_path)
+        self.add_test(_TEST0, run=[
+            gen_dummy_step_desc(base=f"{save_steps_path}.base_step0"),
+            gen_dummy_step_desc(base=f"{save_steps_path}.base_step1"),
+            gen_dummy_step_desc(base="settings.my_steps.base_step2")])
+        self.add_test(_TEST1, run=[gen_dummy_step_desc(base=f"no.such.setting")])
+        self.add_test(_TEST2, run=[gen_dummy_step_desc(base=f"tests[0].run[2]")], save=True)
+        self.add_test(_TEST3,
+                      run=[gen_dummy_step_desc(base=f"tests[?(@.name == '{_TEST2}')].run[0]")],
+                      save=True)
 
-        model = _gen_step_dummy_model(base="base_step", return_value="other")
+        model: DummyStepModel = self.get_test(_TEST0).run_steps[0].model  # type: ignore
+        self.assertIsInstance(model, DummyStepModel)
+        assert isinstance(model, DummyStepModel)
         self.assertEqual(model.step_type, "dummy")
-        self.assertEqual(model.return_value, "other")
+        self.assertEqual(model.dummy_val0, "test")
 
-        model = _gen_step_dummy_model(base="base_step3")
+        test = self.get_test(_TEST1)
+        self.assertTrue(test.init_err != "")
+
+        model = self.get_test(_TEST2).run_steps[0].model  # type: ignore
+        self.assertIsInstance(model, DummyStepModel)
+        assert isinstance(model, DummyStepModel)
         self.assertEqual(model.step_type, "dummy")
-        self.assertEqual(model.return_value, "other_from_base")
+        self.assertEqual(model.dummy_val0, "other_from_base")
+
+        model = self.get_test(_TEST3).run_steps[0].model  # type: ignore
+        self.assertIsInstance(model, DummyStepModel)
+        assert isinstance(model, DummyStepModel)
+        self.assertEqual(model.step_type, "dummy")
+        self.assertEqual(model.dummy_val0, "other_from_base")
 
     def test_bad_test_desc(self):
         self.add_test(_TEST0, bad_setting="text", long_desc="text", reset=True,
-                      check_fields=False, save=True)
+                      save=True)
         res = self.run_test(_TEST0)
         self.assertEqual(res.status, TestStatus.InitErr)
 
@@ -195,7 +211,7 @@ class TestCore(DummyTestConfig):
     def test_skipped_tests(self):
         self.add_test(_TEST0, pre_run=[FAILING_STEP_DESC], run=[
                       OK_STEP_DESC], skip=True, reset=True)
-        self.add_test(_TEST1, base=_TEST0, skip=True)  # Skipp isn't inherited
+        self.add_test(_TEST1, base=_TEST0, skip=True)  # Skip isn't inherited
         self.add_test(_TEST2, base=_TEST0, save=True)
 
         expected = TestResult(status=TestStatus.Skipped)
@@ -225,49 +241,24 @@ class TestCore(DummyTestConfig):
         expected.run_res = XStepListResult(results=[OK_STEP_RESULT])
         self.assertTestResultEqual(self.run_test(_TEST3), expected)
 
-    def test_variables(self):
-        var_map = {"var0": "test", "var1": 5, "var2": "test2"}
-        step_desc0 = gen_dummy_step_desc(return_value="{var0}")
-        step0 = gen_dummy_step(step_desc0)
-        step_result0 = gen_dummy_step_result(step0, completed=True, failed=False)
-        step_result0.return_value = "test"
-
-        step_desc1 = gen_dummy_step_desc(return_value=ref_str("var1"))
-        step1 = gen_dummy_step(step_desc1)
-        step_result1 = gen_dummy_step_result(step1, completed=True, failed=False)
-        step_result1.return_value = 5
-
-        step_desc2 = gen_dummy_step_desc(return_value="{var1} {var2}")
-        step2 = gen_dummy_step(step_desc2)
-        step_result2 = gen_dummy_step_result(step2, completed=True, failed=False)
-        step_result2.return_value = "5 test2"
-
-        self.add_test(_TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True,
-                      var_map=var_map)
-        expected = TestResult(status=TestStatus.Passed,
-                              run_res=XStepListResult(results=[step_result0, step_result1,
-                                                               step_result2]))
-        self.assertTestResultEqual(self.run_test(_TEST0), expected)
-
     def test_autovars(self):
         xeet_root = os.path.dirname(self.main_config_wrapper.file_path)
         out_dir = f"{xeet_root}/xeet.out"
 
         #  Auto global vars
-        step_desc0 = gen_dummy_step_desc(return_value="{XEET_ROOT} {XEET_CWD} {XEET_OUTPUT_DIR}")
-        step0 = gen_dummy_step(step_desc0)
-        step_result0 = gen_dummy_step_result(step0, completed=True, failed=False)
-        step_result0.return_value = f"{xeet_root} {os.getcwd()} {out_dir}"
-
+        step_desc0 = gen_dummy_step_desc(dummy_val0="{XEET_ROOT} {XEET_CWD} {XEET_OUTPUT_DIR}")
         #  Test sepecific
-        step_desc1 = gen_dummy_step_desc(return_value="{XEET_TEST_NAME} {XEET_TEST_OUTDIR}")
-        step1 = gen_dummy_step(step_desc1)
-        step_result1 = gen_dummy_step_result(step1, completed=True, failed=False)
-        step_result1.return_value = f"{_TEST0} {out_dir}/{_TEST0}"
+        step_desc1 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_NAME} {XEET_TEST_OUTDIR}")
 
         self.add_test(_TEST0, run=[step_desc0, step_desc1], reset=True, save=True)
-        expected = TestResult(status=TestStatus.Passed,
-                              run_res=XStepListResult(results=[step_result0, step_result1]))
+
+        expected_step_result0 = gen_dummy_step_result(step_desc0)
+        expected_step_result0.dummy_val0 = f"{xeet_root} {os.getcwd()} {out_dir}"
+        expected_step_result1 = gen_dummy_step_result(step_desc1)
+        expected_step_result1.dummy_val0 = f"{_TEST0} {out_dir}/{_TEST0}"
+        expected_test_steps_results = XStepListResult(results=[expected_step_result0,
+                                                               expected_step_result1])
+        expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps_results)
         self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
     def test_test_status_categories(self):
@@ -278,7 +269,7 @@ class TestCore(DummyTestConfig):
     #  functionality,  which has its own extensive tests in test_config.py
     def test_fetch_test(self):
         self.add_test(_TEST0, reset=True)
-        self.add_test(_TEST1, bad="bad", check_fields=False, save=True)
+        self.add_test(_TEST1, bad="bad", save=True)
         xtest = fetch_xtest(self.main_config_wrapper.file_path, _TEST0)
         self.assertIsNotNone(xtest)
         assert xtest is not None

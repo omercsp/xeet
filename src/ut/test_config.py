@@ -1,9 +1,9 @@
 from ut import ConfigTestWrapper
-from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step_desc, DummyStep, OK_STEP_DESC,
-                                  FAILING_STEP_DESC)
-from xeet.config import TestCriteria, _extract_include_files, XeetIncludeLoopException, Config
-from xeet.globals import setting_value
+from ut.dummy_test_config import DummyTestConfig,  OK_STEP_DESC, FAILING_STEP_DESC
+from xeet.config import (XeetModel, TestCriteria, XeetIncludeLoopException, Xeet,
+                         read_config_file)
 from xeet.xtest import Xtest, StepsInheritType, XtestModel
+import os
 
 
 _TEST0 = "test0"
@@ -14,93 +14,102 @@ _TEST4 = "test4"
 _TEST5 = "test5"
 _TEST6 = "test6"
 
-_INC_CONF0 = "xeet_inc0.json"
-_INC_CONF1 = "xeet_inc1.json"
 _ALL_TESTS_CRIT = TestCriteria([], [], [], [], True)
 
 
 class TestConfig(DummyTestConfig):
-    def test_inclusion_lists(self):
-        CONF0_0 = "conf0.0.json"
-        CONF1_0 = "conf1.0.json"
-        CONF1_1 = "conf1.1.json"
-        CONF1_2 = "conf1.2.json"
-        CONF2_0 = "conf2.0.json"
+    def test_config_model_inclusion(self):
+        CONF0 = "conf0.yaml"
+        CONF1 = "conf1.yaml"
+        CONF2 = "conf2.yaml"
+        CONF3 = "conf3.yaml"
+        CONF4 = "conf4.yaml"
 
-        conf0_0 = ConfigTestWrapper(CONF0_0)
-        conf0_0.save()
-        config_files = _extract_include_files(conf0_0.file_path)
-        self.assertEqual(len(config_files), 1)
-        self.assertEqual(config_files[0], conf0_0.file_path)
+        conf0 = ConfigTestWrapper(CONF0)
+        root = os.path.dirname(conf0.file_path)
+        d0_0 = conf0.add_test(_TEST0, arg=1)
+        conf0.add_var("var0", 0)
+        conf0.add_settings("setting0", {"a": 0}, save=True)
 
-        conf1_0 = ConfigTestWrapper(CONF1_0, includes=[conf0_0.file_path])
-        conf1_0.save()
-        config_files = _extract_include_files(conf1_0.file_path)
-        self.assertEqual(len(config_files), 2)
-        self.assertEqual(config_files[0], conf0_0.file_path)
-        self.assertEqual(config_files[1], conf1_0.file_path)
+        conf1 = ConfigTestWrapper(CONF1, includes=[conf0.file_path])
+        d1_1 = conf1.add_test(_TEST1, arg=2)
+        conf1.add_var("var1", 1)
+        conf1.add_settings("setting1", {"a": 1}, save=True)
 
-        conf1_1 = ConfigTestWrapper(CONF1_1, includes=[conf0_0.file_path])
-        conf1_1.save()
+        model = read_config_file(conf1.file_path).model
+        self.assertIsInstance(model, XeetModel)
+        self.assertEqual(len(model.tests), 2)
+        self.assertDictEqual(model.tests[0], d0_0)
+        self.assertDictEqual(model.tests[1], d1_1)
+        self.assertEqual(len(model.variables), 2)
+        self.assertEqual(model.variables["var0"], 0)
+        self.assertEqual(model.variables["var1"], 1)
+        self.assertEqual(len(model.settings), 2)
+        self.assertEqual(model.settings["setting0"], {"a": 0})
+        self.assertEqual(model.settings["setting1"], {"a": 1})
 
-        conf2_0 = ConfigTestWrapper(CONF2_0, includes=[conf1_0.file_path, conf1_1.file_path])
-        conf2_0.save()
-        config_files = _extract_include_files(conf2_0.file_path)
-        self.assertEqual(len(config_files), 5)
-        self.assertEqual(config_files[0], conf0_0.file_path)
-        self.assertEqual(config_files[1], conf1_0.file_path)
-        self.assertEqual(config_files[2], conf0_0.file_path)
-        self.assertEqual(config_files[3], conf1_1.file_path)
-        self.assertEqual(config_files[4], conf2_0.file_path)
+        conf2 = ConfigTestWrapper(CONF2, includes=["{XEET_ROOT}/" + CONF1])
+        d2_0 = conf2.add_test(_TEST0, arg=30)
+        d2_1 = conf2.add_test(_TEST1, arg=40)
+        d2_2 = conf2.add_test(_TEST2, arg=50)  # new test
+        conf2.save()
+        model = read_config_file(conf2.file_path).model
+        self.assertIsInstance(model, XeetModel)
+        self.assertEqual(len(model.tests), 3)
+        self.assertDictEqual(model.tests[0], d2_0)
+        self.assertDictEqual(model.tests[1], d2_1)
+        self.assertDictEqual(model.tests[2], d2_2)
 
-        conf1_2 = ConfigTestWrapper(CONF1_2)
-        conf1_2.save()
-        conf2_0.includes.append(conf1_2.file_path)
-        conf2_0.save()
-        config_files = _extract_include_files(conf2_0.file_path)
-        self.assertEqual(len(config_files), 6)
-        self.assertEqual(config_files[0], conf0_0.file_path)
-        self.assertEqual(config_files[1], conf1_0.file_path)
-        self.assertEqual(config_files[2], conf0_0.file_path)
-        self.assertEqual(config_files[3], conf1_1.file_path)
-        self.assertEqual(config_files[4], conf1_2.file_path)
-        self.assertEqual(config_files[5], conf2_0.file_path)
+        conf3 = ConfigTestWrapper(CONF3, includes=[f"{root}/{CONF1}"])
+        d3_0 = conf3.add_test(_TEST0, arg=31)
+        d3_3 = conf3.add_test(_TEST3, arg=41)
+        d3_4 = conf3.add_test(_TEST4, arg=51, save=True)
+        model = read_config_file(conf3.file_path).model
 
-    def test_recursive_inclusion(self):
+        conf4 = ConfigTestWrapper(CONF4, includes=[f"{root}/{CONF2}", f"{root}/{CONF3}"])
+        d4_5 = conf4.add_test(_TEST5, arg=62)
+        conf4.save()
+        model = read_config_file(conf4.file_path).model
+        self.assertIsInstance(model, XeetModel)
+        self.assertEqual(len(model.tests), 6)
+        self.assertDictEqual(model.tests_dict[_TEST0], d3_0)
+        self.assertDictEqual(model.tests_dict[_TEST1], d1_1)
+        self.assertDictEqual(model.tests_dict[_TEST2], d2_2)
+        self.assertDictEqual(model.tests_dict[_TEST3], d3_3)
+        self.assertDictEqual(model.tests_dict[_TEST4], d3_4)
+        self.assertDictEqual(model.tests_dict[_TEST5], d4_5)
+        self.assertEqual(model.settings["setting0"], {"a": 0})
+        self.assertEqual(model.settings["setting1"], {"a": 1})
+
+    def test_inclusion_loop(self):
         CONF0 = "conf0.json"
         CONF1 = "conf1.json"
         CONF2 = "conf2.json"
         conf0 = ConfigTestWrapper(CONF0)
         conf0.save()
-        config_files = _extract_include_files(conf0.file_path)
-        self.assertEqual(len(config_files), 1)
-        self.assertEqual(config_files[0], conf0.file_path)
 
         conf0.includes = [conf0.file_path]
         conf0.save()
-        self.assertRaises(XeetIncludeLoopException, _extract_include_files, conf0.file_path)
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf0.file_path)
 
         conf1 = ConfigTestWrapper(CONF1, includes=[conf0.file_path])
         conf1.save()
-        conf0.includes = [CONF1]
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf1.file_path)
+
+        conf0.includes = [conf1.file_path]
         conf0.save()
-        self.assertRaises(XeetIncludeLoopException, _extract_include_files, conf0.file_path)
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf1.file_path)
 
         conf2 = ConfigTestWrapper(CONF2, includes=[conf1.file_path])
         conf2.save()
-        conf1.includes = [conf2.file_path]
-        conf1.save()
-        self.assertRaises(XeetIncludeLoopException, _extract_include_files, conf0.file_path)
-        self.assertRaises(XeetIncludeLoopException, _extract_include_files, conf1.file_path)
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf2.file_path)
 
-        conf2 = ConfigTestWrapper(CONF2, includes=[conf0.file_path])
-        conf2.save()
-        self.assertRaises(XeetIncludeLoopException, _extract_include_files, conf0.file_path)
+        conf0.includes = [conf2.file_path]
+        conf0.save()
 
-        conf2.includes = []
-        conf2.save()
-        self.assertListEqual(_extract_include_files(conf0.file_path), [
-                             conf2.file_path, conf1.file_path, conf0.file_path])
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf0.file_path)
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf1.file_path)
+        self.assertRaises(XeetIncludeLoopException, read_config_file, conf2.file_path)
 
     def test_get_xtest_by_name_simple(self):
         self.add_test(_TEST0, reset=True, save=True)
@@ -180,22 +189,36 @@ class TestConfig(DummyTestConfig):
         self.add_test(_TEST0, reset=True)
         self.add_test(_TEST1)
         self.add_test(_TEST2, save=True)
+
         config = self.config_file()
         xtests = config.xtests(criteria=_ALL_TESTS_CRIT)
         self.assertSetEqual(set([t.name for t in xtests]), set([_TEST0, _TEST1, _TEST2]))
 
-        included_conf_wrapper = ConfigTestWrapper(_INC_CONF0)
+        INC_CONF0 = "inc_conf0.yaml"
+        included_conf_wrapper = ConfigTestWrapper(INC_CONF0)
         included_conf_wrapper.add_test(_TEST2)
         included_conf_wrapper.add_test(_TEST3)
-        included_conf_wrapper.add_test(_TEST4)
-        included_conf_wrapper.save()
+        included_conf_wrapper.add_test(_TEST4, save=True)
 
-        self.add_include(_INC_CONF0, save=True)
+        self.add_include(INC_CONF0, save=True)
 
         config = self.config_file()
         xtests = config.xtests(criteria=_ALL_TESTS_CRIT)
         self.assertSetEqual(set([t.name for t in xtests]),
                             set([_TEST0, _TEST1, _TEST2, _TEST3, _TEST4]))
+
+        INC_CONF1 = "inc_conf1.yaml"
+        included_conf_wrapper = ConfigTestWrapper(INC_CONF1)
+        included_conf_wrapper.add_test(_TEST5)
+        included_conf_wrapper.add_test(_TEST6)
+        included_conf_wrapper.save()
+
+        self.add_include(INC_CONF1, save=True)
+
+        config = self.config_file()
+        xtests = config.xtests(criteria=_ALL_TESTS_CRIT)
+        self.assertSetEqual(set([t.name for t in xtests]),
+                            set([_TEST0, _TEST1, _TEST2, _TEST3, _TEST4, _TEST5, _TEST6]))
 
     def test_get_hidden_tests(self):
         self.add_test(_TEST0, reset=True)
@@ -210,62 +233,6 @@ class TestConfig(DummyTestConfig):
         crit.hidden_tests = False
         xtests = config.xtests(criteria=crit)
         self.assertSetEqual(set([t.name for t in xtests]), set([_TEST0, _TEST2]))
-
-    def test_shadowed_tests(self):
-        def assert_test(name: str, dummy_field: str) -> None:
-            xtest = self.config_file().xtest(name)
-            self.assertIsInstance(xtest, Xtest)
-            assert xtest is not None
-            assert xtest.run_steps is not None
-            self.assertEqual(len(xtest.run_steps), 1)
-            self.assertIsInstance(xtest.run_steps[0], DummyStep)
-            self.assertEqual(xtest.run_steps[0].dummy_model.dummy_field,   # type: ignore
-                             dummy_field)
-
-        depth0 = "depth0"
-        depth1 = "depth1"
-        depth2 = "depth2"
-
-        depth0_step = gen_dummy_step_desc(dummy_field=depth0)
-        depth1_step = gen_dummy_step_desc(dummy_field=depth1)
-        depth2_step = gen_dummy_step_desc(dummy_field=depth2)
-
-        self.add_test(_TEST0, run=[depth0_step], reset=True)
-        self.add_test(_TEST1, run=[depth0_step])
-        self.add_include(_INC_CONF0, save=True)
-
-        conf_wrapper = ConfigTestWrapper(_INC_CONF0, includes=[_INC_CONF1])
-        conf_wrapper.add_test(_TEST1, run=[depth1_step])
-        conf_wrapper.add_test(_TEST2, run=[depth1_step], save=True)
-
-        conf_wrapper = ConfigTestWrapper(_INC_CONF1)
-        conf_wrapper.add_test(_TEST2, run=[depth2_step])
-        conf_wrapper.add_test(_TEST3, run=[depth2_step], save=True)
-
-        config = self.config_file()
-        xtests = config.xtests(criteria=_ALL_TESTS_CRIT)
-        self.assertSetEqual(set([t.name for t in xtests]), set([_TEST0, _TEST1, _TEST2, _TEST3]))
-
-        assert_test(_TEST0, depth0)
-        assert_test(_TEST1, depth0)
-        assert_test(_TEST2, depth1)
-        assert_test(_TEST3, depth2)
-
-    def test_config_settings(self):
-        self.add_setting("setting0", 0, reset=True)
-        self.add_setting("setting1", 1)
-        self.add_setting("setting2", {"key": "value"})
-        self.add_setting("setting3", ["value0", "value1"])
-        self.add_setting("setting4", True, save=True)
-
-        self.config_file()  # to force reading the settings
-        self.assertTupleEqual(setting_value("setting0"), (0, True))
-        self.assertTupleEqual(setting_value("setting1"), (1, True))
-        self.assertTupleEqual(setting_value("setting2"), ({"key": "value"}, True))
-        self.assertTupleEqual(setting_value("setting3"), (["value0", "value1"], True))
-        self.assertTupleEqual(setting_value("setting4"), (True, True))
-
-        self.assertTupleEqual(setting_value("no_such_setting"), (None, False))
 
     def test_step_lists_inheritance(self):
         def assert_step_desc_list_equal(
@@ -282,7 +249,7 @@ class TestConfig(DummyTestConfig):
                 self.assertDummyDescsEqual(step_desc, expected_step_desc)
 
         def assert_test_model_steps(name: str,
-                                    config: Config,
+                                    config: Xeet,
                                     pre_run: list | None = None,
                                     run: list | None = None,
                                     post_run: list | None = None) -> None:

@@ -71,6 +71,9 @@ class TestCommon(unittest.TestCase):
         self.assertDictEqual(expanded_d1, {"a": 1, "b": 5, "c": ["a", "value1", 5]})
 
     def test_xeet_vars_string_literals(self):
+        xvars = XeetVars({"XEET_ROOT": "/tmp/xxx"})
+        self.assertEqual(xvars.expand("{XEET_ROOT}/abc"), "/tmp/xxx/abc")
+
         xvars = XeetVars({"var1": "value1", "var2": "value2"})
         self.assertEqual(xvars.expand("{var1}"), "value1")
         self.assertEqual(xvars.expand("_{var1}_"), "_value1_")

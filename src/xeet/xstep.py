@@ -1,5 +1,6 @@
 from xeet.common import XeetVars, XeetException
 from xeet.log import log_info
+from xeet import XeetDefs
 from pydantic import BaseModel, ConfigDict, Field
 from dataclasses import dataclass, field
 from timeit import default_timer as timer
@@ -29,35 +30,23 @@ class XeetStepException(XeetException):
     ...
 
 
-#  This class is used to pass arguments to the step classes
-@dataclass
-class XStepTestArgs:
-    log_info: Callable = log_info
-    debug_mode: bool = False
-    output_dir: str = ""
-
-
 class XeetStepInitException(XeetStepException):
     ...
 
 
 @dataclass
 class XStepResult:
-    step: "XStep"
     err_summary: str = ""
     completed: bool = False
     duration: float | None = None
     failed: bool = False
 
     def error_summary(self) -> str:
-        ret = f"{self.step.stage_prefix} step {self.step.index}"
-        if self.step.model.name:
-            ret += f" ('{self.step.model.name}')"
         if not self.completed:
-            ret += f" incomplete: {self.err_summary}"
-        elif self.failed:
-            ret += f" failed: {self.err_summary}"
-        return ret
+            return " incomplete: {self.err_summary}"
+        if self.failed:
+            return f" failed: {self.err_summary}"
+        return ""
 
 
 class XStep:
@@ -69,18 +58,18 @@ class XStep:
     def result_class() -> type[XStepResult]:
         return XStepResult
 
-    def __init__(self, model: XStepModel, args: XStepTestArgs):
+    def __init__(self, model: XStepModel, xdefs: XeetDefs, base_name: str, log_info: Callable
+                 ) -> None:
         self.model = model
-        self.test_settings = args
-        self.log_info = args.log_info
-        self.index = 0
-        self.stage_prefix = ""
+        self.xdefs = xdefs
+        self.base_name = base_name
+        self.log_info = log_info
 
     def setup(self, _: XeetVars) -> str:
         ...
 
     def run(self) -> XStepResult:
-        res = self.result_class()(self)
+        res = self.result_class()()
         start = timer()
         res.completed = self._run(res)
         res.duration = timer() - start
@@ -88,10 +77,9 @@ class XStep:
         return res
 
     def print_name(self) -> str:
-        ret = f"{self.stage_prefix} step {self.index}: {self.model.step_type}"
         if self.model.name:
-            ret += f" ('{self.model.name}')"
-        return ret
+            return f"{self.model.step_type} ('{self.model.name}')"
+        return self.model.step_type
 
     def summary(self) -> str:
         return self.print_name()
@@ -102,14 +90,15 @@ class XStep:
 
 @dataclass
 class XStepListResult:
+    prefix: str = ""
     results: list[XStepResult] = field(default_factory=list)
     completed: bool = True
     failed: bool = False
 
     def error_summary(self) -> str:
-        for r in self.results:
+        for i, r in enumerate(self.results):
             if not r.completed or r.failed:
-                return r.error_summary()
+                return f"{self.prefix} step #{i}: {r.error_summary()}"
         return ""
 
     #  post_init is called after the dataclass is initialized. This is used
