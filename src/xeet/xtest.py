@@ -236,7 +236,7 @@ class Xtest:
             return set()
         return {g.root.strip() for g in self.model.groups}
 
-    def expand(self) -> None:
+    def setup(self) -> None:
         self._log_info(f"Expanding '{self.name}' internals")
 
         try:
@@ -364,16 +364,12 @@ class Xtest:
     def _gen_xstep_model(self, desc: dict, included: set[str] | None = None) -> XStepModel:
         if included is None:
             included = set()
-
-        model_type = desc.get("type")
-        if not model_type:
-            raise XeetStepInitException("Step type not specified")
-        log_info(f"Initializing step of type '{model_type}'")
         base = desc.get("base")
         if base in included:
             raise XeetStepInitException(f"Include loop detected - '{base}'")
 
         base_step = None
+        base_type = None
         if base:
             log_info(f"Base step '{base}' found")
             base_desc, found = self.xdefs.config_ref(base)
@@ -382,6 +378,18 @@ class Xtest:
             if not isinstance(base_desc, dict):
                 raise XeetStepInitException(f"Invalid base step '{base}'")
             base_step = self._gen_xstep_model(base_desc, included)
+            base_type = base_step.step_type
+
+        model_type = desc.get("type")
+        if model_type:
+            if base_type and model_type != base_type:
+                raise XeetStepInitException(
+                    f"Step type '{model_type}' doesn't match base type '{base_type}'")
+        else:
+            if not base_type:
+                raise XeetStepInitException("Step type not specified")
+            model_type = base_type
+            desc["type"] = base_type
 
         xstep_class = get_xstep_class(model_type)
         if xstep_class is None:

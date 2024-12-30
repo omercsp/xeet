@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from xeet.pr import DictPrintType, pr_dict, pr_info, PrintColors, colors_enabled
 from xeet.xtest import Xtest, TestStatus, TestResult, status_catgoery
-from xeet.config import TestCriteria
+from xeet.driver import TestCriteria
 from xeet.common import XeetException, short_str
 from xeet.runtime import RunInfo, IterationInfo
 import xeet.core as core
@@ -89,7 +89,7 @@ def show_test_info(conf: str, test_name: str, expand: bool) -> None:
     if xtest is None:
         raise XeetException(f"No such test: {test_name}")
     if expand:
-        xtest.expand(conf.xeet_vars)
+        xtest.setup()
     _show_test(xtest, full_details=True, expanded=expand)
 
 

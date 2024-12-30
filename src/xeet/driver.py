@@ -2,12 +2,13 @@ from xeet.log import log_info
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars
 from xeet.xtest import Xtest, XtestModel
 from xeet import XeetDefs
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from typing import Any
 from yaml import safe_load
 from yaml.parser import ParserError as YamlParserError
 from yaml.constructor import ConstructorError
 from yaml.composer import ComposerError
+from yaml.scanner import ScannerError
 import json
 import os
 
@@ -57,9 +58,7 @@ class XeetModel(BaseModel):
     includes: list[NonEmptyStr] = Field(default_factory=list, alias="include")
     tests: list[dict] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
-    settings: dict[str, dict] = Field(default_factory=dict)
-    base_steps: dict[str, dict] = Field(default_factory=dict,
-                                        validation_alias=AliasChoices("base_steps", "steps"))
+    settings: dict[str, Any] = Field(default_factory=dict)
 
     root_dir: str = Field(default_factory=str, exclude=True)
     tests_dict: dict[str, dict] = Field(default_factory=dict, alias="test_names", exclude=True)
@@ -86,7 +85,6 @@ class XeetModel(BaseModel):
             self.tests_dict[name] = test
             other_tests.append(test)
         self.tests = other_tests + self.tests
-        self.base_steps = {**other.base_steps, **self.base_steps}
         for key, value in other.settings.items():
             if key in self.settings:
                 self.settings[key] = {**value, **self.settings[key]}
@@ -193,10 +191,10 @@ def _init(conf_file_path: str, xvars) -> str:
     return root_dir
 
 
-def _read_xeet_conf_file(file_path: str,
-                         xvars: XeetVars,
-                         root_dir: str = "",
-                         included: set[str] | None = None) -> XeetModel:
+def _read_conf_file(file_path: str,
+                    xvars: XeetVars,
+                    root_dir: str = "",
+                    included: set[str] | None = None) -> XeetModel:
     if not file_path:
         for file in ("xeet.yaml", "xeet.yml", "xeet.json"):
             if os.path.exists(file):
@@ -227,7 +225,7 @@ def _read_xeet_conf_file(file_path: str,
             model = XeetModel(**desc)
             model.root_dir = root_dir
     except (IOError, TypeError, ValueError, YamlParserError, ConstructorError,
-            ComposerError) as e:
+            ComposerError, ScannerError) as e:
         raise XeetConfigException(f"Error parsing {file_path} - {e}")
 
     included.add(file_path)
@@ -235,7 +233,7 @@ def _read_xeet_conf_file(file_path: str,
         includes = [r.root for r in model.includes]
         log_info(f"Reading included files: {', '.join(includes)}")
         for i in includes[::-1]:
-            inc_model = _read_xeet_conf_file(i, xvars, root_dir, included)
+            inc_model = _read_conf_file(i, xvars, root_dir, included)
             model.include(inc_model)
     included.remove(file_path)
 
@@ -244,5 +242,5 @@ def _read_xeet_conf_file(file_path: str,
 
 def xeet_init(file_path: str) -> Driver:
     xvars = XeetVars()
-    model = _read_xeet_conf_file(file_path, xvars)
+    model = _read_conf_file(file_path, xvars)
     return Driver(model, xvars)

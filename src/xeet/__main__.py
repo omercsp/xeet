@@ -1,5 +1,5 @@
 from xeet import xeet_version
-from xeet.config import TestCriteria
+from xeet.driver import TestCriteria
 from xeet.common import XeetException
 from xeet.log import init_logging, log_error, log_info
 from xeet.pr import pr_header, disable_colors

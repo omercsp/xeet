@@ -1,158 +1,149 @@
 variables:
-  scripts_dir: '{XEET_ROOT}/../../scripts/testing'
+  scripts_dir: '{XEET_ROOT}/../scripts/testing'
   echo: 'python {scripts_dir}/echo.py'
   false_cmd: 'python {scripts_dir}/rc.py 1'
+  sleep_cmd: 'python {scripts_dir}/sleep.py'
+  rand_rc_cmd: 'python {scripts_dir}/rc.py'
+  echo_cmd: 'python {scripts_dir}/echo.py'
 settings:
   common_steps:
-    - &true_step
+    "_true":
       type: exec
       cmd: 'python {scripts_dir}/rc.py 0'
-    - &false_step
+    "_false":
       type: exec
       cmd: 'python {scripts_dir}/rc.py 1'
-    - &hello_world_step
+    "hello":
       type: exec
       cmd: '{echo} Hello World!'
 tests:
   - name: 001_pass
     short_desc: echoes Hello World!
     run:
-      - <<: *hello_world_step
+      - base: "settings.common_steps._true"
     groups: [passing]
 
   - name: 002_pass_with_output
     short_desc: echoes Hello World!
     run:
-      - <<: *hello_world_step
+      - base: "settings.common_steps.hello"
         expected_stdout: "Hello World!\n"
     groups: [passing]
 
   - name: 003_fail_over_output
     short_desc: echoes Hello World!
     run:
-      - <<: *hello_world_step
+      - base: "settings.common_steps.hello"
         expected_stdout: "Goodbye World!\n"
     groups: [failing]
 
   - name: 004_fail_over_rc
     short_desc: echoes Hello World!
     run:
-      - <<: *true_step
+      - base: "settings.common_steps._true"
         allowed_rc: [1]
     groups: [failing]
 
   - name: 005_fail_2nd_step
     short_desc: runs two steps, fail over the second
     run:
-      - <<: *true_step
-      - <<: *false_step
+      - base: "settings.common_steps._true"
+      - base: "settings.common_steps._false"
     groups: [failing]
 
+  - name: 006_skip
+    short_desc: expected to be skipped
+    run:
+      - base: "settings.common_steps._true"
+    groups: [skipped]
+    skip: true
 
-  # # - name: 003_expected_fail
-  # #   short_desc: runs false but expected to fail
-  # #   run:
-  # #     - type: exec
-  # #       cmd: '{false_cmd}'
-  # #   expected_failure: true
+  - name: 007_skip_reason
+    short_desc: expected to be skipped
+    run:
+      - base: "settings.common_steps._true"
+    groups: [skipped]
+    skip: true
+    skip_reason: This test is expected to be skipped
 
-  # # - name: 002a_fail_rc
-  # #   short_desc: runs false
-  # #   cmd: "false"
-  # #   groups: [group1, group3, failing]
+  - name: 008_bad_desc
+    short_desc: bad test descriptor
+    bad_setting: bad_value
+    groups: [not_run]
 
-  # # - name: 002b_fail_output_compare
-  # #   base: compare_output
-  # #   shell: true
-  # #   cmd: echo 'bad stdout str'; echo 'bad stderr str' >&2
-  # #   groups: [group1, group3, failing, compare_output]
+  - name: 009_expected_fail
+    run:
+      - base: "settings.common_steps._true"
+      - base: "settings.common_steps._false" #  will fail here
+      - base: "settings.common_steps._true" #  will not run
+    expected_failure: true
+    groups: [expected_failure]
 
-  # # - name: 002c_fail_output_compare_split
-  # #   base: 002b_fail_output_compare
-  # #   # stdout should be OK, stderr should be FAIL
-  # #   cmd: echo 'good stdout str'; echo 'bad stderr str' >&2
-  # #   output_behavior: split
+  - name: 010_unexpected_pass
+    run:
+      - base: "settings.common_steps._true"
+    expected_failure: true
+    groups: [failing]
 
-  # # - name: 003a_skip
-  # #   short_desc: expected to be skipped
-  # #   cmd: "false"
-  #   allowed_return_codes: [2]
-  #   groups: [group1, group2, group4, skipped]
-  #   skip: true
+  - name: 011_bad_cmd
+    run:
+      - type: exec
+        cmd: "bad_command"
+    groups: [not_run]
 
-  # - name: 003b_skip_reason
-  #   short_desc: expected to be skipped
-  #   cmd: "false"
-  #   groups: [group1, group2, group4, skipped]
-  #   skip: true
-  #   skip_reason: This test is expected to be skipped
+  - name: 012_inherit_and_fix_bad_cmd
+    base: 011_bad_cmd
+    short_desc: inherits a bad command test, but replaces it with a good one
+    run:
+      - type: exec
+        cmd: "true"
+    groups: [passing]
 
-  # - name: 004_bad_desc
-  #   short_desc: bad test descriptor
-  #   bad_setting: bad_value
-  #   groups: [not_run]
+  - name: 009_env_pass
+    short_desc: prints environment variable
+    run:
+      - type: exec
+        cmd: "printenv TEST_ENV_VAR"
+        env:
+          TEST_ENV_VAR: test value
+        expected_stdout: "test value\n"
+    groups: [passing]
 
-  # - name: 005_expected_fail
-  #   base: compare_output
-  #   short_desc: runs false but expected to fail
-  #   cmd: "false"
-  #   expected_failure: true
+  - name: 010_timeout_fail
+    short_desc: timeout test
+    run:
+      - type: exec
+        cmd: "{sleep_cmd} 1"
+        timeout: 0.5
+    groups: [not_run]
 
-  # - name: 006_unexpected_success
-  #   short_desc: runs true but expected to fail
-  #   cmd: "true"
-  #   expected_failure: true
+  - name: 013_multi_rc_passing
+    short_desc: Random RC, shoudld pass
+    run:
+      - type: exec
+        cmd: '{rand_rc_cmd}'
+        allowed_rc: "*"
+    groups: [passing]
 
-  # - name: 007 with spaces
-  #   short_desc: test name with spaces
-  #   cmd: "true"
-  #   groups: [passing]
-
-  # - name: 008a_bad_command_not_run
-  #   short_desc: bad command (should not run)
-  #   cmd: bad_command
-  #   groups: [gorup5, not_run]
-
-  # - name: 008b_inherits_bad_command_to_good
-  #   base: 008a_bad_command_not_run
-  #   short_desc: inherits a bad command test, but replaces it with a good one
-  #   cmd: "true"
-  #   groups: [passing]
-
-  # - name: 009_env_pass
-  #   short_desc: prints environment variable
-  #   base: compare_output
-  #   env:
-  #     TEST_ENV_VAR: test value
-  #   cmd: printenv TEST_ENV_VAR
-  #   groups: [passing]
-
-  # - name: 010_timeout
-  #   short_desc: timeout test
-  #   cmd: echo "Going to sleep"; sleep 1
-  #   shell: true
-  #   timeout: 0.5
-  #   groups: [failing]
-
-  # - name: 013_multi_rc_passing
-  #   short_desc: Multiple return codes, shoudld pass
-  #   cmd: 'rc=$(( $\{RANDOM} % 5 + 1 )); echo ''return code: $\{rc}''; exit $\{rc}\'
-  #   shell: true
-  #   allowed_return_codes: [1, 2, 3, 4, 5]
-  #   groups: [passing]
-
-  # - name: 014_show_auto_vars_internal
-  #   base: compare_output
-  #   short_desc: Test auto variables
-  #   cmd: |-
-  #     echo -e Test name: {XEET_TEST_NAME}
-  #     echo -e Test output dir: {XEET_TEST_OUTPUT_DIR}
-  #     echo -e Test stdout: {XEET_TEST_STDOUT}
-  #     echo -e Test stderr: {XEET_TEST_STDERR}
-  #     echo -e Xeet root: {XEET_ROOT}
-  #     echo -e Xeet output dir: {XEET_OUTPUT_DIR}
-  #   shell: true
-  #   groups: [passing]
+  - name: 014_show_auto_vars_internal
+    short_desc: Test auto variables
+    run:
+      - type: exec
+        cmd: "{echo_cmd} Test name: {XEET_TEST_NAME}"
+        expected_stdout: "Test name: 014_show_auto_vars_internal\n"
+      # - type: exec
+      #   cmd: "{echo_cmd} Test output dir: {XEET_TEST_OUTPUT_DIR}"
+      #   expected_stdout: "Test output dir: {XEET_TEST_OUTPUT_DIR}\n"
+      - type: exec
+        cmd: "{echo_cmd} Test stdout: {XEET_TEST_STDOUT}"
+        expected_stdout: "Test stdout: {XEET_TEST_STDOUT}\n"
+      - type: exec
+        cmd: "{echo_cmd} Test stderr: {XEET_TEST_STDERR}"
+        expected_stdout: "Test stderr: {XEET_TEST_STDERR}\n"
+      - type: exec
+        cmd: "{echo_cmd} Xeet root: {XEET_ROOT}"
+        expected_stdout: "Xeet root: {XEET_ROOT}\n"
+    groups: [passing]
 
   # - name: 015a_pre_test_ok
   #   short_desc: Test with passing pre-run command

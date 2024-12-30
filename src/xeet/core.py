@@ -73,7 +73,7 @@ def _run_single_test(test: Xtest, settings: RunSettings) -> TestResult:
         return TestResult(status=TestStatus.InitErr, status_reason=test.init_err)
 
     log_info(f"Running test '{test.name}'")
-    test.expand()
+    test.setup()
     test.debug_mode = settings.debug_mode
     return test.run()
 

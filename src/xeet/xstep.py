@@ -43,7 +43,7 @@ class XStepResult:
 
     def error_summary(self) -> str:
         if not self.completed:
-            return " incomplete: {self.err_summary}"
+            return f" incomplete: {self.err_summary}"
         if self.failed:
             return f" failed: {self.err_summary}"
         return ""
