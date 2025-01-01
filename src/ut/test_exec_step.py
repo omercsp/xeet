@@ -1,7 +1,6 @@
 from ut import tests_utils_command, XeetUnittest
 from xeet.steps.exec_step import ExecStep, ExecStepModel, ExecStepResult, _OutputBehavior
-from xeet.xstep import XStepListResult
-from xeet.xtest import TestResult, TestStatus
+from xeet.xtest import TestResult, TestStatus, XStepListResult
 from xeet.common import XeetVars, in_windows
 import tempfile
 import os
@@ -268,7 +267,7 @@ class TestExecStep(XeetUnittest):
                            allowed_rc: list[int] = dflt_allowed_rc
                            ) -> None:
 
-            model = self.get_test(test_name).run_steps[0].model  # type: ignore
+            model = self.get_test(test_name).run_steps.steps[0].model
             self.assertIsInstance(model, ExecStepModel)
             assert isinstance(model, ExecStepModel)
             self.assertEqual(model.cmd, cmd)

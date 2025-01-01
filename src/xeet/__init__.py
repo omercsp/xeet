@@ -1,8 +1,7 @@
+from xeet.common import json_value, XeetVars
 import logging
 from typing import Any
-from xeet.common import json_value, XeetVars
 from functools import cache
-from dataclasses import dataclass
 import os
 
 try:
@@ -47,12 +46,12 @@ class XeetDefs:
             glbl_var_name("EXPECTED_DIR"): self.expected_output_dir
         })
         self.defs_dict = {}
-        self.run_settings: "RunSettings" = None  # type: ignore
+        self.debug_mode = False
+        self.reporter: RunReporter = None  # type: ignore
 
-    def set_run_settings(self, run_settings: "RunSettings") -> None:
-        self.run_settings = run_settings
-        if run_settings.debug_mode:
-            self.xvars.set_vars({glbl_var_name("DEBUG"): "1"})
+    def set_debug_mode(self, debug_mode: bool) -> None:
+        self.debug_mode = debug_mode
+        self.xvars.set_vars({glbl_var_name("DEBUG"): "1" if debug_mode else "0"})
 
     def set_defs(self, defs_dict: dict) -> None:
         self.defs_dict = defs_dict
@@ -96,31 +95,125 @@ class TestCriteria:
     #      return possible_names[0]
 
 
-@dataclass
-class RunSettings:
-    iterations: int
-    debug_mode: bool
+class RunReporter:
+    def __init__(self, iterations: int) -> None:
+        super().__init__()
+        self.run_info: Any = None
+        self.iter_info: Any = None
+        self.iteration: int = 0
+        self.iterations: int = iterations
+        self.xtest: Any = None
+        self.xtest_result: Any = None
+        self.xstep: Any = None
+        self.xstep_index: int = 0
+        self.steps_count: int = 0
+        self.xstep_result: Any = None
+        self.phase_name: str = ""
 
-    def on_test_enter(self, **_) -> None:
+    def on_run_start(self, run_info) -> None:
+        self.run_info = run_info
+        self.client_on_run_start()
+
+    def client_on_run_start(self) -> None:
         pass
 
-    def on_test_end(self, **_) -> None:
+    def on_run_end(self) -> None:
+        self.client_on_run_end()
+
+    def client_on_run_end(self) -> None:
         pass
 
-    def on_iteration_end(self, **_) -> None:
+    def on_iteration_start(self, iter_info, iter_index) -> None:
+        self.iter_info = iter_info
+        self.iteration = iter_index
+        self.client_on_iteration_start()
+
+    def client_on_iteration_start(self) -> None:
         pass
 
-    def on_iteration_start(self, **_) -> None:
+    def on_iteration_end(self) -> None:
+        self.client_on_iteration_end()
+        self.iter_info = None
+        self.iteration = -1
+
+    def client_on_iteration_end(self) -> None:
         pass
 
-    def on_run_start(self, **_) -> None:
+    def on_test_enter(self, test) -> None:
+        self.xtest = test
+        self.client_on_test_enter()
+
+    def on_test_setup_start(self, test) -> None:
+        self.xtest = test
+        self.client_on_test_setup_start()
+
+    def client_on_test_setup_start(self) -> None:
         pass
 
-    def on_run_end(self, **_) -> None:
+    def on_test_setup_end(self) -> None:
+        self.client_on_test_setup_end()
+
+    def client_on_test_setup_end(self) -> None:
         pass
 
-    def on_step_start(self, **_) -> None:
+    def on_step_setup_start(self, step, step_index: int) -> None:
+        self.xstep = step
+        self.xstep_index = step_index
+        self.client_on_step_setup_start()
+
+    def client_on_step_setup_start(self) -> None:
         pass
 
-    def on_step_end(self, **_) -> None:
+    def on_step_setup_end(self) -> None:
+        self.client_on_step_setup_end()
+        self.xstep = None
+        self.xstep_index = -1
+
+    def client_on_step_setup_end(self) -> None:
+        pass
+
+    def client_on_test_enter(self) -> None:
+        pass
+
+    def on_test_end(self, res) -> None:
+        self.xtest_result = res
+        self.client_on_test_end()
+        self.xtest = None
+        self.xtest_result = None
+
+    def client_on_test_end(self) -> None:
+        pass
+
+    def on_phase_start(self, phase_name: str, steps_count: int) -> None:
+        self.phase_name = phase_name
+        self.steps_count = steps_count
+        self.client_on_phase_start()
+
+    def client_on_phase_start(self) -> None:
+        pass
+
+    def on_phase_end(self) -> None:
+        self.client_on_phase_end()
+        self.phase_name = ""
+        self.steps_count = 0
+
+    def client_on_phase_end(self) -> None:
+        pass
+
+    def on_step_start(self, step, step_index: int) -> None:
+        self.xstep = step
+        self.xstep_index = step_index
+        self.client_on_step_start()
+
+    def client_on_step_start(self) -> None:
+        pass
+
+    def on_step_end(self, res) -> None:
+        self.xstep_result = res
+        self.client_on_step_end()
+        self.xstep = None
+        self.xstep_index = -1
+        self.xstep_result = None
+
+    def client_on_step_end(self) -> None:
         pass

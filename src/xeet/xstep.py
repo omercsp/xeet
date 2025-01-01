@@ -1,9 +1,11 @@
 from xeet.common import XeetVars, XeetException
 from xeet import XeetDefs
-from xeet.log import log_info, log_warn, log_error
+from xeet.log import log_info, log_warn, log_error, log_raw
+from xeet.pr import pr_info, pr_warn, pr_error
 from pydantic import BaseModel, ConfigDict, Field
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from timeit import default_timer as timer
+import sys
 
 
 class XStepModel(BaseModel):
@@ -66,20 +68,33 @@ class XStep:
         ...
 
     def log_info(self, msg, *args, **kwargs) -> None:
+        if self.debug_mode and kwargs.get("dbg_pr", True):
+            pr_info(msg, *args, **kwargs)
         log_info(f"{self.base_name}: {msg}", *args, depth=1, **kwargs)
 
     def log_warn(self, msg, *args, **kwargs) -> None:
-        log_warn(f"{self.base_name}: {msg}", *args, depth=1, **kwargs)
+        if self.debug_mode:
+            pr_warn(msg, *args, **kwargs, pr_file=sys.stdout)
+        log_warn(f"{self.base_name}: {msg}", *args, depth=1, pr=None,  **kwargs)
 
     def log_error(self, msg, *args, **kwargs) -> None:
-        log_error(f"{self.base_name}: {msg}", *args, depth=1, **kwargs)
+        if self.debug_mode:
+            pr_error(msg, *args, **kwargs, pr_file=sys.stdout)
+        log_error(f"{self.base_name}: {msg}", *args, depth=1, pr=None, **kwargs)
+
+    def log_raw(self, msg, *args, **kwargs) -> None:
+        log_raw(msg, *args, pr=self.debug_mode, **kwargs)
+
+    def pr_debug(self, msg, *args, **kwargs) -> None:
+        if self.debug_mode:
+            pr_info(msg, *args, **kwargs)
 
     def run(self) -> XStepResult:
         res = self.result_class()()
         start = timer()
         res.completed = self._run(res)
         res.duration = timer() - start
-        self.log_info(f"step finished with in {res.duration:.3f}s")
+        self.log_info(f"step finished with in {res.duration:.3f}s", dbg_pr=False)
         return res
 
     def print_name(self) -> str:
@@ -92,48 +107,7 @@ class XStep:
 
     @property
     def debug_mode(self) -> bool:
-        return self.xdefs.run_settings.debug_mode
+        return self.xdefs.debug_mode
 
     def _run(self, _: XStepResult) -> bool:
         raise NotImplementedError
-
-
-@dataclass
-class XStepListResult:
-    prefix: str = ""
-    results: list[XStepResult] = field(default_factory=list)
-    completed: bool = True
-    failed: bool = False
-
-    def error_summary(self) -> str:
-        for i, r in enumerate(self.results):
-            if not r.completed or r.failed:
-                return f"{self.prefix} step #{i}: {r.error_summary()}"
-        return ""
-
-    #  post_init is called after the dataclass is initialized. This is used
-    #  in unittesting only. By default, results is empty, so completed and failed
-    #  are True and False, respectively.
-    def __post_init__(self) -> None:
-        if not self.results:
-            return
-        self.completed = all([r.completed for r in self.results])
-        self.failed = any([r.failed for r in self.results])
-
-
-#  stop_on_err will stop if either a step fails or is incomplete
-def run_xstep_list(step_list: list[XStep] | None, res: XStepListResult, stop_on_err: bool) -> None:
-    if not step_list:
-        return
-
-    for step in step_list:
-        step_res = step.run()
-        res.results.append(step_res)
-        if not step_res.completed:
-            res.completed = False
-            if stop_on_err:
-                break
-        if step_res.failed:
-            res.failed = True
-            if stop_on_err:
-                break
