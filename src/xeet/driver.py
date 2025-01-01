@@ -1,7 +1,7 @@
 from xeet.log import log_info, log_warn
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars
 from xeet.xtest import Xtest, XtestModel
-from xeet import XeetDefs, TestCriteria, RunSettings
+from xeet import XeetDefs, TestCriteria
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from typing import Any
 from yaml import safe_load

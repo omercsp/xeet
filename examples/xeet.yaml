@@ -1,13 +1,13 @@
 include: [xeet_base.yaml, inheritance.yaml]
 tests:
   - name: 001_pass
-    short_desc: echoes Hello World!
+    short_desc: returns true, always passes
     run:
       - base: "settings.common_steps._true"
     groups: [passing]
 
   - name: 002_pass_with_output
-    short_desc: echoes Hello World!
+    short_desc: echoes Hello World!\\n
     run:
       - base: "settings.common_steps.hello"
         expected_stdout: "Hello World!\n"
@@ -152,7 +152,7 @@ tests:
       - cmd: "{true_cmd}"
     post_run:
       - cmd: "{false_cmd}"
-    groups: [passing]
+    groups: [passing, bad_post]
 
   - name: 019_fix_post_fail
     base: 018_post_test_fail
@@ -214,7 +214,7 @@ tests:
     base: abstract_post_run_bad
     run:
       - cmd: "{true_cmd}"
-    groups: [passing, inheritance]
+    groups: [passing, inheritance, bad_post]
 
   - name: 030_for_info
     short_desc: prints current directory
