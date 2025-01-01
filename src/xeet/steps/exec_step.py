@@ -1,7 +1,6 @@
 from xeet.common import XeetVars, text_file_tail, in_windows
 from xeet.pr import pr_info
 from xeet import XeetDefs
-from xeet.log import log_raw
 from xeet.xstep import XStep, XStepModel, XStepResult
 from pydantic import field_validator, ValidationInfo, model_validator, Field
 from enum import Enum
@@ -135,9 +134,9 @@ class ExecStep(XStep):
         self.use_shell = (not in_windows()) and xvars.expand(self.exec_model.use_shell)
         self.cwd = xvars.expand(self.exec_model.cwd)
         if self.cwd:
-            self.log_info(f"working directory will be set to '{self.cwd}'")
+            self.log_info(f"Working directory will be set to '{self.cwd}'")
         else:
-            self.log_info(f"using current working directory '{os.getcwd()}'")
+            self.log_info(f"Using current working directory '{os.getcwd()}'")
         self.env = xvars.expand(self.exec_model.env)
         self.env_file = xvars.expand(self.exec_model.env_file)
 
@@ -155,8 +154,7 @@ class ExecStep(XStep):
         self.expected_stdout_file = xvars.expand(self.exec_model.expected_stdout_file)
         self.expected_stderr_file = xvars.expand(self.exec_model.expected_stderr_file)
 
-    def _io_descriptors(self) -> tuple[TextIOWrapper | int, TextIOWrapper | int]:
-        err_file = subprocess.DEVNULL
+    def _io_descriptors(self) -> tuple[TextIOWrapper, TextIOWrapper]:
         out_file = open(self.stdout_file, "w")
         if self.output_behavior == _OutputBehavior.Unify:
             err_file = out_file
@@ -194,8 +192,8 @@ class ExecStep(XStep):
             "shell": self.use_shell,
             "executable": self.shell_path if self.shell_path and self.use_shell else None,
         }
-        self.log_info("running command:")
-        log_raw(self.cmd)
+        self.log_info(f"Running command (shell: {self.use_shell}):")
+        self.log_raw(self.cmd)
         command = self.cmd
         if not self.use_shell and isinstance(command, str):
             try:
@@ -215,10 +213,11 @@ class ExecStep(XStep):
         out_file, err_file = None, None
         try:
             if self.debug_mode:
+                self.pr_debug(" output ".center(33, "-"))
                 subproc_args["timeout"] = timeout
                 p = subprocess.run(**subproc_args)
                 res.rc = p.returncode
-                assert isinstance(res.rc, int)
+                self.pr_debug("-" * 33)
             else:
                 out_file, err_file = self._io_descriptors()
                 subproc_args["stdout"] = out_file
@@ -258,13 +257,12 @@ class ExecStep(XStep):
         return True
 
     def _verify_rc(self, res: ExecStepResult) -> None:
-        if self.debug_mode:
-            pr_info("Verifying rc")
+        self.log_info("Verifying rc", dbg_pr=False)
 
         res.rc_ok = isinstance(self.exec_model.allowed_rc, str) or \
             res.rc in self.exec_model.allowed_rc
         if res.rc_ok:
-            self.log_info(f"return code {res.rc} is allowed")
+            self.log_info("Return code is valid")
             return
         res.failed = True
 
@@ -304,8 +302,12 @@ class ExecStep(XStep):
                 with open(file_path, "r") as f:
                     return f.readlines()
             return None
+        if self.debug_mode and self.output_behavior == _OutputBehavior.Split:
+            self.pr_debug("Output verification isn't supported in debug mode when output_behavior "
+                          "is 'split', verication will be skipped")
+            return
 
-        self.log_info("verifying output")
+        self.log_info("verifying output", dbg_pr=False)
         if res.failed:
             self.log_info("Skipping output verification, prior step failed")
             return
@@ -349,3 +351,6 @@ class ExecStep(XStep):
                 res.failed = True
                 self.log_info("stderr differs from expected")
                 res.err_summary = f"stderr differs from expected\n{res.stderr_diff}"
+        if not res.failed:
+            self.log_info("Output is verified")
+            return

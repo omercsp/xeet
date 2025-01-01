@@ -50,10 +50,13 @@ def create_print_func(dflt_color: str, level: int, out_file: TextIO = sys.stdout
         if level < _allowed_print_level or _muted:
             return
 
-        pr_color = kwargs.pop("_pr_color", dflt_color)
+        pr_color = kwargs.pop("pr_color", dflt_color)
+        pr_file = kwargs.pop("pr_file", out_file)
+        if not kwargs.pop("pr_cond", True):
+            return
         if _colors_enabled and pr_color != PrintColors.RESET:
             print(pr_color, end="", file=out_file)
-        print(*args, **kwargs, file=out_file)
+        print(*args, **kwargs, file=pr_file)
         if _colors_enabled and pr_color != PrintColors.RESET:
             print(PrintColors.ENDC, end="", file=out_file)
     return print_func

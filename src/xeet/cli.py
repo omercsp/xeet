@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from xeet.pr import DictPrintType, pr_obj, pr_info, PrintColors, colors_enabled
-from xeet.xtest import Xtest, TestStatus, TestResult, status_catgoery
+from xeet.xtest import Xtest, TestStatus, TestResult, status_catgoery, XStepResult
+from xeet.xstep import XStep
+from xeet import RunReporter
 from xeet.driver import TestCriteria
 from xeet.common import XeetException, json_values, short_str
 from xeet.runtime import RunInfo, IterationInfo
+from xeet.pr import create_print_func, LogLevel
 import xeet.core as core
 import textwrap
 
@@ -48,7 +51,7 @@ def _show_test(test: Xtest, full_details: bool, expanded: bool) -> None:
     if test.base:
         print_val("Base test", test.base)
     if test.pre_run_steps:
-        for pre_step in test.pre_run_steps:
+        for pre_step in test.pre_run_steps.steps:
             print_blob("Step", pre_step.summary())
 
     #  if test.cmd_shell or test.pre_cmd_shell or test.post_cmd_shell:
@@ -155,30 +158,28 @@ def _reset_color():
     return PrintColors.RESET if colors_enabled() else ""
 
 
-@dataclass
-class CliRunSettings(core.RunSettings):
-    show_summary: bool = False
+class CliRunReporter(RunReporter):
+    def __init__(self, iterations: int, show_summary: bool) -> None:
+        super().__init__(iterations)
+        self.show_summary = show_summary
 
-    def on_run_start(self,  # pyright: ignore[reportIncompatibleMethodOverride]
-                     run_info: RunInfo, **_) -> None:
+    def client_on_run_start(self) -> None:
         pr_info("Starting run\n------------")
-        if run_info.criteria.include_groups:
-            groups_str = ", ".join(sorted(run_info.criteria.include_groups))
+        if self.run_info.criteria.include_groups:
+            groups_str = ", ".join(sorted(self.run_info.criteria.include_groups))
             pr_info(f"Included groups: {groups_str}")
-        if run_info.criteria.exclude_groups:
-            groups_str = ", ".join(sorted(run_info.criteria.exclude_groups))
+        if self.run_info.criteria.exclude_groups:
+            groups_str = ", ".join(sorted(self.run_info.criteria.exclude_groups))
             pr_info(f"Excluded groups: {groups_str}")
-        if run_info.criteria.require_groups:
-            groups_str = ", ".join(sorted(run_info.criteria.require_groups))
+        if self.run_info.criteria.require_groups:
+            groups_str = ", ".join(sorted(self.run_info.criteria.require_groups))
             pr_info(f"Required groups: {groups_str}")
         pr_info("Running tests: {}\n".format(
-            ", ".join([x.name for x in run_info.tests])))
+            ", ".join([x.name for x in self.run_info.tests])))
 
-    def on_test_enter(self,  # pyright: ignore[reportIncompatibleMethodOverride]
-                      test: Xtest, **_) -> None:
-        if self.debug_mode:
-            return
-        name = short_str(test.name, 40)
+    def client_on_test_enter(self) -> None:
+        assert isinstance(self.xtest, Xtest)
+        name = short_str(self.xtest.name, 40)
 
         color = PrintColors.BOLD if colors_enabled() else ""
         print_str = f"{color}{name}{_reset_color()}"
@@ -189,8 +190,10 @@ class CliRunSettings(core.RunSettings):
             pr_info(f"{print_str}", end='')
         pr_info("", end='', flush=True)
 
-    def on_test_end(self,  # pyright: ignore[reportIncompatibleMethodOverride]
-                    result: TestResult,  **_) -> None:
+    def client_on_test_end(self) -> None:
+        assert isinstance(self.xtest_result, TestResult)
+        result = self.xtest_result
+
         def _post_print_details(status_suffix: str = "", details: str = "") -> None:
             category = status_catgoery(result.status).value
             if colors_enabled():
@@ -203,9 +206,6 @@ class CliRunSettings(core.RunSettings):
             if details:
                 msg += f"\n{details}\n"
             pr_info(msg)
-
-        if self.debug_mode:
-            return
 
         details = ""
         status_suffix = ""
@@ -234,12 +234,11 @@ class CliRunSettings(core.RunSettings):
             details += result.post_run_res.error_summary()
         _post_print_details(status_suffix, details)
 
-    def on_iteration_end(self,  # pyright: ignore[reportIncompatibleMethodOverride]
-                         iter_info: IterationInfo,
-                         run_info: RunInfo,
-                         **_) -> None:
+    def client_on_iteration_end(self) -> None:
+        assert isinstance(self.iter_info, IterationInfo)
+
         def summarize_test_list(status: TestStatus) -> None:
-            test_names = iter_info.tests[status]
+            test_names = self.iter_info.tests[status]
             if not test_names:
                 return
             status_print_info = _STATUS_PRINT_INFO[status]
@@ -249,12 +248,72 @@ class CliRunSettings(core.RunSettings):
             pr_info(f"{color}{title}{_reset_color()}: {test_list_str}")
 
         pr_info()
-        iter_n = iter_info.iter_n
-        if run_info.iterations > 1:
-            pr_info(f"\nIteration #{iter_n}/{run_info.iterations - 1} summary:")
+        iter_n = self.iter_info.iter_n
+        if self.run_info.iterations > 1:
+            pr_info(f"\nIteration #{iter_n}/{self.run_info.iterations - 1} summary:")
         for status in TestStatus:
             summarize_test_list(status)
         pr_info()
+
+
+_ORANGE = '\033[38;5;208m'
+_pr_debug_title = create_print_func(_ORANGE, LogLevel.ALWAYS)
+
+
+class CliDebugRunSettings(CliRunReporter):
+    def __init__(self, iterations: int) -> None:
+        super().__init__(iterations, show_summary=False)
+
+    def _step_title(self, sentence_start: bool = False) -> str:
+        assert isinstance(self.xstep, XStep)
+        if sentence_start:
+            text = self.phase_name[0].upper() + self.phase_name[1:]
+        else:
+            text = self.phase_name
+        text += f" step #{self.xstep_index} ({self.xstep.model.step_type})"
+        if self.xstep.model.name:
+            text += f" '{self.xstep.model.name}'"
+        return text
+
+    def client_on_test_enter(self) -> None:
+        assert isinstance(self.xtest, Xtest)
+        _pr_debug_title(f">>>>>>> Starting test '{self.xtest.name}' <<<<<<<")
+
+    def client_on_iteration_end(self) -> None:
+        ...
+
+    def client_on_test_end(self) -> None:
+        assert isinstance(self.xtest_result, TestResult)
+        _pr_debug_title(f"Test '{self.xtest.name}' ended. (status: {self.xtest_result.status}, "
+                        f"duration: {self.xtest_result.duration:.3f}s)")
+
+    def client_on_step_start(self) -> None:
+        title = self._step_title(sentence_start=True)
+        _pr_debug_title(f"{title} - staring run")
+
+    def client_on_step_end(self) -> None:
+        assert isinstance(self.xstep, XStep)
+        assert isinstance(self.xstep_result, XStepResult)
+        text = self._step_title(sentence_start=True)
+        text += f" - run ended (completed, " if self.xstep_result.completed else f" (incomplete, "
+        text += f"failed, " if self.xstep_result.failed else f"passed, "
+        text += f"duration: {self.xstep_result.duration:.3f}s)"
+        _pr_debug_title(text)
+
+    def client_on_step_setup_start(self) -> None:
+        text = self._step_title(sentence_start=True)
+        _pr_debug_title(f"{text} - setup")
+
+    def client_on_phase_start(self) -> None:
+        if self.steps_count == 0:
+            return
+        _pr_debug_title(f"Starting {self.phase_name} phase run, {self.steps_count} step(s)")
+
+    def client_on_phase_end(self) -> None:
+        if self.steps_count == 0:
+            return
+        text = self.phase_name[0].upper() + self.phase_name[1:]
+        _pr_debug_title(f"{text} phase ended")
 
 
 def run_tests(conf: str,
@@ -266,8 +325,11 @@ def run_tests(conf: str,
               show_summary: bool,
               debug: bool) -> RunInfo:
     criteria = TestCriteria(test_names, group, require_group, exclude_group, False)
-    run_settings = CliRunSettings(repeat, show_summary, debug)
-    return core.run_tests(conf, criteria, run_settings)
+    if debug:
+        run_settings = CliDebugRunSettings(iterations=repeat)
+    else:
+        run_settings = CliRunReporter(iterations=repeat, show_summary=show_summary)
+    return core.run_tests(conf, criteria, run_settings, debug_mode=debug, iterations=repeat)
 
 
 def dump_test(file_path: str, name: str) -> None:

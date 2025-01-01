@@ -2,6 +2,7 @@
 UT_DIR=$(dirname -- $( readlink -f -- "$0";  ))
 XEET_DIR=${UT_DIR}/../..
 VENV_ACTIVATION_FILE=${XEET_DIR}/.venv/bin/activate
+COVERAGE=${COVERAGE:-0}
 
 if [[ -z ${VIRTUAL_ENV} ]]; then
     if [[ -f ${VENV_ACTIVATION_FILE} ]]; then
@@ -13,17 +14,23 @@ fi
 
 tests="$*"
 
+if [[ ${COVERAGE} -eq 1 ]]; then
+    CMD="coverage run"
+else
+    CMD="python"
+fi
+
 # -v flag shows verbose output
 # -f flag stops on first failure
 # python -X tracemalloc=25 -m unittest ${tests} -v -f
 if [[ -z ${tests} ]]; then
-    python -m unittest discover . -v -f
+    ${CMD} -m unittest discover . -v -f
 else
     #  IF tests is one word, and it's a directory, then we need to add discover
     if [[ -d ${tests} ]]; then
         tests="discover ${tests}"
     fi
-    python -m unittest ${tests} -v -f
+    ${CMD} -m unittest ${tests} -v -f
 fi
 
 

@@ -1,10 +1,11 @@
 from xeet.log import init_logging, log_info
 from xeet.pr import mute_prints, pr_obj, DictPrintType
 from xeet.common import XeetVars
-from xeet.core import RunSettings, run_tests
+from xeet.core import run_tests
 from xeet.driver import Driver, TestCriteria, xeet_init
-from xeet.xtest import TestResult, Xtest
-from xeet.xstep import XStepResult, XStepListResult
+from xeet.xtest import TestResult, Xtest, XStepListResult
+from xeet.xstep import XStepResult
+from xeet import RunReporter
 from tempfile import gettempdir
 from dataclasses import dataclass, field
 from typing import ClassVar, Any, Iterable
@@ -141,7 +142,7 @@ class XeetUnittest(unittest.TestCase):
     def setUpClass(cls):
         ConfigTestWrapper.init_xeet_dir()
         cls.main_config_wrapper = ConfigTestWrapper("main.json")
-        cls.run_settings = RunSettings(1, False)
+        cls.reporter = RunReporter(1)
         cls.criteria = TestCriteria([], [], [], [], False)
 
     @classmethod
@@ -170,14 +171,14 @@ class XeetUnittest(unittest.TestCase):
     @classmethod
     def run_test(cls, name: str) -> TestResult:
         cls.criteria.names = {name}
-        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, cls.run_settings)
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, cls.reporter)
         res = run_info.test_result(name, 0)
         return res
 
     @classmethod
     def run_tests_list(cls, names: Iterable[str]) -> Iterable[TestResult]:
         cls.criteria.names = set(names)
-        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, cls.run_settings)
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, cls.reporter)
         for name in names:
             yield run_info.test_result(name, 0)
 

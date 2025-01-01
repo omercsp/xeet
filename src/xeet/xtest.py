@@ -1,19 +1,13 @@
-from xeet import LogLevel, XeetDefs
+from xeet import XeetDefs
 from xeet.common import XeetException, XeetVars, NonEmptyStr, pydantic_errmsg, yes_no_str
 from xeet.log import log_info, log_verbose, log_warn
-from xeet.pr import create_print_func, pr_info
-from xeet.xstep import XStep, XStepModel, XeetStepInitException, run_xstep_list, XStepListResult
+from xeet.xstep import XStep, XStepModel, XeetStepInitException, XStepResult
 from xeet.steps import get_xstep_class
 from typing import Any
 from pydantic import BaseModel, Field, ValidationError, ConfigDict, AliasChoices, model_validator
 from enum import auto, Enum
 from dataclasses import dataclass, field
 import os
-import sys
-
-
-_ORANGE = '\033[38;5;208m'
-_pr_orange = create_print_func(_ORANGE, LogLevel.ALWAYS)
 
 
 class XeetRunException(XeetException):
@@ -58,6 +52,29 @@ def status_catgoery(status: TestStatus) -> TestStatusCategory:
     if status in _PASSED_STTS:
         return TestStatusCategory.Passed
     return TestStatusCategory.Unknown
+
+
+@dataclass
+class XStepListResult:
+    prefix: str = ""
+    results: list[XStepResult] = field(default_factory=list)
+    completed: bool = True
+    failed: bool = False
+
+    def error_summary(self) -> str:
+        for i, r in enumerate(self.results):
+            if not r.completed or r.failed:
+                return f"{self.prefix} step #{i}: {r.error_summary()}"
+        return ""
+
+    #  post_init is called after the dataclass is initialized. This is used
+    #  in unittesting only. By default, results is empty, so completed and failed
+    #  are True and False, respectively.
+    def __post_init__(self) -> None:
+        if not self.results:
+            return
+        self.completed = all([r.completed for r in self.results])
+        self.failed = any([r.failed for r in self.results])
 
 
 @dataclass
@@ -142,6 +159,15 @@ class XtestModel(BaseModel):
         self.post_run = _inherit_steps(self.post_run, other.post_run, self.post_run_inheritance)
 
 
+@dataclass
+class _XStepList:
+    name: str
+    stop_on_err: bool
+    steps: list[XStep] = field(default_factory=list)
+    on_fail_status: TestStatus = TestStatus.Undefined
+    on_run_err_status: TestStatus = TestStatus.Undefined
+
+
 class Xtest:
     def __init__(self, model: XtestModel, xdefs: XeetDefs) -> None:
         self.model = model
@@ -156,13 +182,13 @@ class Xtest:
 
         self.base = self.model.base
         self.error = _EMPTY_STR
-        self.pre_run_steps = self._init_step_list(self.model.pre_run, "pre")
+        self.pre_run_steps = self._init_step_list(self.model.pre_run, "pre", True)
         if self.error:
             return
-        self.run_steps = self._init_step_list(self.model.run, "")
+        self.run_steps = self._init_step_list(self.model.run, "main", True)
         if self.error:
             return
-        self.post_run_steps = self._init_step_list(self.model.post_run, "post")
+        self.post_run_steps = self._init_step_list(self.model.post_run, "post", False)
         if self.error:
             return
 
@@ -172,27 +198,27 @@ class Xtest:
             "OUT_DIR": self.output_dir,
         }, prefix="XT_")
 
-    def _init_step_list(self, step_list: list[dict] | None, prefix: str) -> list[XStep] | None:
+    def _init_step_list(self, step_list: list[dict] | None, name: str, stop_on_err: bool
+                        ) -> _XStepList:
+        ret = _XStepList(name=name, stop_on_err=stop_on_err)
         if step_list is None:
-            return None
+            return ret
         id_base = self.name
-        if prefix:
-            id_base += f"_{prefix}"
-            prefix = f" {prefix}"
-        ret = []
+        if name:
+            id_base += f"_{name}"
+            name = f" {name}"
         for index, step_desc in enumerate(step_list):
             try:
-                self._log_info(f"initializing{prefix} step {index}")
+                self._log_info(f"initializing{name} step {index}")
                 step_model = self._gen_xstep_model(step_desc)
                 step_class = get_xstep_class(step_model.step_type)
                 if step_class is None:  # Shouldn't happen
                     raise XeetStepInitException(f"Unknown step type '{step_model.step_type}'")
                 step = step_class(step_model, self.xdefs, f"{id_base}_{index}")
-                ret.append(step)
+                ret.steps.append(step)
             except XeetStepInitException as e:
-                self._log_warn(f"Error initializing{prefix}step {index}: {e}")
-                self.error = f"Error initializing{prefix}step {index}: {e}"
-                return None
+                self._log_warn(f"Error initializing{name}step {index}: {e}")
+                self.error = f"Error initializing{name}step {index}: {e}"
         return ret
 
     @staticmethod
@@ -243,23 +269,27 @@ class Xtest:
 
     @property
     def debug_mode(self) -> bool:
-        return self.xdefs.run_settings.debug_mode
+        return self.xdefs.debug_mode
 
     def setup(self) -> None:
         self._log_info("Pre execution setup")
         step_xvars = XeetVars(parent=self.xvars)
 
         try:
-            for steps in (self.pre_run_steps, self.run_steps, self.post_run_steps):
+            for steps in (self.pre_run_steps, self.run_steps,
+                          self.post_run_steps):
+                self.xdefs.reporter.phase_name = steps.name
                 if steps is None:
                     continue
-                for step in steps:
+                for index, step in enumerate(steps.steps):
+                    self.xdefs.reporter.on_step_setup_start(step, index)
                     step.setup(step_xvars)
+                    self.xdefs.reporter.on_step_setup_end()
                     step_xvars.reset()
         except XeetException as e:
             self.error = str(e)
             self._log_info(f"Error setting up test - {e}")
-            return
+        self.xdefs.reporter.phase_name = ""
 
     def _mkdir_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
@@ -299,46 +329,37 @@ class Xtest:
 
         self._log_info("starting run")
         self._mkdir_output_dir()
-        self._pre_test(res)
-        self._run(res)
-        self._post_test(res)
+        self._phase_wrapper(self.pre_run_steps, res, self._pre_test)
+        self._phase_wrapper(self.run_steps, res, self._run)
+        self._phase_wrapper(self.post_run_steps, res, self._post_test)
 
         if res.status == TestStatus.Passed or res.status == TestStatus.ExpectedFail:
             self._log_info("completed successfully")
         return res
 
-    def _debug_pre_step_print(self, step_name: str, command, shell: bool) -> None:
-        if not self.debug_mode:
-            return
-        shell_str = " (shell)" if shell else ""
-        _pr_orange(f">>>>>>> {step_name} <<<<<<<\nCommand{shell_str}:")
-        pr_info(command)
-        _pr_orange("Execution output:")
-        sys.stdout.flush()  # to make sure colors are reset
-
-    def _debug_step_print(self, step_name: str, rc: int) -> None:
-        if not self.debug_mode:
-            return
-        _pr_orange(f"{step_name} rc: {rc}\n")
-
     def _pre_test(self, res: TestResult) -> None:
-        if not self.pre_run_steps:
+        if not self.pre_run_steps.steps:
             self._log_info("No pre-test steps")
             return
         self._log_info("Running pre-test steps")
-        run_xstep_list(self.pre_run_steps, res.pre_run_res, stop_on_err=True)
+        self._run_xstep_list(self.pre_run_steps, res.pre_run_res)
         if not res.pre_run_res.completed or res.pre_run_res.failed:
             self._log_info(f"Pre-test failed or didn't complete")
             res.status = TestStatus.PreRunErr
             res.status_reason = res.pre_run_res.error_summary()
             return
 
+    def _phase_wrapper(self, step_list: _XStepList, res: TestResult, func) -> None:
+        self.xdefs.reporter.on_phase_start(step_list.name, len(step_list.steps))
+        func(res)
+        self.xdefs.reporter.on_phase_end()
+
     def _run(self, res: TestResult) -> None:
         if res.status != TestStatus.Undefined:
             self._log_info("Skipping run. Prior stage failed")
             return
         self._log_info("Running test steps")
-        run_xstep_list(self.run_steps, res.run_res, stop_on_err=True)
+        self._run_xstep_list(self.run_steps, res.run_res)
         if not res.run_res.completed:
             self._log_info("Test didn't complete")
             res.status = TestStatus.RunErr
@@ -359,16 +380,32 @@ class Xtest:
         res.status = TestStatus.Passed
 
     def _post_test(self, res: TestResult) -> None:
-        if not self.post_run_steps:
+        if not self.post_run_steps.steps:
             self._log_info("Skipping post-test, no steps")
             return
         self._log_info(f"Running post-test steps")
-        run_xstep_list(self.post_run_steps, res.post_run_res, stop_on_err=False)
-        #  self._debug_pre_step_print("Post-test", self.post_cmd_expanded, self.post_cmd_shell)
+        self._run_xstep_list(self.post_run_steps, res.post_run_res)
         if not res.post_run_res.completed or res.post_run_res.failed:
             err = res.post_run_res.error_summary()
             self._log_info(f"Post test run failed - {err}")
             #  res.post_test_err = str(err)
+
+    def _run_xstep_list(self, step_list: _XStepList, res: XStepListResult) -> None:
+        if not step_list.steps:
+            return
+        reporter = self.xdefs.reporter
+
+        for index, step in enumerate(step_list.steps):
+            reporter.on_step_start(step, index)
+            step_res = step.run()
+            reporter.on_step_end(step_res)
+            res.results.append(step_res)
+            if not step_res.completed:
+                res.completed = False
+            if step_res.failed:
+                res.failed = True
+            if step_list.stop_on_err and (step_res.failed or not step_res.completed):
+                break
 
     def _log_info(self, msg, *args, **kwargs) -> None:
         log_info(f"{self.name}: {msg}", *args, depth=1, **kwargs)

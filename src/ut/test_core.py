@@ -4,8 +4,7 @@ from ut.dummy_test_config import (DummyTestConfig, gen_dummy_step_desc, gen_dumm
                                   FAILING_STEP_RESULT, INCOMPLETED_STEP_DESC,
                                   INCOMPLETED_STEP_RESULT)
 from xeet.xtest import (Xtest, TestResult, TestStatus, XeetRunException, status_catgoery,
-                        TestStatusCategory)
-from xeet.xstep import XStepListResult
+                        TestStatusCategory, XStepListResult)
 from xeet.steps.dummy_step import DummyStepModel
 from xeet.core import fetch_xtest, fetch_tests_list
 from xeet.driver import TestCriteria
@@ -63,7 +62,7 @@ class TestCore(DummyTestConfig):
                       run=[gen_dummy_step_desc(base=f"tests[?(@.name == '{_TEST2}')].run[0]")],
                       save=True)
 
-        model: DummyStepModel = self.get_test(_TEST0).run_steps[0].model  # type: ignore
+        model = self.get_test(_TEST0).run_steps.steps[0].model
         self.assertIsInstance(model, DummyStepModel)
         assert isinstance(model, DummyStepModel)
         self.assertEqual(model.step_type, "dummy")
@@ -72,13 +71,13 @@ class TestCore(DummyTestConfig):
         test = self.get_test(_TEST1)
         self.assertTrue(test.error != "")
 
-        model = self.get_test(_TEST2).run_steps[0].model  # type: ignore
+        model = self.get_test(_TEST2).run_steps.steps[0].model
         self.assertIsInstance(model, DummyStepModel)
         assert isinstance(model, DummyStepModel)
         self.assertEqual(model.step_type, "dummy")
         self.assertEqual(model.dummy_val0, "other_from_base")
 
-        model = self.get_test(_TEST3).run_steps[0].model  # type: ignore
+        model = self.get_test(_TEST3).run_steps.steps[0].model
         self.assertIsInstance(model, DummyStepModel)
         assert isinstance(model, DummyStepModel)
         self.assertEqual(model.step_type, "dummy")

@@ -3,8 +3,9 @@ from xeet.xtest import Xtest, XtestModel, TestResult, TestStatus
 from xeet.driver import XeetModel, xeet_init, TestCriteria
 from xeet.common import XeetException
 from xeet.log import log_info, log_blank, log_verbose
-from xeet import RunSettings
+from xeet import RunReporter
 from enum import Enum
+from timeit import default_timer as timer
 
 
 def fetch_xtest(config_path: str, name: str) -> Xtest | None:
@@ -52,16 +53,22 @@ def _run_test(test: Xtest) -> TestResult:
         return TestResult(status=TestStatus.InitErr, status_reason=test.error)
 
     log_info(f"Running test '{test.name}'")
+    test.xdefs.reporter.on_test_setup_start(test)
     test.setup()
-    return test.run()
+    test.xdefs.reporter.on_test_setup_end()
+    start = timer()
+    ret = test.run()
+    ret.duration = timer() - start
+    return ret
 
 
 def run_tests(conf: str,
               criteria: TestCriteria,
-              run_settings: RunSettings) -> RunInfo:
+              reporter: RunReporter,
+              debug_mode: bool = False,
+              iterations: int = 1) -> RunInfo:
     log_info("Starting run", pr_suffix="------------\n")
     driver = xeet_init(conf)
-    driver.defs.run_settings = run_settings
     if criteria.include_groups:
         groups_str = ", ".join(sorted(criteria.include_groups))
         log_info(f"Included groups: {groups_str}")
@@ -78,25 +85,24 @@ def run_tests(conf: str,
 
     log_info("Running tests: {}\n".format(", ".join([x.name for x in tests])))
 
-    iterations = run_settings.iterations
     run_info = RunInfo(iterations=iterations, tests=tests, criteria=criteria)
+    driver.defs.set_debug_mode(debug_mode)
+    driver.defs.reporter = reporter
 
-    run_settings.on_run_start(run_info=run_info)
+    reporter.on_run_start(run_info)
     for iter_n in range(iterations):
         iter_info = run_info.iterations_info[iter_n]
         if iterations > 1:
             log_info(f">>> Iteration {iter_n}/{iterations - 1}")
-        run_settings.on_iteration_start(iter_info=iter_info, run_info=run_info)
+        reporter.on_iteration_start(iter_info, iter_n)
         for test in tests:
-            run_settings.on_test_enter(test=test, iter_info=iter_info, run_info=run_info)
+            reporter.on_test_enter(test)
             test_res = _run_test(test)
-            run_settings.on_test_end(result=test_res, test=test, iter_info=iter_info,
-                                     run_info=run_info)
             run_info.add_test_result(test.name, iter_n, test_res)
+            reporter.on_test_end(test_res)
+            reporter.xtest = None  # type: ignore
             log_blank()
-        if run_settings.debug_mode:
-            continue
-        run_settings.on_iteration_end(iter_info=iter_info, run_info=run_info)
+        reporter.on_iteration_end()
 
         if iterations > 1:
             log_info(f"Finished iteration #{iter_n}/{iterations - 1}")
@@ -106,5 +112,5 @@ def run_tests(conf: str,
                 continue
             test_list_str = ", ".join(test_names)
             log_info(f"{status}: {test_list_str}")
-    run_settings.on_run_end(run_info=run_info)
+    reporter.on_run_end()
     return run_info
