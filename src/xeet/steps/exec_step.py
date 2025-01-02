@@ -137,7 +137,7 @@ class ExecStep(XStep):
         if self.cwd:
             self.log_info(f"Working directory will be set to '{self.cwd}'")
         else:
-            self.log_info(f"Using current working directory '{os.getcwd()}'")
+            self.log_info(f"Using current working directory '{self.xdefs.cwd}'")
         self.env = xvars.expand(self.exec_model.env)
         self.env_file = xvars.expand(self.exec_model.env_file)
 
@@ -155,7 +155,9 @@ class ExecStep(XStep):
         self.expected_stdout_file = xvars.expand(self.exec_model.expected_stdout_file)
         self.expected_stderr_file = xvars.expand(self.exec_model.expected_stderr_file)
 
-    def _read_env_vars(self) -> dict:
+    def _read_env_vars(self) -> dict | None:
+        if not self.exec_model.use_os_env and not self.env_file and not self.exec_model._had_key("env"):
+            return None
         ret = {}
         if self.exec_model.use_os_env:
             ret.update(os.environ)
@@ -202,9 +204,9 @@ class ExecStep(XStep):
             return False
 
         subproc_args: dict = {
-            "env": env,
+            "env": {"a": "b"},
             "cwd": self.cwd if self.cwd else None,
-            "shell": self.use_shell,
+            "shell": True,
             "executable": self.shell_path if self.shell_path and self.use_shell else None,
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE if self.output_behavior == _OutputBehavior.Split
@@ -236,6 +238,7 @@ class ExecStep(XStep):
             p = subprocess.Popen(**subproc_args)
             self.timeout_occurred = False
             self.pr_debug(" output ".center(33, "-"))
+            p.wait()
             if timeout:
                 self.log_info(f"Timeout set to {timeout}s", dbg_pr=False)
                 timer = threading.Timer(timeout, self._timeout_terminate, [p])

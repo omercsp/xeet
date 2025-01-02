@@ -1,7 +1,8 @@
-from xeet.common import json_value, XeetVars
+from xeet.common import json_value, XeetVars, in_windows
 import logging
 from typing import Any
 from functools import cache
+from pathlib import PureWindowsPath
 import os
 
 try:
@@ -39,6 +40,13 @@ class XeetDefs:
             self.root_dir = os.path.abspath(self.root_dir)
         self.output_dir = f"{self.root_dir}/xeet.out"
         self.expected_output_dir = f"{self.root_dir}/xeet.expected"
+
+        if in_windows():
+            self.cwd = PureWindowsPath(self.cwd).as_posix()
+            self.root_dir = PureWindowsPath(self.root_dir).as_posix()
+            self.output_dir = PureWindowsPath(self.output_dir).as_posix()
+            self.expected_output_dir = PureWindowsPath(self.expected_output_dir).as_posix()
+
         self.xvars = XeetVars(start_vars={
             glbl_var_name("CWD"): self.cwd,
             glbl_var_name("ROOT"): self.root_dir,
