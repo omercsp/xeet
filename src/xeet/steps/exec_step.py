@@ -7,12 +7,14 @@ from enum import Enum
 from io import TextIOWrapper
 from typing import ClassVar
 from dataclasses import dataclass
+import selectors
 import shlex
 import os
 import subprocess
 import signal
 import difflib
 import json
+import time
 
 
 class _OutputBehavior(str, Enum):
@@ -154,8 +156,7 @@ class ExecStep(XStep):
         self.expected_stdout_file = xvars.expand(self.exec_model.expected_stdout_file)
         self.expected_stderr_file = xvars.expand(self.exec_model.expected_stderr_file)
 
-    def _io_descriptors(self) -> tuple[TextIOWrapper | int, TextIOWrapper | int]:
-        err_file = subprocess.DEVNULL
+    def _io_descriptors(self) -> tuple[TextIOWrapper, TextIOWrapper]:
         out_file = open(self.stdout_file, "w")
         if self.output_behavior == _OutputBehavior.Unify:
             err_file = out_file
@@ -213,18 +214,45 @@ class ExecStep(XStep):
         p = None
         out_file, err_file = None, None
         try:
-            if self.debug_mode:
-                self.pr_debug(" output ".center(33, "-"))
-                subproc_args["timeout"] = timeout
-                p = subprocess.run(**subproc_args)
-                res.rc = p.returncode
-                self.pr_debug("-" * 33)
-            else:
-                out_file, err_file = self._io_descriptors()
-                subproc_args["stdout"] = out_file
-                subproc_args["stderr"] = err_file
-                p = subprocess.Popen(**subproc_args)
-                res.rc = p.wait(timeout)
+            self.pr_debug(" output ".center(33, "-"))
+            out_file, err_file = self._io_descriptors()
+            subproc_args["stdout"] = subprocess.PIPE
+            subproc_args["stderr"] = subprocess.PIPE
+            p = subprocess.Popen(**subproc_args)
+            sel = selectors.DefaultSelector()
+            if p.stdout:
+                sel.register(p.stdout, selectors.EVENT_READ)
+            if p.stderr:
+                sel.register(p.stderr, selectors.EVENT_READ)
+            eof = False
+            start_time = time.monotonic()
+            while not eof:
+                if timeout is not None:
+                    remaining = timeout - (time.monotonic() - start_time)
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(subproc_args["args"], timeout)
+                    events = sel.select(timeout=remaining)
+                    if not events:  # Timeout occurred in select()
+                        raise subprocess.TimeoutExpired(subproc_args["args"], timeout)
+                else:
+                    events = sel.select()
+
+                for key, _ in events:
+                    data = key.fileobj.read1().decode()  # type: ignore
+                    if not data:
+                        eof = True
+                        break
+                    self.pr_debug(data, end="")
+                    if key.fileobj is p.stdout:
+                        out_file.write(data)
+                    else:
+                        err_file.write(data)
+            if p.stdout:
+                sel.unregister(p.stdout)
+            if p.stderr:
+                sel.unregister(p.stderr)
+            res.rc = p.wait(timeout)
+            self.pr_debug("-" * 33)
         except OSError as e:
             res.os_error = e
             res.err_summary = str(e)
