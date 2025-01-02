@@ -7,10 +7,10 @@ from enum import Enum
 from io import TextIOWrapper
 from typing import ClassVar
 from dataclasses import dataclass
+import threading
 import shlex
 import os
 import subprocess
-import signal
 import difflib
 import json
 
@@ -101,6 +101,7 @@ class ExecStep(XStep):
         self.expected_stderr_file = ""
         self.stdout_file = ""
         self.stderr_file = ""
+        self.timeout_occurred = False
 
         if self.exec_model.output_behavior is None:
             self.output_behavior = _OutputBehavior.Unify
@@ -154,14 +155,6 @@ class ExecStep(XStep):
         self.expected_stdout_file = xvars.expand(self.exec_model.expected_stdout_file)
         self.expected_stderr_file = xvars.expand(self.exec_model.expected_stderr_file)
 
-    def _io_descriptors(self) -> tuple[TextIOWrapper, TextIOWrapper]:
-        out_file = open(self.stdout_file, "w")
-        if self.output_behavior == _OutputBehavior.Unify:
-            err_file = out_file
-        else:
-            err_file = open(self.stderr_file, "w")
-        return out_file, err_file
-
     def _read_env_vars(self) -> dict:
         ret = {}
         if self.exec_model.use_os_env:
@@ -178,6 +171,28 @@ class ExecStep(XStep):
             ret.update(self.env)
         return ret
 
+    def _io_descriptors(self) -> tuple[TextIOWrapper, TextIOWrapper]:
+        out_file = open(self.stdout_file, "w")
+        if self.output_behavior == _OutputBehavior.Unify:
+            err_file = out_file
+        else:
+            err_file = open(self.stderr_file, "w")
+        return out_file, err_file
+
+    def _timeout_terminate(self, p):
+        self.timeout_occurred = True
+        self._kill_process(p)
+
+    def _kill_process(self, p: subprocess.Popen) -> None:
+        if p.returncode is not None:
+            return
+        try:
+            p.terminate()
+            p.wait(1)
+            p.kill()
+        except OSError as e:
+            self.log_info(f"Error killing process - {e}", dbg_pr=False)
+
     def _run(self, res: ExecStepResult) -> bool:  # type: ignore
         try:
             env = self._read_env_vars()
@@ -191,6 +206,11 @@ class ExecStep(XStep):
             "cwd": self.cwd if self.cwd else None,
             "shell": self.use_shell,
             "executable": self.shell_path if self.shell_path and self.use_shell else None,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE if self.output_behavior == _OutputBehavior.Split
+            else subprocess.STDOUT,
+            "text": True,
+            "bufsize": 0,
         }
         self.log_info(f"Running command (shell: {self.use_shell}):")
         self.log_raw(self.cmd)
@@ -210,47 +230,75 @@ class ExecStep(XStep):
         timeout = self.exec_model.timeout
 
         p = None
-        out_file, err_file = None, None
+        timer = None
+        out_file, err_file = self._io_descriptors()
         try:
-            if self.debug_mode:
-                self.pr_debug(" output ".center(33, "-"))
-                subproc_args["timeout"] = timeout
-                p = subprocess.run(**subproc_args)
-                res.rc = p.returncode
-                self.pr_debug("-" * 33)
-            else:
-                out_file, err_file = self._io_descriptors()
-                subproc_args["stdout"] = out_file
-                subproc_args["stderr"] = err_file
-                p = subprocess.Popen(**subproc_args)
-                res.rc = p.wait(timeout)
+            p = subprocess.Popen(**subproc_args)
+            self.timeout_occurred = False
+            self.pr_debug(" output ".center(33, "-"))
+            if timeout:
+                self.log_info(f"Timeout set to {timeout}s", dbg_pr=False)
+                timer = threading.Timer(timeout, self._timeout_terminate, [p])
+                timer.start()
+
+            while True:
+                read_output = False
+                assert p.stdout is not None
+                data = p.stdout.read(1)
+                if data:
+                    self.pr_debug(data, end="")
+                    out_file.write(data)
+                    read_output = True
+                if self.output_behavior == _OutputBehavior.Split:
+                    assert p.stderr is not None
+                    data = p.stderr.read(1)
+                    if data:
+                        self.pr_debug(data, end="")
+                        err_file.write(data)
+                        read_output = True
+
+                if p.poll() is not None and not read_output:
+                    break
+            #  Handle remaining output
+            for data in p.stdout.read():
+                self.pr_debug(data, end="")
+                out_file.write(data)
+            if self.output_behavior == _OutputBehavior.Split:
+                assert p.stderr is not None
+                for data in p.stderr.read():
+                    self.pr_debug(data, end="")
+                    err_file.write(data)
+            self.pr_debug("-" * 33)
+
+            if self.timeout_occurred:
+                res.timeout_period = timeout
+                res.err_summary = f"Timeout expired after {timeout}s"
+                self.log_info(res.err_summary)
+                return False
+
+            res.rc = p.returncode
         except OSError as e:
             res.os_error = e
             res.err_summary = str(e)
             self.log_info(res.err_summary)
             return False
-        except subprocess.TimeoutExpired as e:
-            assert p is not None
-            try:
-                p.kill()
-                p.wait()
-            except OSError as kill_e:
-                self.log_error(f"Error killing process - {kill_e}")
-            self.log_info(str(e))
-            res.timeout_period = timeout
-            res.err_summary = f"Timeout expired after {timeout}s"
-            return False
         except KeyboardInterrupt:
-            if p and not self.debug_mode:
-                p.send_signal(signal.SIGINT)  # type: ignore
-                p.wait()  # type: ignore
+            assert p is not None
+            self._kill_process(p)
             res.err_summary = "User interrupt"
             return False
         finally:
+            if p and p.stdout:
+                p.stdout.close()
+            if p and p.stderr:
+                p.stderr.close()
             if isinstance(out_file, TextIOWrapper):
                 out_file.close()
             if isinstance(err_file, TextIOWrapper):
                 err_file.close()
+            if timer:
+                self.log_info("Closing output files")
+                timer.cancel()
         self.log_info(f"Command finished with return code {res.rc}")
         self._verify_rc(res)
         self._verify_output(res)
@@ -262,7 +310,7 @@ class ExecStep(XStep):
         res.rc_ok = isinstance(self.exec_model.allowed_rc, str) or \
             res.rc in self.exec_model.allowed_rc
         if res.rc_ok:
-            self.log_info("Return code is valid")
+            self.log_info("Return code is valid", dbg_pr=False)
             return
         res.failed = True
 
@@ -307,11 +355,16 @@ class ExecStep(XStep):
                           "is 'split', verication will be skipped")
             return
 
-        self.log_info("verifying output", dbg_pr=False)
         if res.failed:
             self.log_info("Skipping output verification, prior step failed")
             return
+        self.log_info("verifying output", dbg_pr=False)
         expected_stdout = _expected_text(self.expected_stdout, self.expected_stdout_file)
+        expected_stderr = _expected_text(self.expected_stderr, self.expected_stderr_file)
+        if not expected_stdout and not expected_stderr:
+            self.log_info("No output verification is required")
+            return
+
         if expected_stdout:
             with open(res.stdout_file, "r") as f:
                 stdout = f.read()
@@ -332,7 +385,6 @@ class ExecStep(XStep):
                 self.log_info("stdout differs from expected")
                 res.err_summary = f"stdout differs from expected\n{res.stdout_diff}"
 
-        expected_stderr = _expected_text(self.expected_stderr, self.expected_stderr_file)
         if expected_stderr:
             if self.output_behavior == _OutputBehavior.Unify:
                 self.log_warn("expected_stderr is ignored when output_behavior is 'unify'")
