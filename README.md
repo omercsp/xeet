@@ -19,6 +19,7 @@
   - **Step Inheritance**: Reference reusable step definitions via JSONPath (`settings.common_steps.*`).
 - **Flexible Verification**: Match standard output and standard error against strings or expected files, with regex/string scrubbing filters for hermetic diffs.
 - **Scoped Variable System**: Recursive string interpolation (`{var}`), environment variable access (`{$ENV_VAR}`), object references (`$ref://...`), and built-in runtime variables (`{XEET_ROOT}`, `{XEET_OUT_DIR}`, etc.).
+- **Platform-Specific Testing**: Target specific OS environments (`posix`, `nt`), inherit platform constraints, and load platform-specific config files dynamically via `{XEET_PLATFORM}`.
 - **Fine-Grained Filtering**: Select tests by exact name, fuzzy match, or tag groups with include/exclude rules.
 - **Rich Terminal UI**: Live progress display with customizable output detail, timing breakdowns, and `--debug` live process tailing.
 
@@ -122,6 +123,7 @@ variables:
   - `{XEET_STEP_INDEX}` — Zero-based index of the step within its phase.
   - `{XEET_ITERATIONS}` — Total iteration count (`-r` flag).
   - `{XEET_DEBUG}` — Set to `1` when `--debug` is active, otherwise `0`.
+  - `{XEET_PLATFORM}` — Operating system platform name (`posix` on Linux/macOS, `nt` on Windows).
 
 ### 3. `settings`
 Define configuration-wide defaults or reusable step templates:
@@ -151,6 +153,7 @@ A list of test descriptors.
 | `long_desc` | `string` | Detailed multi-line description (displayed in `info`). |
 | `groups` | `list[string]` | Categorical tags used for filtering (`-g`, `-G`, `-X`). |
 | `variables` | `dict` | Test-scoped variables overriding global variables. |
+| `platforms` | `list[string]` | List of supported platforms (`posix`, `nt`). If set, test only runs on matching OS. |
 | `pre_run` | `list[step]` | Setup steps executed before the main phase. |
 | `run` | `list[step]` | Main test steps. |
 | `post_run` | `list[step]` | Tear-down steps executed after the main phase. |
@@ -194,6 +197,7 @@ A list of test descriptors.
 A test can inherit from another test by specifying `base: <parent_test_name>`.
 
 - **Variables**: Inherited by default (`inherit_variables: true`). A child test's `variables` override the parent's.
+- **Platforms**: Inherited as a whole list if unset on the child. A child test can override its base's platforms list, or explicitly set `platforms: []` to clear an inherited restriction.
 - **Phase Steps (`pre_run`, `run`, `post_run`)**: Combined according to the phase inheritance policy:
   - `replace` *(default)*: The child phase steps replace the parent's phase steps.
   - `append`: Parent steps execute first, followed by child steps.
@@ -291,6 +295,44 @@ run:
       - from_str: "[0-9]+\\.[0-9]{3}s"
         to_str: "X.XXXs"
         regex: true
+```
+
+---
+
+## Platform-Specific Testing
+
+`xeet` supports cross-platform test suites by allowing tests to restrict execution to specific operating systems (`posix` for Linux/macOS, `nt` for Windows) and by providing the `{XEET_PLATFORM}` auto-variable for conditional file inclusion.
+
+### 1. Declaring Supported Platforms
+
+Use the `platforms` field to restrict a test or an abstract base test to matching operating systems. Tests that do not match the host platform are automatically reported as `Skipped`:
+
+```yaml
+tests:
+  - name: test_posix_permissions
+    platforms: [posix]
+    run:
+      - cmd: "ls -la /tmp"
+
+  - name: test_windows_registry
+    platforms: [nt]
+    run:
+      - cmd: "powershell -Command Get-ItemProperty 'HKCU:\\Software'"
+```
+
+### 2. Platform-Conditional Configuration Includes
+
+Use `{XEET_PLATFORM}` in `include` directives to dynamically load OS-specific step libraries and variable definitions:
+
+```yaml
+# Automatically loads 'xeet_posix.yaml' on Linux/macOS or 'xeet_nt.yaml' on Windows
+include:
+  - "common_steps.yaml"
+  - "xeet_{XEET_PLATFORM}.yaml"
+
+tests:
+  - name: run_service
+    base: platform_service_step
 ```
 
 ---

@@ -84,7 +84,8 @@ Two syntaxes, resolved through a scoped parent chain (`RuntimeInfo.xvars`
 System variables (prefix `XEET_`; user variables using this prefix are
 rejected at validation time): `XEET_CWD`, `XEET_ROOT`, `XEET_OUT_DIR`,
 `XEET_EXPECTED_DIR`, `XEET_TEST_NAME`, `XEET_TEST_OUT_DIR`,
-`XEET_STEP_OUT_DIR`, `XEET_STEP_INDEX`, `XEET_ITERATIONS`, `XEET_DEBUG`.
+`XEET_STEP_OUT_DIR`, `XEET_STEP_INDEX`, `XEET_ITERATIONS`, `XEET_DEBUG`,
+`XEET_PLATFORM`.
 
 ## Extension points
 
@@ -118,8 +119,8 @@ yet ported to this architecture: a variable **matrix**/permutation
 facility (`core/matrix.py`), **resource pools** for concurrency
 (`core/resource.py`), and **parallel execution** (`core/tests_runner.py`).
 See `TODO.txt` for the running list of what's still missing on `devel`
-(matrix, parallel execution, platform-specific support, test
-randomization, etc.) — treat it as the feature backlog.
+(matrix, parallel execution, test randomization, etc.) — treat it as the
+feature backlog.
 
 ## Testing
 

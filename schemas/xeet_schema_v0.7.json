@@ -1,5 +1,13 @@
 {
     "$defs": {
+        "Platform": {
+            "enum": [
+                "posix",
+                "nt"
+            ],
+            "title": "Platform",
+            "type": "string"
+        },
         "StepsInheritType": {
             "enum": [
                 "prepend",
@@ -89,6 +97,13 @@
                     },
                     "title": "Var Map",
                     "type": "object"
+                },
+                "platforms": {
+                    "items": {
+                        "$ref": "#/$defs/Platform"
+                    },
+                    "title": "Platforms",
+                    "type": "array"
                 },
                 "inherit_variables": {
                     "default": true,

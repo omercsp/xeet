@@ -22,6 +22,12 @@ class StepsInheritType(str, Enum):
     Replace = "replace"
 
 
+#  Platform names, as reported by os.name
+class Platform(str, Enum):
+    Posix = "posix"
+    Nt = "nt"
+
+
 class TestModel(BaseModel):
     model_config = ConfigDict(extra='forbid')
     name: str = Field(pattern=_TEST_NANE_PATTERN, min_length=1)
@@ -38,6 +44,8 @@ class TestModel(BaseModel):
     skip_reason: str = _EMPTY_STR
     var_map: XeetVarsModel = Field(default_factory=XeetVarsModel,
                                    validation_alias=AliasChoices("var_map", "variables", "vars"))
+
+    platforms: list[Platform] = Field(default_factory=list)
 
     # Inheritance behavior
     inherit_variables: bool = True
@@ -93,6 +101,15 @@ class TestModel(BaseModel):
 
     def post_run_steps(self) -> list[Any]:
         return self._step_list("post_run")
+
+    #  Not every field shouild use this. Some fields are not to be inherited.
+    def _inherited_value(self, name: str) -> Any:
+        if name not in self.model_fields_set and self.parent:
+            return self.parent._inherited_value(name)
+        return getattr(self, name)
+
+    def platform_list(self) -> list[Platform]:
+        return self._inherited_value("platforms")
 
 
 @dataclass
@@ -210,7 +227,6 @@ class Test:
         if self.model.abstract:
             raise XeetException("Can't run abstract tasks")
 
-        self.setup(setup_steps=True)
         res = TestResult(test=self)
         if self.error:
             res.status = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
@@ -220,6 +236,21 @@ class Test:
             self.notify("marked to be skipped", dbg_pr=True)
             res.status = TestStatus(TestPrimaryStatus.Skipped)
             res.status_reason = self.model.skip_reason
+            return res
+
+        #  Checked before setup(), so a test meant for another platform is skipped
+        #  instead of erroring on platform specific variables it can't resolve here.
+        platforms = self.model.platform_list()
+        if platforms and os.name not in platforms:
+            self.notify("skipping test due to platform mismatch", dbg_pr=True)
+            res.status = TestStatus(TestPrimaryStatus.Skipped)
+            res.status_reason = f"Platform '{os.name}' not in test's platform list"
+            return res
+
+        self.setup(setup_steps=True)
+        if self.error:
+            res.status = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
+            res.status_reason = self.error
             return res
 
         if not self.main_phase.steps:
