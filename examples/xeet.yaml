@@ -1,4 +1,4 @@
-include: [xeet_base.yaml, inheritance.yaml]
+include: [xeet_base.yaml, inheritance.yaml, "xeet_{XG_PLATFORM}.yaml"]
 tests:
   - name: 001_pass
     short_desc: returns true, always passes
@@ -230,3 +230,11 @@ tests:
       - cmd: "{echo_cmd} Test output dir: {XT_OUT_DIR}"
         expected_stdout: "Test output dir: {XG_OUT_DIR}/{XT_NAME}\n"
     groups: [passing]
+
+  - name: 031_platform
+    base: platform_test
+    groups: [passing, platform]
+
+  - name: 032_bad_platform
+    base: bad_platform_test
+    groups: [skipped, platform]

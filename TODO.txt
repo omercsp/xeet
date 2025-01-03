@@ -1,5 +1,4 @@
 # Missing features
-- Platform specific support
 - Add variable matrix support
 - Add colored log support
 - Add quiet mode 1 - no unrelated test output (splash and so)
