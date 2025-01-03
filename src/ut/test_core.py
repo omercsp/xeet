@@ -320,3 +320,17 @@ class TestCore(DummyTestConfig):
         tests = self._fetch_tests()
         self.assertEqual(len(tests), 2)
         self.assertSetEqual(set([t.name for t in tests]), set([_TEST0, _TEST2]))
+
+    def test_platform_support(self):
+        this_platform = os.name
+        other_platform = "nt" if this_platform != "nt" else "posix"
+        self.add_test(_TEST0, platforms=[this_platform], reset=True)
+        self.add_test(_TEST1, platforms=[this_platform, other_platform])
+        self.add_test(_TEST2, platforms=[other_platform], save=True)
+
+        expected = TestResult(status=TestStatus.Passed)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
+
+        expected.status = TestStatus.Skipped
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)

@@ -118,6 +118,8 @@ class XtestModel(KeysBaseModel):
     var_map: dict[str, Any] = Field(default_factory=dict,
                                     validation_alias=AliasChoices("var_map", "variables", "vars"))
 
+    platforms: list[str] = Field(default_factory=list)
+
     # Inheritance behavior
     inherit_variables: bool = True
     pre_run_inheritance: StepsInheritType = StepsInheritType.Replace
@@ -284,6 +286,12 @@ class Xtest:
             res.status = TestStatus.Skipped
             res.status_reason = self.model.skip_reason
             self._log_info("Marked to be skipped", dbg_pr=True)
+            return res
+        if self.model.platforms and os.name not in self.model.platforms:
+            res.status = TestStatus.Skipped
+            res.status_reason = f"Platform '{os.name}' not in test's platform list"
+            self._log_info(f"Skipping test due to platform mismatch; {res.status_reason}",
+                           dbg_pr=True)
             return res
         if not self.run_steps:
             self._log_info("No command for test, will not run", dbg_pr=True)

@@ -1,0 +1,11 @@
+variables:
+  platform_var: posix
+
+tests:
+  - name: platform_test
+    abstract: true
+    short_desc: Test that should only run on POSIX systems
+    run:
+      - cmd: uname
+      - cmd: "{echo_cmd} {platform_var}"
+        expected_stdout: "posix\n"
