@@ -373,3 +373,17 @@ class TestCore(DummyTestConfig):
         self.assertEqual(step_details["Dummy val0"], "test var")
         self.assertEqual(step_details["Dummy val1"], 10)
         self.assertEqual(step_details["Step type"], "dummy")
+
+    def test_platform_support(self):
+        this_platform = os.name
+        other_platform = "nt" if this_platform != "nt" else "posix"
+        self.add_test(_TEST0, platforms=[this_platform], reset=True)
+        self.add_test(_TEST1, platforms=[this_platform, other_platform])
+        self.add_test(_TEST2, platforms=[other_platform], save=True)
+
+        expected = TestResult(status=TestStatus.Passed)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
+
+        expected.status = TestStatus.Skipped
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
