@@ -1,6 +1,7 @@
 from ut import unittest, ref_str
 from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException, XeetInvalidVarType,
-                         XeetRecursiveVarException, XeetBadVarNameException)
+                         XeetRecursiveVarException, XeetBadVarNameException, filter_str,
+                         StrFilterData)
 import tempfile
 import os
 
@@ -234,3 +235,18 @@ class TestCommon(unittest.TestCase):
 
         self.assertEqual(xvars.expand("{var2}", [str]), "5")
         self.assertRaises(XeetInvalidVarType, xvars.expand, "{var2}", [list, int])
+
+    def test_filter_string(self):
+        s = "abc def ghi jkl def"
+        filter0 = StrFilterData(from_str="def", to_str="xyz")
+        self.assertEqual(filter_str(s, [filter0]), "abc xyz ghi jkl xyz")
+
+        filter1 = StrFilterData(from_str="jkl", to_str="123")
+        self.assertEqual(filter_str(s, [filter0, filter1]), "abc xyz ghi 123 xyz")
+
+        filter2 = StrFilterData(from_str="[a-z]{3}", to_str="***", regex=True)
+        self.assertEqual(filter_str(s, [filter2]), "*** *** *** *** ***")
+        self.assertEqual(filter_str(s, [filter1, filter2]), "*** *** *** 123 ***")
+
+        filter3 = StrFilterData(from_str="[a-z]{3}", to_str="***")
+        self.assertEqual(filter_str(s, [filter3]), s)
