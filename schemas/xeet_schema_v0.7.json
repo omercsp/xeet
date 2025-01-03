@@ -108,6 +108,13 @@
                         "title": "Var Map",
                         "type": "object"
                     },
+                    "platforms": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "title": "Platforms",
+                        "type": "array"
+                    },
                     "inherit_variables": {
                         "default": true,
                         "title": "Inherit Variables",
