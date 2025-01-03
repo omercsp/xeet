@@ -228,3 +228,17 @@ class TestExecStep(XeetUnittest):
         self.add_test(TEST2, run=[step_desc], save=True)
         validate_model(TEST0, cmd="other_cmd", cwd="")
         validate_model(TEST1, stdout="other_stdout", stderr="other_stderr")
+
+    def test_output_filter(self):
+        filters: list[dict] = [
+            {"from_str": "a", "to_str": "b"},
+        ]
+        cmd = gen_echo_cmd("--no-newline abcdef")
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="bbcdef", output_filters=filters)
+        self.add_test(TEST0, run=[step_desc], reset=True, save=True)
+        self.assertTestResultEqual(self.run_test(TEST0), GOOD_EXEC_RES)
+
+        filters.append({"from_str": "[bc]{3}", "to_str": "***", "regex": True})
+        step_desc = gen_exec_step_desc(cmd=cmd, expected_stdout="***def", output_filters=filters)
+        self.add_test(TEST0, run=[step_desc], reset=True, save=True)
+        self.assertTestResultEqual(self.run_test(TEST0), GOOD_EXEC_RES)
