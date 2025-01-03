@@ -240,20 +240,22 @@ class TestCore(DummyTestConfig):
         xeet_root = platform_path(xeet_root)
         out_dir = f"{xeet_root}/xeet.out"
 
-        #  Auto global vars
         step_desc0 = gen_dummy_step_desc(dummy_val0="{XEET_ROOT} {XEET_CWD} {XEET_OUT_DIR}")
-        #  Test sepecific
         step_desc1 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_NAME} {XEET_TEST_OUT_DIR}")
+        step_desc2 = gen_dummy_step_desc(dummy_val0="{XEET_PLATFORM}")
 
-        self.add_test(_TEST0, run=[step_desc0, step_desc1], reset=True, save=True)
+        self.add_test(_TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True)
 
         cwd = platform_path(os.getcwd())
         expected_step_result0 = gen_dummy_step_result(step_desc0)
         expected_step_result0.dummy_val0 = f"{xeet_root} {cwd} {out_dir}"
         expected_step_result1 = gen_dummy_step_result(step_desc1)
         expected_step_result1.dummy_val0 = f"{_TEST0} {out_dir}/{_TEST0}"
+        expected_step_result2 = gen_dummy_step_result(step_desc2)
+        expected_step_result2.dummy_val0 = os.name
         expected_test_steps_results = XStepListResult(results=[expected_step_result0,
-                                                               expected_step_result1])
+                                                               expected_step_result1,
+                                                               expected_step_result2])
         expected = TestResult(status=TestStatus.Passed, run_res=expected_test_steps_results)
         self.assertTestResultEqual(self.run_test(_TEST0), expected)
 
@@ -371,3 +373,17 @@ class TestCore(DummyTestConfig):
         self.assertEqual(step_details["Dummy val0"], "test var")
         self.assertEqual(step_details["Dummy val1"], 10)
         self.assertEqual(step_details["Step type"], "dummy")
+
+    def test_platform_support(self):
+        this_platform = os.name
+        other_platform = "nt" if this_platform != "nt" else "posix"
+        self.add_test(_TEST0, platforms=[this_platform], reset=True)
+        self.add_test(_TEST1, platforms=[this_platform, other_platform])
+        self.add_test(_TEST2, platforms=[other_platform], save=True)
+
+        expected = TestResult(status=TestStatus.Passed)
+        self.assertTestResultEqual(self.run_test(_TEST0), expected)
+        self.assertTestResultEqual(self.run_test(_TEST1), expected)
+
+        expected.status = TestStatus.Skipped
+        self.assertTestResultEqual(self.run_test(_TEST2), expected)
