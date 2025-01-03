@@ -69,6 +69,7 @@ class RuntimeInfo:
 
         self.xvars = XeetVars(start_vars=XeetVarsModel({
             system_var_name("CWD"): self.cwd,
+            system_var_name("PLATFORM"): os.name.lower(),
         }))
         self.defs_dict = {}
         self.debug_mode = False
