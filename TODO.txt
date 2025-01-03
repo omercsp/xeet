@@ -2,7 +2,6 @@
 
 # Missing features
 - Add coverage testing (UT + test)
-- Platform specific support
 - Exec step: save diff file
 - Allow a test to be excluded from an 'all' run
 - Implicit test names filtering
