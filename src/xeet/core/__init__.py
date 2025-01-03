@@ -40,7 +40,9 @@ class XeetDefs:
             system_var_name("ROOT"): self.root_dir,
             system_var_name("EXPECTED_DIR"): self.expected_output_dir,
             system_var_name("OUT_DIR"): self.output_dir,
-            system_var_name("DEBUG"): "1" if debug_mode else "0"
+            system_var_name("DEBUG"): "1" if debug_mode else "0",
+            system_var_name("PLATFORM"): os.name.lower(),
+
         })
         self.defs_dict = {}
         self.debug_mode = debug_mode
