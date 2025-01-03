@@ -37,6 +37,8 @@ class TestModel(KeysBaseModel):
     var_map: dict[str, Any] = Field(default_factory=dict,
                                     validation_alias=AliasChoices("var_map", "variables", "vars"))
 
+    platforms: list[str] = Field(default_factory=list)
+
     # Inheritance behavior
     inherit_variables: bool = True
     pre_run_inheritance: StepsInheritType = StepsInheritType.Replace
@@ -94,6 +96,9 @@ class TestModel(KeysBaseModel):
         self.pre_run = _inherit_steps("pre_run", self.pre_run_inheritance)
         self.run = _inherit_steps("run", self.run_inheritance)
         self.post_run = _inherit_steps("post_run", self.post_run_inheritance)
+
+        if not self.has_key("platforms") and other.has_key("platforms"):
+            self.platforms = other.platforms
 
 
 @dataclass
@@ -196,9 +201,15 @@ class Test:
             self.notify("marked to be skipped", dbg_pr=True)
             return TestResult(TestStatus(TestPrimaryStatus.Skipped),
                               status_reason=self.model.skip_reason)
-        if not self.main_phase:
-            self.notify("no command for test, will not run", dbg_pr=True)
-            return TestResult(TestStatus(TestPrimaryStatus.NotRun), status_reason="No command")
+
+        if self.model.platforms and os.name not in self.model.platforms:
+            self.notify(f"skipping test due to platform mismatch", dbg_pr=True)
+            return TestResult(TestStatus(TestPrimaryStatus.Skipped),
+                              status_reason=f"Platform '{os.name}' not in test's platform list")
+
+        if not self.main_phase.steps:
+            self.notify("no commands for test, will not run", dbg_pr=True)
+            return TestResult(TestStatus(TestPrimaryStatus.NotRun), status_reason="No commands")
 
         res = TestResult()
         self.notify("Starting run", dbg_pr=False)
