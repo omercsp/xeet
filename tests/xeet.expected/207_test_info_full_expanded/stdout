@@ -20,6 +20,7 @@ Pre-run steps:
        Expected stdout:          None
        Expected stdout file:     None
        Output behavior:          unify
+       Output filters:           <empty list>
        Shell path:               None
        Stderr file:              None
        Stdout file:              None
@@ -42,6 +43,7 @@ Run steps:
        Expected stdout:          /home/omer/devel/xeet/tests
        Expected stdout file:     None
        Output behavior:          unify
+       Output filters:           <empty list>
        Shell path:               None
        Stderr file:              None
        Stdout file:              None
@@ -63,6 +65,7 @@ Run steps:
        Expected stdout:          test value
        Expected stdout file:     None
        Output behavior:          unify
+       Output filters:           <empty list>
        Shell path:               None
        Stderr file:              None
        Stdout file:              None
@@ -88,6 +91,7 @@ Post-run steps:
                                  testbed/xeet.out/030_for_info
        Expected stdout file:     None
        Output behavior:          unify
+       Output filters:           <empty list>
        Shell path:               None
        Stderr file:              None
        Stdout file:              None
