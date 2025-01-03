@@ -5,7 +5,7 @@ Starting xeet run
 Test criteria:
 Included groups - passing
 Fuzzy included tests - 004, 008
-Fuzzy excluded tests - 003
+Fuzzy excluded tests - 003, 031
 Excluded groups - inheritance
 
 Running tests: 001_pass, 002_pass_with_output, 004_fail_over_rc, 008_bad_desc, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 030_for_info
