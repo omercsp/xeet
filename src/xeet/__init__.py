@@ -48,8 +48,9 @@ class XeetDefs:
             glbl_var_name("CWD"): self.cwd,
             glbl_var_name("ROOT"): self.root_dir,
             glbl_var_name("OUT_DIR"): self.output_dir,
-            glbl_var_name("EXPECTED_DIR"): self.expected_output_dir
+            glbl_var_name("EXPECTED_DIR"): self.expected_output_dir,
             glbl_var_name("DEBUG"): "1" if debug_mode else "0",
+            glbl_var_name("PLATFORM"): os.name
         })
         self.defs_dict = {}
         self.debug_mode = debug_mode
