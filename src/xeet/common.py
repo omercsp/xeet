@@ -4,6 +4,8 @@ from typing import Any, Callable, Iterable
 from jsonpath_ng.ext import parse as parse_ext
 from jsonpath_ng.exceptions import JsonPathParserError
 from functools import cache
+from dataclasses import dataclass
+import re
 import time
 import threading
 import re
@@ -291,3 +293,25 @@ class FileTailer:
             self.kill_event.set()
         if self.thread.is_alive():
             self.thread.join()
+
+
+@dataclass
+class StrFilterData:
+    from_str: str
+    to_str: str
+    regex: bool = False
+    from_re: re.Pattern | None = None
+
+
+def filter_str(s: str, filters: Iterable[StrFilterData]) -> str:
+    def _filter_all(s: str, fltr: StrFilterData) -> str:
+        if fltr.regex:
+            if fltr.from_re is None:
+                fltr.from_re = re.compile(fltr.from_str)
+            return fltr.from_re.sub(fltr.to_str, s)
+
+        return s.replace(fltr.from_str, fltr.to_str)
+
+    for fltr in filters:
+        s = _filter_all(s, fltr)
+    return s
