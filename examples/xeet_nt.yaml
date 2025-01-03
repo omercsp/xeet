@@ -1,0 +1,20 @@
+variables:
+  platform_var: windows
+settings:
+  exec_step:
+    use_os_env: true # Windows commands requires this for PATH to be set correctly
+tests:
+  - name: platform_test
+    abstract: true
+    short_desc: Test that should only run on POSIX systems
+    run:
+      - cmd: cmd /r ver
+      - cmd: "{echo_cmd} {platform_var}"
+        expected_stdout: "windows\n"
+
+  - name: bad_platform_test
+    abstract: true
+    short_desc: Test that should not run on POSIX systems
+    platforms: [posix]
+    run:
+      - cmd: dir
