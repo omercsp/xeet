@@ -4,7 +4,7 @@
 		"run_cmd": "{{base_cmd}} run -c testbed/xeet.yaml",
 		"list_cmd": "{{base_cmd}} list -c testbed/xeet.yaml",
 		"info_cmd": "{{base_cmd}} info -c testbed/xeet.yaml",
-		"run_outpu_base_cmd": "{{run_cmd}} -g passing -X inheritance -z 004 -z 008 -Z 003"
+		"run_outpu_base_cmd": "{{run_cmd}} -g passing -X inheritance -z 004 -z 008 -Z 003 -Z 031"
 	},
 	"tests": [
 		{
