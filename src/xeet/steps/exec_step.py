@@ -1,4 +1,5 @@
-from xeet.common import XeetVars, text_file_tail, in_windows, FileTailer, yes_no_str
+from xeet.common import (XeetVars, text_file_tail, in_windows, FileTailer, yes_no_str,
+                         StrFilterData, filter_str)
 from xeet.pr import pr_info
 from xeet.core import XeetDefs
 from xeet.core.xstep import XStep, XStepModel, XStepResult
@@ -41,6 +42,7 @@ class ExecStepModel(XStepModel):
     expected_stdout_file: str | None = None
     expected_stderr_file: str | None = None
     debug_new_line: bool = False
+    output_filters: list[StrFilterData] = Field(default_factory=list)
 
     @field_validator('allowed_rc')
     @classmethod
@@ -302,7 +304,12 @@ class ExecStep(XStep):
 
         def _compare_std_file(name, file_path, expected):
             with open(file_path, "r") as f:
-                content = f.read().split("\n")
+                content = f.read()
+                if self.exec_model.output_filters:
+                    content = filter_str(content, self.exec_model.output_filters)
+                    with open(f"{file_path}.filtered", "w") as filtered_f:
+                        filtered_f.write(content)
+                content = content.split("\n")
             diff = difflib.unified_diff(
                 content,  # List of lines from file1
                 expected,  # List of lines from file2
