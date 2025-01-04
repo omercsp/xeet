@@ -1,4 +1,4 @@
-from xeet.pr import pr_warn, pr_error, pr_info, pr_header, pr_ok
+from xeet.pr import pr_warn, pr_error, pr_header, pr_ok
 import logging
 import datetime
 import inspect
