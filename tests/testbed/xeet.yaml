@@ -263,3 +263,17 @@ tests:
     short_desc: Test for incorrect platform
     base: wrong_platform_test
     groups: [skipped, platform]
+
+  - name: 033_self_inherit_loop
+    base: 033_self_inherit_loop
+    run:
+      - cmd: doesn't matter
+    groups: [not_run, inheritance]
+
+  - name: 034_inherit_loop_1
+    base: 035_inherit_loop_2
+    groups: [not_run, inheritance]
+
+  - name: 035_inherit_loop_2
+    base: 034_inherit_loop_1
+    groups: [not_run, inheritance]
