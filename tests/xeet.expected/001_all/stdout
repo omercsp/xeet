@@ -1,88 +1,103 @@
 Starting run
 ------------
-Running tests: 001_pass, 002a_fail_rc, 002b_fail_output_compare, 002c_fail_output_compare_split, 003a_skip, 003b_skip_reason, 004_bad_desc, 005_expected_fail, 006_unexpected_success, 007 with spaces, 008a_bad_command_not_run, 008b_inherits_bad_command_to_good, 009_env_pass, 010_timeout, 013_multi_rc_passing, 014_show_auto_vars_internal, 015a_pre_test_ok, 015b_pre_test_fail, 015c_verification_fail, 015d_test_verification_ok, 015e_bad_pre_test_cmd, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
+Running tests: 001_pass, 002_pass_with_output, 003_fail_over_output, 004_fail_over_rc, 005_fail_2nd_step, 006_skip, 007_skip_reason, 008_bad_desc, 009_expected_fail, 010_unexpected_pass, 011_bad_cmd, 012_inherit_and_fix_bad_cmd, 009_env_pass, 010_timeout_fail, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 016_not_run_pre_test_fail, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 025_inherit_abstract_run_bad, 026_inherit_abstract_run_bad_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info, 031_platform, 032_bad_platform, 033_self_inherit_loop, 034_inherit_loop_1, 035_inherit_loop_2
 
-001_pass                                                     ....... [Passed ]
-002a_fail_rc                                                 ....... [Failed ]
-retrun code 1, not in allowed return codes (0)
-empty test output file (unified)
+001_pass                                                     ....... [Passed]
+002_pass_with_output                                         ....... [Passed]
+003_fail_over_output                                         ....... [Failed]
+Run step #0:  failed: stdout differs from expected
+--- /home/omer/devel/xeet/tests/testbed/xeet.out/003_fail_over_output_main_0_stdout
++++ expected_stdout
+@@ -1,2 +1,2 @@
+-Hello World!
++Goodbye World!
+ 
 
-002b_fail_output_compare                                     ....... [Failed ]
-Verification failed with rc=1
------------- verification output tail ------------
-1,2c1,2
-< good stdout str
-< good stderr str
----
-> bad stdout str
-> bad stderr str
---------------------------------------------------
+004_fail_over_rc                                             ....... [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
 
-002c_fail_output_compare_split                               ....... [Failed ]
-Verification failed with rc=1
------------- verification output tail ------------
-1c1
-< good stderr str
----
-> bad stderr str
---------------------------------------------------
+005_fail_2nd_step                                            ....... [Failed]
+Run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
 
-003a_skip                                                    ....... [Skipped]
-003b_skip_reason                                             ....... [Skipped] This test is expected to be...
-004_bad_desc                                                 ....... [Not run] Malformed test
-Error parsing test '004_bad_desc' - 'bad_setting': Extra inputs are not permitted
+006_skip                                                     ....... [Skipped]
+007_skip_reason                                              ....... [Skipped]
+This test is expected to be skipped
 
-005_expected_fail                                            ....... [Passed ] Expected failure
-006_unexpected_success                                       ....... [Failed ] Unexpected pass
-empty test output file (unified)
+008_bad_desc                                                 ....... [Not run] Init error
+'bad_setting': Extra inputs are not permitted
 
-007 with spaces                                              ....... [Passed ]
-008a_bad_command_not_run                                     ....... [Not run] Run error
-No such file or directory
+009_expected_fail                                            ....... [Passed] Expected failure
+010_unexpected_pass                                          ....... [Failed] Unexpected pass
+011_bad_cmd                                                  ....... [Not run] Run error
+Run step #0:  incomplete: [Errno 2] No such file or directory: 'bad_command'
 
-008b_inherits_bad_command_to_good                            ....... [Passed ]
-009_env_pass                                                 ....... [Passed ]
-010_timeout                                                  ....... [Failed ] timeout (0.5s)
------------ test output tail (unified) -----------
-Going to sleep
---------------------------------------------------
+012_inherit_and_fix_bad_cmd                                  ....... [Passed]
+009_env_pass                                                 ....... [Passed]
+010_timeout_fail                                             ....... [Not run] Run error
+Run step #0:  incomplete: Timeout expired after 0.5s
 
-013_multi_rc_passing                                         ....... [Passed ]
-014_show_auto_vars_internal                                  ....... [Passed ]
-015a_pre_test_ok                                             ....... [Passed ]
-015b_pre_test_fail                                           ....... [Not run] Pre-test error
-Pre-test failed with rc=1
-empty pre test output file
+013_multi_rc_passing                                         ....... [Passed]
+014_show_auto_vars_internal                                  ....... [Passed]
+015_pre_test_ok                                              ....... [Passed]
+016_not_run_pre_test_fail                                    ....... [Not run] Pre-test error
+Pre-run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
 
-015c_verification_fail                                       ....... [Failed ]
-Verification failed with rc=1
-empty verification output file
-
-015d_test_verification_ok                                    ....... [Passed ]
-015e_bad_pre_test_cmd                                        ....... [Not run] Pre-test error
-[Errno 2] No such file or directory: 'does_not_exist'
-empty pre test output file
-
-020_post_test_ok                                             ....... [Passed ]
-021_post_test_fail                                           ....... [Passed ]
+017_post_test_ok                                             ....... [Passed]
+018_post_test_fail                                           ....... [Passed]
 NOTICE: Post-test failed
-empty post test output file
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
 
-022_post_test_fail_output                                    ....... [Passed ]
+019_fix_post_fail                                            ....... [Passed]
+020_inherit_abstract_pre_run_good                            ....... [Passed]
+021_inherit_abstract_pre_run_bad                             ....... [Not run] Pre-test error
+Pre-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+022_inherit_abstract_pre_run_bad_add_...                     ....... [Not run] Pre-test error
+Pre-run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+023_inherit_abstract_run_good                                ....... [Passed]
+024_inherit_abstract_run_good_add_run                        ....... [Passed]
+025_inherit_abstract_run_bad                                 ....... [Failed]
+Run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+026_inherit_abstract_run_bad_add_run                         ....... [Failed]
+Run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+027_inherit_abstract_post_run_good                           ....... [Passed]
+028_inherit_abstract_post_run_bad                            ....... [Passed]
 NOTICE: Post-test failed
-------------- post test output tail --------------
-failing post test output
---------------------------------------------------
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+030_for_info                                                 ....... [Passed]
+031_platform                                                 ....... [Passed]
+032_bad_platform                                             ....... [Skipped]
+Platform 'posix' not in test's platform list
+
+033_self_inherit_loop                                        ....... [Not run] Init error
+Base test '033_self_inherit_loop' error: Inheritance loop detected for '033_self_inherit_loop'
+
+034_inherit_loop_1                                           ....... [Not run] Init error
+Base test '035_inherit_loop_2' error: Inheritance loop detected for '034_inherit_loop_1'
+
+035_inherit_loop_2                                           ....... [Not run] Init error
+Base test '034_inherit_loop_1' error: Inheritance loop detected for '035_inherit_loop_2'
 
 
-Skipped: 003a_skip, 003b_skip_reason
-Initialization error: 004_bad_desc
-Pre-run error: 015b_pre_test_fail, 015e_bad_pre_test_cmd
-Run error: 008a_bad_command_not_run
-Failed RC verification: 002a_fail_rc
-Failed verification: 002b_fail_output_compare, 002c_fail_output_compare_split, 015c_verification_fail
-Unexpected pass: 006_unexpected_success
-Timeout: 010_timeout
-Passed: 001_pass, 007 with spaces, 008b_inherits_bad_command_to_good, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015a_pre_test_ok, 015d_test_verification_ok, 020_post_test_ok, 021_post_test_fail, 022_post_test_fail_output
-Expected failure: 005_expected_fail
+Skipped: 006_skip, 007_skip_reason, 032_bad_platform
+Initialization error: 008_bad_desc, 033_self_inherit_loop, 034_inherit_loop_1, 035_inherit_loop_2
+Pre-run error: 016_not_run_pre_test_fail, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run
+Run error: 011_bad_cmd, 010_timeout_fail
+Failed: 003_fail_over_output, 004_fail_over_rc, 005_fail_2nd_step, 025_inherit_abstract_run_bad, 026_inherit_abstract_run_bad_add_run
+Unexpected pass: 010_unexpected_pass
+Passed: 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info, 031_platform
+Expected failure: 009_expected_fail
 

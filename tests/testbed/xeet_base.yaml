@@ -1,5 +1,5 @@
 variables:
-  scripts_dir: '{XG_ROOT}/../scripts/testing'
+  scripts_dir: '{XG_ROOT}/../../scripts/testing'
   echo: 'python {scripts_dir}/echo.py'
   rc_cmd: 'python {scripts_dir}/rc.py'
   true_cmd: '{rc_cmd} 0'
