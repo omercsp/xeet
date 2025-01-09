@@ -24,6 +24,7 @@ Pre-run steps:
        Shell path:               None
        Stderr file:              stderr
        Stdout file:              stdout
+       Stop process wait:        3
        Timeout:                  None
        Use os env:               No
        Use shell:                No
@@ -47,6 +48,7 @@ Run steps:
        Shell path:               None
        Stderr file:              stderr
        Stdout file:              stdout
+       Stop process wait:        3
        Timeout:                  None
        Use os env:               No
        Use shell:                No
@@ -69,6 +71,7 @@ Run steps:
        Shell path:               None
        Stderr file:              stderr
        Stdout file:              stdout
+       Stop process wait:        3
        Timeout:                  None
        Use os env:               No
        Use shell:                No
@@ -95,6 +98,7 @@ Post-run steps:
        Shell path:               None
        Stderr file:              stderr
        Stdout file:              stdout
+       Stop process wait:        3
        Timeout:                  None
        Use os env:               No
        Use shell:                No
