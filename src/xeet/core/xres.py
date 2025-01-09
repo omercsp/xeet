@@ -1,6 +1,7 @@
 from . import TestCriteria
 from enum import Enum, auto
 from dataclasses import dataclass, field
+from threading import Lock
 
 
 @dataclass
@@ -120,19 +121,21 @@ class IterationResult:
 
         self.not_run_tests: bool = False
         self.failed_tests: bool = False
+        self._lock = Lock()
 
     def add_test_result(self, test_name: str, result: TestResult) -> None:
-        if result.status == TestStatus.NotRun:
-            self.not_run_tests = True
-        elif result.status == TestStatus.Failed:
-            self.failed_tests = True
-        key = (result.status, result.sub_status)
-        if key not in self.status_results_summary:
-            self.status_results_summary[key] = [test_name]
-        else:
-            self.status_results_summary[key].append(test_name)
+        with self._lock:
+            if result.status == TestStatus.NotRun:
+                self.not_run_tests = True
+            elif result.status == TestStatus.Failed:
+                self.failed_tests = True
+            key = (result.status, result.sub_status)
+            if key not in self.status_results_summary:
+                self.status_results_summary[key] = [test_name]
+            else:
+                self.status_results_summary[key].append(test_name)
 
-        self.results[test_name] = result
+            self.results[test_name] = result
 
 
 class RunResult:
@@ -140,9 +143,6 @@ class RunResult:
         self.iterations: int = iterations
         self.iter_results = [IterationResult(i) for i in range(iterations)]
         self.criteria = criteria
-
-    def _test_result_key(self, test_name: str, iteration: int) -> str:
-        return f"{test_name}_{iteration}"
 
     @property
     def failed_tests(self) -> bool:
