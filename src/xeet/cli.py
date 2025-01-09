@@ -1,5 +1,6 @@
 from xeet.core.xtest import Xtest, TestStatus
-from xeet.core.xres import TestResult, status_catgoery, XStepResult, IterationResult, RunResult
+from xeet.core.xres import (TestResult, status_catgoery, XStepResult, IterationResult, RunResult,
+                            TestStatusCategory)
 from xeet.core.xstep import XStep
 from xeet.core.run_reporter import RunReporter
 from xeet.core import TestCriteria
@@ -8,6 +9,8 @@ from xeet.pr import (DictPrintType, pr_obj, pr_info, PrintColors, colors_enabled
                      LogLevel)
 from xeet.common import XeetException, json_values, short_str, yes_no_str
 from dataclasses import dataclass
+from rich.live import Live
+from rich.console import Console
 import textwrap
 import shutil
 
@@ -125,50 +128,70 @@ def _reset_color():
 
 
 class CliRunReporter(RunReporter):
-    def __init__(self, show_summary: bool) -> None:
+
+    status_catgoery_colors = {
+        TestStatusCategory.NotRun: ("[orange1]", "[/orange1]"),
+        TestStatusCategory.Failed: ("[red]", "[/red]"),
+        TestStatusCategory.Passed: ("[green]", "[/green]"),
+    }
+
+    def __init__(self, show_summary: bool, live: Live) -> None:
         super().__init__()
         self.show_summary = show_summary
+        self.curr_tests: list[str] = []
+        self.live = live
+        self.console = live.console
+
+    def _print_curr_tests(self) -> None:
+        if self.curr_tests:
+            self.live.update(f"Running: {', '.join(self.curr_tests)}")
+        else:
+            self.live.update("")
 
     def on_run_start(self, tests: list[Xtest]) -> None:
-        pr_info("Starting run\n------------")
+        self.console.print("Starting run\n------------")
         run_res = self.run_res
         assert run_res is not None
         if run_res.criteria.include_groups:
             groups_str = ", ".join(sorted(run_res.criteria.include_groups))
-            pr_info(f"Included groups: {groups_str}")
+            self.console.print(f"Included groups: {groups_str}")
         if run_res.criteria.exclude_groups:
             groups_str = ", ".join(sorted(run_res.criteria.exclude_groups))
-            pr_info(f"Excluded groups: {groups_str}")
+            self.console.print(f"Excluded groups: {groups_str}")
         if run_res.criteria.require_groups:
             groups_str = ", ".join(sorted(run_res.criteria.require_groups))
-            pr_info(f"Required groups: {groups_str}")
-        pr_info("Running tests: {}\n".format(", ".join([x.name for x in tests])))
+            self.console.print(f"Required groups: {groups_str}")
+        self.console.print("Running tests: {}\n".format(", ".join([x.name for x in tests])))
 
     def on_test_start(self, test: Xtest) -> None:
-        name = short_str(test.name, 40)
-
-        color = PrintColors.BOLD if colors_enabled() else ""
-        print_str = f"{color}{name}{_reset_color()}"
-        if self.show_summary:
-            pr_info(print_str)
-        else:  # normal mode
-            print_str = f"{print_str:<60} ....... "
-            pr_info(f"{print_str}", end='')
-        pr_info("", end='', flush=True)
+        self.curr_tests.append(test.name)
+        self._print_curr_tests()
 
     def on_test_end(self, test: Xtest, test_res: TestResult) -> None:
         def _post_print_details(status_suffix: str = "", details: str = "") -> None:
+            if self.show_summary:
+                self.console.print(test.name)
+                return
+
+            name = short_str(test.name, 40)
+            if colors_enabled():
+                msg = f"[bold]{name}[/bold]"
+            else:
+                msg = f"{name}"
+            msg = f"{msg:<60} ....... "
+
             category = status_catgoery(test_res.status).value
             if colors_enabled():
-                stts_str = f"{_STATUS_PRINT_INFO[test_res.status].color}{category}{_reset_color()}"
+                colors = self.status_catgoery_colors.get(category, ("", ""))
+                stts_str = f"{colors[0]}{category}{colors[1]}"
             else:
                 stts_str = category
-            msg = f"[{stts_str}]"
+            msg += f"[{stts_str}]"
             if status_suffix:
                 msg += f" {short_str(status_suffix, 30)}"
             if details:
                 msg += f"\n{details}\n"
-            pr_info(msg)
+            self.console.print(msg)
 
         details = ""
         status_suffix = ""
@@ -196,6 +219,8 @@ class CliRunReporter(RunReporter):
             details = "NOTICE: Post-test failed\n"
             details += test_res.post_run_res.error_summary()
         _post_print_details(status_suffix, details)
+        self.curr_tests.remove(test.name)
+        self._print_curr_tests()
 
     def on_iteration_end(self) -> None:
         assert isinstance(self.iter_res, IterationResult)
@@ -210,15 +235,15 @@ class CliRunReporter(RunReporter):
             color = status_print_info.color if colors_enabled() else ""
             title = status_print_info.string
             test_list_str = ", ".join(test_names)
-            pr_info(f"{color}{title}{_reset_color()}: {test_list_str}")
+            self.console.print(f"{color}{title}{_reset_color()}: {test_list_str}")
 
-        pr_info()
+        self.console.print()
         iter_n = self.iter_res.iter_n
         if self.run_res.iterations > 1:
-            pr_info(f"\nIteration #{iter_n}/{self.run_res.iterations - 1} summary:")
+            self.console.print(f"\nIteration #{iter_n}/{self.run_res.iterations - 1} summary:")
         for status in TestStatus:
             summarize_test_list(status)
-        pr_info()
+        self.console.print()
 
 
 _ORANGE = '\033[38;5;208m'
@@ -226,8 +251,8 @@ _pr_debug_title = create_print_func(_ORANGE, LogLevel.ALWAYS)
 
 
 class CliDebugReporter(CliRunReporter):
-    def __init__(self) -> None:
-        super().__init__(show_summary=False)
+    def __init__(self, live: Live) -> None:
+        super().__init__(False, live)
 
     def _step_title(self, step: XStep, phase_name: str, step_index: int,
                     sentence_start: bool = False) -> str:
@@ -285,11 +310,13 @@ def run_tests(conf: str,
               debug: bool,
               **kwargs) -> RunResult:
     criteria = TestCriteria(**kwargs)
-    if debug:
-        reporter = CliDebugReporter()
-    else:
-        reporter = CliRunReporter(show_summary=show_summary)
-    return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+    console = Console(highlight=False)
+    with Live(console=console, refresh_per_second=4, transient=False) as live:
+        if debug:
+            reporter = CliDebugReporter(live)
+        else:
+            reporter = CliRunReporter(show_summary, live)
+        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
 
 
 def dump_test(file_path: str, name: str) -> None:
