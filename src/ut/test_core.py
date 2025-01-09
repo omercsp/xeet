@@ -387,3 +387,19 @@ class TestCore(DummyTestConfig):
 
         expected.status = TestStatus.Skipped
         self.assertTestResultEqual(self.run_test(_TEST2), expected)
+
+    def test_thread_support(self):
+        from ut.test_exec_step import gen_exec_step_desc, _SLEEP_1_CMD
+        from timeit import default_timer as timer
+
+        sleep1_desc = gen_exec_step_desc(cmd=_SLEEP_1_CMD)
+        self.add_test(_TEST0, run=[sleep1_desc], reset=True)
+        self.add_test(_TEST1, run=[sleep1_desc])
+        self.add_test(_TEST2, run=[sleep1_desc], save=True)
+
+        start = timer()
+        results = self.run_tests_list([_TEST0, _TEST1, _TEST2], threads=3)
+        results = list(results)
+        duration = timer() - start
+        self.assertLess(duration, 3)
+        self.assertGreater(duration, 1)
