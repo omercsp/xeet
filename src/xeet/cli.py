@@ -107,7 +107,7 @@ def list_tests(conf: str, names_only: bool, criteria: TestsCriteria) -> None:
 RunVerbosity = CliPrinterVerbosity
 
 
-def run_tests(conf: str, repeat: int, debug: bool, criteria: TestsCriteria,
+def run_tests(conf: str, repeat: int, debug: bool, criteria: TestsCriteria, threads: int,
               verbosity: RunVerbosity, summary_opt: CliPrinterSummaryOpts,
               test_timing: CliPrinterTestTimingOpts, summary_timings: bool) -> int:
 
@@ -117,7 +117,8 @@ def run_tests(conf: str, repeat: int, debug: bool, criteria: TestsCriteria,
         else:
             reporter = CliPrinter(live=live, verbosity=verbosity, summary_opt=summary_opt,
                                   test_timing_opt=test_timing, summary_timings=summary_timings)
-        run_res = core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+        run_res = core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat,
+                                 threads=threads)
         if run_res is EmptyRunResult:
             pr_warn("No tests to run")
             return 0
