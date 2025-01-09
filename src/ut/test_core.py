@@ -264,8 +264,8 @@ class TestCore(XeetUnittest):
         expected_step_result1.dummy_val0 = f"{TEST0} {out_dir}/{TEST0}"
         expected_step_result2 = gen_dummy_step_result(step_desc2)
         expected_step_result2.dummy_val0 = os.name
-        expected = gen_test_result(status=PASSED_TEST_STTS,
-            main_results=[expected_step_result0, expected_step_result1, expected_step_result2])
+        expected = gen_test_result(status=PASSED_TEST_STTS, main_results=[
+            expected_step_result0, expected_step_result1, expected_step_result2])
         self.run_compare_test(TEST0, expected)
         self.assertTestResultEqual(self.run_test(TEST0), expected)
 
