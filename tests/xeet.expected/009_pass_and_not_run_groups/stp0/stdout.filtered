@@ -54,6 +54,7 @@ Run step #0 incompleted: Timeout expired after 0.5s
 Summary:
 ========
 Total iterations: 1
+Threads used per iteration: 1
 Initialization error (1): 008_bad_desc
 Test error (2): 011_bad_cmd, 032_timeout_fail
 Pre-test error (3): 017_not_run_pre_test_fail, 022_inherit_abstract_pre_run_bad, 023_inherit_abstract_pre_run_bad_add_pre_run

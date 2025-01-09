@@ -26,6 +26,7 @@ Pre-run steps:
        Expected stderr:          None
        Expected stderr file:     None
        Output filters:           <empty>
+       Stop process wait:        3
        Use os env:               No
 Run steps:
  - [0] Name:                     '' <empty>
@@ -49,6 +50,7 @@ Run steps:
        Expected stderr:          None
        Expected stderr file:     None
        Output filters:           <empty>
+       Stop process wait:        3
        Use os env:               No
  - [1] Name:                     '' <empty>
        Step type:                exec
@@ -71,6 +73,7 @@ Run steps:
        Expected stderr:          None
        Expected stderr file:     None
        Output filters:           <empty>
+       Stop process wait:        3
        Use os env:               No
 Post-run steps:
  - [0] Name:                     '' <empty>
@@ -97,4 +100,5 @@ Post-run steps:
        Expected stderr:          None
        Expected stderr file:     None
        Output filters:           <empty>
+       Stop process wait:        3
        Use os env:               No

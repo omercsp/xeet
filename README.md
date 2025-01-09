@@ -20,6 +20,7 @@
 - **Flexible Verification**: Match standard output and standard error against strings or expected files, with regex/string scrubbing filters for hermetic diffs.
 - **Scoped Variable System**: Recursive string interpolation (`{var}`), environment variable access (`{$ENV_VAR}`), object references (`$ref://...`), and built-in runtime variables (`{XEET_ROOT}`, `{XEET_OUT_DIR}`, etc.).
 - **Platform-Specific Testing**: Target specific OS environments (`posix`, `nt`), inherit platform constraints, and load platform-specific config files dynamically via `{XEET_PLATFORM}`.
+- **Parallel Execution**: Execute tests concurrently across worker threads with `-j/--jobs` (defaults to auto-detecting core count).
 - **Fine-Grained Filtering**: Select tests by exact name, fuzzy match, or tag groups with include/exclude rules.
 - **Rich Terminal UI**: Live progress display with customizable output detail, timing breakdowns, and `--debug` live process tailing.
 
@@ -359,6 +360,10 @@ xeet run -X slow                     # Exclude tests in group 'slow'
 
 # Repeat execution (multi-iteration testing)
 xeet run -r 5
+
+# Parallel execution across worker threads
+xeet run -j                          # Auto-detects half of CPU cores
+xeet run -j 4                        # Run with 4 concurrent worker threads
 
 # Control output verbosity
 xeet run --verbose                   # Detailed per-test output, timings, criteria

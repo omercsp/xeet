@@ -30,7 +30,7 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 | Module | Role |
 |---|---|
 | `core/conf.py` | YAML/JSON load, `XeetConfModel`, recursive `include` merge with loop detection |
-| `core/driver.py` | `_XeetDriver` — builds all `Test`s, resolves test inheritance, filters by criteria, drives iterations. `xeet_driver()` is `@cache`d on `XeetSettings.__hash__` (= config file path) — clear/bypass the cache if a config is rewritten and re-driven within the same process |
+| `core/driver.py` | `_XeetDriver` — builds all `Test`s, resolves test inheritance, filters by criteria, drives iterations (distributing tests to `_TestRunner` worker threads via `_TestsPool`). `xeet_driver()` is `@cache`d on `XeetSettings.__hash__` (= config file path) — clear/bypass the cache if a config is rewritten and re-driven within the same process |
 | `core/test.py` | `TestModel` (pydantic) + `Test` runtime + `Phase`; phase status logic |
 | `core/step.py` | `StepModel` + `Step` base class — the step plugin contract |
 | `core/result.py` | Result tree: `RunResult -> IterationResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator) |
@@ -119,7 +119,7 @@ yet ported to this architecture: a variable **matrix**/permutation
 facility (`core/matrix.py`), **resource pools** for concurrency
 (`core/resource.py`), and **parallel execution** (`core/tests_runner.py`).
 See `TODO.txt` for the running list of what's still missing on `devel`
-(matrix, parallel execution, test randomization, etc.) — treat it as the
+(matrix, resource pools, test randomization, etc.) — treat it as the
 feature backlog.
 
 ## Testing

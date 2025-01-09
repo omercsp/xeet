@@ -3,9 +3,9 @@ variables:
   base_cmd: '{XEET_ROOT}/../xeet --no-colors'
   # Each outer test runs the inner xeet with a dedicated output directory
   # (testbed/xeet_out/{XEET_TEST_NAME}) to retain test artifacts on disk
-  # for inspection and diffing, preventing tests from overwriting each
-  # other's output. 'xeet_out' (underscore) separates these sandboxes
-  # from the default 'xeet.out'.
+  # for inspection/diffing and to prevent file collisions when outer tests
+  # run concurrently in parallel. 'xeet_out' (underscore) separates these
+  # sandboxes from the default 'xeet.out'.
   run_base_cmd: '{base_cmd} run -O testbed/xeet_out/{XEET_TEST_NAME}'
   run_cmd: '{run_base_cmd} -c testbed/xeet.yaml --display=-pre_run_tests_list'
   list_cmd: '{base_cmd} list -c testbed/xeet.yaml'

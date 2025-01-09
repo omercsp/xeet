@@ -44,7 +44,8 @@ def _run_settings(args: Args) -> actions.XeetRunSettings:
         criteria=_tests_criteria(args, False),
         iterations=args.repeat,
         output_dir=args.output_dir,
-        debug=args.debug)
+        debug=args.debug,
+        jobs=args.jobs)
 
 
 def xrun() -> int:
