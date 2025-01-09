@@ -1,4 +1,5 @@
-from xeet.core.events import EventReporter
+from xeet.core.events import LockableEventReporter
+from xeet.common import locked
 from xeet.pr import *
 from xeet.core.test import TestPrimaryStatus, TestResult, TestStatus, TestSecondaryStatus, Test
 from xeet.common import short_str, underline
@@ -49,6 +50,7 @@ class ConsoleDisplayOpts:
     summary: bool = True
     iteration_summary: bool = False
     detailed_summary: bool = True
+    threads_header: bool = False
 
     _verbose_criterira: bool = False
 
@@ -58,6 +60,7 @@ class ConsoleDisplayOpts:
         self.iteration_summary = True
         self.test_timing = True
         self._verbose_criterira = True
+        self.threads_header = True
 
     def set_concise(self):
         self.header = False
@@ -72,6 +75,7 @@ class ConsoleDisplayOpts:
         self.tests = False
         self.result_details = False
         self.ongoing = False
+        self.threads_header = False
 
     @classmethod
     @cache
@@ -89,7 +93,7 @@ class ConsoleDisplayOpts:
 
 
 @dataclass
-class ConsolePrinter(EventReporter):
+class ConsolePrinter(LockableEventReporter):
     live: Live = None  # type: ignore
     display: ConsoleDisplayOpts = field(default_factory=ConsoleDisplayOpts)
 
@@ -114,6 +118,8 @@ class ConsolePrinter(EventReporter):
                 pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
             else:
                 pr_info("No tests to run\n")
+        if self.display.threads_header:
+            pr_info(f"Threads: {self.threads} per iteration\n")
 
     def _print_criteria(self) -> None:
         if not self.display.criteria:
@@ -164,10 +170,12 @@ class ConsolePrinter(EventReporter):
 
         pr_info("\n".join(lines) + "\n")
 
+    @locked
     def on_test_start(self, test: Test) -> None:
         self.curr_tests.append(test.name)
         self._print_curr_tests()
 
+    @locked
     def on_test_end(self, test_res: TestResult) -> None:
         if not self.display.tests:
             return
@@ -271,5 +279,6 @@ class ConsolePrinter(EventReporter):
                               underline_char='-'))
 
         pr_info(f"Total iterations: {self.iterations}")
+        pr_info(f"Threads used per iteration: {self.threads}")
         detailed = self.display.detailed_summary and not show_iteration_summary
         self._summarize_result_names(total_summary, detailed, self.run_res.duration)
