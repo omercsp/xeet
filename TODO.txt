@@ -10,7 +10,6 @@
 - Add quiet mode 1 - no unrelated test output (splash and so)
 - Add quiet mode 2 - no output at all but errors
 - Add quiet mode 3 - no output at all
-- Add parallel execution
 - Add test randomization
 - Add auto variables: output file(s), RC, diff file, expected output file
 - Add server mode
