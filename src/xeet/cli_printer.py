@@ -94,6 +94,8 @@ class CliPrinter(EventReporter):
         if self.verbose:
             pr_info(f"{run_res.criteria}\n")
             pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
+        if self.verbose or self.threads > 1:
+            pr_info(f"Using {self.threads} threads per iteration")
 
     def on_test_start(self, test: Test | None = None, **_) -> None:
         if test is None:
