@@ -116,6 +116,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='repeat count')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
+                            help='number of jobs to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -176,6 +178,15 @@ def parse_arguments() -> argparse.Namespace:
             parser.error("test name and groups are mutually exclusive")
         if args.repeat < 1:
             parser.error("repeat count must be a psitive integer")
+        if args.jobs is None:
+            args.jobs = os.cpu_count()
+            if args.jobs is None or args.jobs < 1:
+                pr_warn("Cannot determine number of processors, using 1")
+                args.jobs = 1
+        elif args.jobs <= 0:
+            parser.error("number of jobs must be a positive integer")
+    elif args.subparsers_name == _INFO_CMD:
+        args.all = True
     return args
 
 
@@ -185,7 +196,7 @@ def _tests_criteria(args: argparse.Namespace, hidden: bool) -> TestsCriteria:
         exclude_names=set(args.exclude_test),
         fuzzy_names=args.fuzzy_test,
         fuzzy_exclude_names=set(args.fuzzy_exclude_test),
-        include_groups=set(args.group),
+        include_groups=args.group,
         require_groups=set(args.require_group),
         exclude_groups=set(args.exclude_group),
         hidden_tests=hidden)
@@ -208,7 +219,8 @@ def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
         criteria=_tests_criteria(args, False),
         iterations=args.repeat,
         output_dir=args.output_dir,
-        debug=args.debug)
+        debug=args.debug,
+        jobs=args.jobs)
 
 
 def xrun() -> int:
