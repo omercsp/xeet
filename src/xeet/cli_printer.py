@@ -1,4 +1,5 @@
-from xeet.core.events import EventReporter
+from xeet.core.events import LockableEventReporter
+from xeet.common import locked
 from xeet.pr import *
 from xeet.core.test import (TestPrimaryStatus, TestResult, TestStatus, TestSecondaryStatus, Test,
                             Phase)
@@ -38,7 +39,7 @@ class CliPrinterSummaryOpts(str, Enum):
 
 
 @dataclass
-class CliPrinter(EventReporter):
+class CliPrinter(LockableEventReporter):
     live: Live = None  # type: ignore
     verbosity: CliPrinterVerbosity = CliPrinterVerbosity.Default
     summary_opt: CliPrinterSummaryOpts = CliPrinterSummaryOpts.Default
@@ -94,7 +95,10 @@ class CliPrinter(EventReporter):
         if self.verbose:
             pr_info(f"{run_res.criteria}\n")
             pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
+        if self.verbose or self.threads > 1:
+            pr_info(f"Using {self.threads} threads per iteration")
 
+    @locked
     def on_test_start(self, test: Test | None = None, **_) -> None:
         if test is None:
             self._print_missing_args_msg()
@@ -103,6 +107,7 @@ class CliPrinter(EventReporter):
         self.curr_tests.append(test.name)
         self._print_curr_tests()
 
+    @locked
     def on_test_end(self, test: Test | None = None, test_res: TestResult | None = None, **_
                     ) -> None:
         if test is None or test_res is None:
@@ -196,7 +201,7 @@ _pr_debug_title = create_print_func("orange1", LogLevel.ALWAYS)
 
 
 @dataclass
-class DebugPrinter(EventReporter):
+class DebugPrinter(LockableEventReporter):
     def _print_bad_args(self, **kwargs) -> None:
         frame = inspect.stack()[1]
         func_name = frame.function
@@ -221,12 +226,14 @@ class DebugPrinter(EventReporter):
     def on_init(self, **_) -> None:
         _pr_debug_title("Initializing Xeet")
 
+    @locked
     def on_test_start(self, test: Test | None = None, **_) -> None:
         if test is None:
             self._print_bad_args(test=test)
             return
         _pr_debug_title(f">>>>>>> Starting test '{test.name}' <<<<<<<")
 
+    @locked
     def on_test_end(self, test: Test | None = None, test_res: TestResult | None = None, **_
                     ) -> None:
         if test is None or test_res is None:
@@ -239,6 +246,7 @@ class DebugPrinter(EventReporter):
         if test_res.status.primary == TestPrimaryStatus.Failed:
             pr_error(f"Test failed")
 
+    @locked
     def on_step_start(self, step: Step | None = None, **_) -> None:
         if step is None:
             self._print_bad_args(step=step)
@@ -246,6 +254,7 @@ class DebugPrinter(EventReporter):
         title = self._step_title(step, step.phase.name, step.step_index, sentence_start=True)
         _pr_debug_title(f"{title} - staring run")
 
+    @locked
     def on_step_end(self, step: Step | None = None, step_res: StepResult | None = None, **_
                     ) -> None:
         if step is None or step_res is None:
@@ -257,6 +266,7 @@ class DebugPrinter(EventReporter):
         text += f"duration: {step_res.duration:.3f}s)"
         _pr_debug_title(text)
 
+    @locked
     def on_phase_start(self, phase: Phase | None = None, **_) -> None:
         if phase is None:
             self._print_bad_args(phase=phase)
@@ -267,6 +277,7 @@ class DebugPrinter(EventReporter):
             return
         _pr_debug_title(f"Starting {phase.name} phase run, {steps_count} step(s)")
 
+    @locked
     def on_phase_end(self, phase: Phase | None = None, **_) -> None:
         if phase is None:
             self._print_bad_args(phase=phase)
@@ -277,12 +288,14 @@ class DebugPrinter(EventReporter):
         _pr_debug_title(f"{text} phase ended")
 
     # General event message
+    @locked
     def on_test_message(self, msg: str, *args, test: Test | None = None, **kwargs) -> None:
         if test is None:
             self._print_bad_args(test=test)
             return
         self._print_msg(msg, *args, **kwargs)
 
+    @locked
     def on_step_message(self, msg: str, *args, step: Step | None = None, **kwargs) -> None:
         if step is None:
             self._print_bad_args(step=step)
