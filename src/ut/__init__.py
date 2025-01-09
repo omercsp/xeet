@@ -179,9 +179,10 @@ class XeetUnittest(unittest.TestCase):
         return run_result.test_result(name, 0)
 
     @classmethod
-    def run_tests_list(cls, names: Iterable[str]) -> Iterable[TestResult]:
+    def run_tests_list(cls, names: Iterable[str], threads: int = 1) -> Iterable[TestResult]:
         cls.criteria.names = set(names)
-        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, list())
+        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, list(),
+                             threads=threads)
         for name in names:
             yield run_info.test_result(name, 0)
 
