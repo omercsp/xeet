@@ -3,9 +3,11 @@ from xeet.core.api import SchemaType
 from xeet.core.driver import xeet_driver
 from xeet.reporters import ConsolePrinterOpts
 from enum import Enum
+from .pr import pr_warn
 import xeet.cli as actions
 import argparse
 import argcomplete
+import os
 
 
 class XeetCliCmds(str, Enum):
@@ -158,6 +160,8 @@ def parse_arguments() -> Args:
                             help='repeat count')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
+                            help='number of jobs to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -218,6 +222,14 @@ def parse_arguments() -> Args:
         args.all = True
     if args.subparsers_name != XeetCliCmds.Run:
         return args
+
+    if args.jobs is None:
+        args.jobs = os.cpu_count()
+        if args.jobs is None or args.jobs < 1:
+            pr_warn("Cannot determine number of processors, using 1")
+            args.jobs = 1
+    elif args.jobs <= 0:
+        parser.error("number of jobs must be a positive integer")
 
     if args.tests and (args.groups or args.require_groups or args.exclude_groups):
         parser.error("test name and groups are mutually exclusive")

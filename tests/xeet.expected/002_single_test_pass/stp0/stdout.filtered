@@ -9,6 +9,7 @@ Iteration #0/0
 Summary:
 ========
 Total iterations: 1
+Threads used per iteration: 1
 Passed (1): 001_pass
 Duration: X.XXXs
 
