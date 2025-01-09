@@ -15,6 +15,7 @@ empty output
 Summary:
 ========
 Total iterations: 1
+Threads used per iteration: 1
 Initialization error (1): 008_bad_desc
 Failed (1): 004_fail_over_rc
 Duration: X.XXXs
