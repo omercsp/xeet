@@ -110,6 +110,10 @@ class Phase:
     on_fail_status: TestPrimaryStatus = TestPrimaryStatus.Undefined
     on_run_err_status: TestPrimaryStatus = TestPrimaryStatus.Undefined
 
+    def stop(self):
+        for step in self.steps:
+            step.stop()
+
 
 class Test:
     __test__ = False
@@ -145,6 +149,7 @@ class Test:
             return
         self.xvars.set_vars({system_var_name("TEST_NAME"): self.name})
         self.output_dir = _EMPTY_STR
+        self.stop_requested = False
 
     def _init_phase_steps(self, phase: Phase, steps: list[dict]) -> None:
         for index, step_desc in enumerate(steps):
@@ -246,8 +251,11 @@ class Test:
         self._run_phase(self.pre_phase, res.pre_run_res)
         if not res.pre_run_res.completed or res.pre_run_res.failed:
             res.status.primary = TestPrimaryStatus.NotRun
-            res.status.secondary = TestSecondaryStatus.PreTestErr
-            res.status_reason = res.pre_run_res.error_summary()
+            if self.stop_requested:
+                res.status.secondary = TestSecondaryStatus.Stopped
+            else:
+                res.status.secondary = TestSecondaryStatus.PreTestErr
+                res.status_reason = res.pre_run_res.error_summary()
         return res.pre_run_res
 
     @time_result
@@ -257,7 +265,10 @@ class Test:
         self._run_phase(self.main_phase, res.main_res)
         if not res.main_res.completed:
             res.status.primary = TestPrimaryStatus.NotRun
-            res.status.secondary = TestSecondaryStatus.TestErr
+            if self.stop_requested:
+                res.status.secondary = TestSecondaryStatus.Stopped
+            else:
+                res.status.secondary = TestSecondaryStatus.TestErr
             res.status_reason = res.main_res.error_summary()
             return res.main_res
         if res.main_res.failed:
@@ -302,6 +313,12 @@ class Test:
             res.append_step_result(step_res)
             if phase.stop_on_err and (step_res.failed or not step_res.completed):
                 break
+
+    def stop(self) -> None:
+        self.stop_requested = True
+        self.pre_phase.stop()
+        self.main_phase.stop()
+        self.post_phase.stop()
 
     def notify(self, *args, **kwargs) -> None:
         self.rti.notifier.on_test_message(self, *args, **kwargs)
