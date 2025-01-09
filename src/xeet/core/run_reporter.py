@@ -1,3 +1,4 @@
+from threading import Lock
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .result import RunResult, IterationResult, TestResult, StepResult
@@ -55,6 +56,7 @@ class RunNotifier:
     def __init__(self,  reporters: list[RunReporter]) -> None:
         super().__init__()
         self.reporters: list[RunReporter] = reporters
+        self._lock = Lock()
 
     #  Global events
     def on_run_start(self, run_res: "RunResult", tests: list) -> None:
@@ -81,28 +83,34 @@ class RunNotifier:
 
     #  Test events
     def on_test_start(self, test: "Test") -> None:
-        for r in self.reporters:
-            r.on_test_start(test=test)
+        with self._lock:
+            for r in self.reporters:
+                r.on_test_start(test=test)
 
     def on_test_end(self, test: "Test", test_res: "TestResult") -> None:
-        for r in self.reporters:
-            r.on_test_end(test=test, test_res=test_res)
+        with self._lock:
+            for r in self.reporters:
+                r.on_test_end(test=test, test_res=test_res)
 
     def on_phase_start(self, test: "Test", phase_name: str, steps_count: int) -> None:
-        for r in self.reporters:
-            r.on_phase_start(test=test, phase_name=phase_name, steps_count=steps_count)
+        with self._lock:
+            for r in self.reporters:
+                r.on_phase_start(test=test, phase_name=phase_name, steps_count=steps_count)
 
     def on_phase_end(self, test: "Test", phase_name: str, steps_count: int) -> None:
-        for r in self.reporters:
-            r.on_phase_end(test=test, phase_name=phase_name, steps_count=steps_count)
+        with self._lock:
+            for r in self.reporters:
+                r.on_phase_end(test=test, phase_name=phase_name, steps_count=steps_count)
 
     # Step events
     def on_step_start(self, test: "Test", phase_name: str, step: "Step", step_index: int) -> None:
-        for r in self.reporters:
-            r.on_step_start(test=test, phase_name=phase_name, step=step, step_index=step_index)
+        with self._lock:
+            for r in self.reporters:
+                r.on_step_start(test=test, phase_name=phase_name, step=step, step_index=step_index)
 
     def on_step_end(self, test: "Test", phase_name: str, step: "Step", step_index: int,
                     step_res: "StepResult") -> None:
-        for r in self.reporters:
-            r.on_step_end(test=test, phase_name=phase_name, step=step, step_index=step_index,
-                          step_res=step_res)
+        with self._lock:
+            for r in self.reporters:
+                r.on_step_end(test=test, phase_name=phase_name, step=step, step_index=step_index,
+                              step_res=step_res)
