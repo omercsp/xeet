@@ -53,6 +53,7 @@ class EventLogger(EventReporter):
         self._log_info("starting run", pr_suffix="------------\n")
         self._log_info(f"expected output directory: {self.rti.expected_output_dir}")
         self._log_info("tests run list: {}".format(", ".join([x.name for x in self.tests])))
+        self._log_info(f"threads: {self.threads}")
 
     def on_iteration_start(self) -> None:
         if self.iter_res is None or self.run_res is None:
@@ -81,9 +82,9 @@ class EventLogger(EventReporter):
         self._test_prefix.cache_clear()
 
     # Test events
-    def on_test_start(self, test: Test | None = None, **_) -> None:
+    def on_test_start(self, test: Test | None = None, runner_id: int = 0, **_) -> None:
         assert test is not None
-        self._log_info(f"running test '{test.name}'")
+        self._log_info(f"running test '{test.name}' by runner {runner_id}")
 
     def on_test_end(self, test: Test | None = None, test_res: TestResult | None = None, **_
                     ) -> None:
