@@ -1,18 +1,19 @@
 from .console import BaseConsoleReporterOpts
 from xeet.reporters.console import BaseConsoleReporterOpts, ConsoleReporterVerbosity
-from xeet.core.events import EventReporter
+from xeet.core.events import LockableEventReporter
 from xeet.pr import pr_warn, pr_error, pr_info, pr_generic, create_print_func, LogLevel
 from xeet.core.test import TestPrimaryStatus, TestResult, Test, Phase
 from xeet.core.step import Step
 from xeet.core.result import PhaseResult, TestPrimaryStatus, StepResult
 from dataclasses import dataclass, field
+from xeet.common import locked
 
 
 _pr_debug_title = create_print_func("orange1", LogLevel.ALWAYS)
 
 
 @dataclass
-class ConsoleDebugPrinter(EventReporter):
+class ConsoleDebugPrinter(LockableEventReporter):
     display: BaseConsoleReporterOpts = field(default_factory=BaseConsoleReporterOpts)
 
     @property
@@ -35,6 +36,7 @@ class ConsoleDebugPrinter(EventReporter):
             return
         _pr_debug_title("Starting run")
 
+    @locked
     def on_test_start(self, test: Test) -> None:
         title = test.name
         if self.rti.iterations > 1:
@@ -43,6 +45,7 @@ class ConsoleDebugPrinter(EventReporter):
                 title += f"i{self.rti.iteration}"
         _pr_debug_title(f">>>>>>> Starting test '{title}' <<<<<<<")
 
+    @locked
     def on_test_end(self, test_res: TestResult) -> None:
         test = test_res.test
         _pr_debug_title(f"Test '{test.name}' ended. (status: {test_res.status}, "
@@ -56,12 +59,14 @@ class ConsoleDebugPrinter(EventReporter):
             pr_error(f"Test failed")
         pr_info()
 
+    @locked
     def on_step_start(self, step: Step) -> None:
         if self.concise:
             return
         title = self._step_title(step, step.phase.name, step.step_index, sentence_start=True)
         _pr_debug_title(f"{title} - staring run")
 
+    @locked
     def on_step_end(self, step_res: StepResult) -> None:
         if self.concise:
             return
@@ -72,6 +77,7 @@ class ConsoleDebugPrinter(EventReporter):
         text += f"duration: {step_res.duration:.3f}s)"
         _pr_debug_title(text)
 
+    @locked
     def on_phase_start(self, phase: Phase) -> None:
         if self.concise:
             return
@@ -81,6 +87,7 @@ class ConsoleDebugPrinter(EventReporter):
             return
         _pr_debug_title(f"Starting {phase.name} phase run, {steps_count} step(s)")
 
+    @locked
     def on_phase_end(self, phase_res: PhaseResult) -> None:
         if self.concise:
             return
@@ -91,11 +98,13 @@ class ConsoleDebugPrinter(EventReporter):
         _pr_debug_title(f"{text} phase ended")
 
     # General event message
+    @locked
     def on_test_message(self, _: Test, msg: str, *args, **kwargs) -> None:
         if self.concise:
             return
         self._print(msg, *args, **kwargs)
 
+    @locked
     def on_step_message(self, _: Step, *args, **kwargs) -> None:
         if self.concise:
             return

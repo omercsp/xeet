@@ -1,6 +1,6 @@
 from xeet import xeet_version
 from xeet.common import XeetException
-from xeet.log import init_logging, log_error, log_info
+from xeet.log import init_logging, log_error, log_info, pr_warn
 from xeet.pr import disable_colors
 from xeet.core.api import SchemaType
 from xeet.core import TestsCriteria
@@ -120,6 +120,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='repeat count')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
+                            help='number of jobs to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -191,6 +193,13 @@ def parse_arguments() -> argparse.Namespace:
             parser.error(f"cannot use '--debug' with '--{args.run_verbosity.value}'")
         if args.display != ([], []):
             parser.error("cannot use '--debug' with '--display'")
+    if args.jobs is None:
+        args.jobs = os.cpu_count()
+        if args.jobs is None or args.jobs < 1:
+            pr_warn("Cannot determine number of processors, using 1")
+            args.jobs = 1
+    elif args.jobs <= 0:
+        parser.error("number of jobs must be a positive integer")
 
     return args
 
@@ -230,7 +239,8 @@ def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
         criteria=_tests_criteria(args, False),
         iterations=args.repeat,
         output_dir=args.output_dir,
-        debug=args.debug)
+        debug=args.debug,
+        jobs=args.jobs)
 
 
 def xrun() -> int:
