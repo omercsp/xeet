@@ -4,6 +4,7 @@ from enum import Enum, auto
 from dataclasses import dataclass, field
 from timeit import default_timer as timer
 from functools import wraps
+from threading import Lock
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .test import Test, Phase
@@ -179,18 +180,20 @@ class IterationResult(MeasuredResult):
 
         self.not_run_tests: bool = False
         self.failed_tests: bool = False
+        self._lock = Lock()
 
     def add_test_result(self, test_name: str, result: TestResult) -> None:
-        stts = result.status
-        if stts.primary == TestPrimaryStatus.NotRun:
-            self.not_run_tests = True
-        elif stts.primary == TestPrimaryStatus.Failed:
-            self.failed_tests = True
-        if stts not in self.status_results_summary:
-            self.status_results_summary[stts] = []
+        with self._lock:
+            stts = result.status
+            if stts.primary == TestPrimaryStatus.NotRun:
+                self.not_run_tests = True
+            elif stts.primary == TestPrimaryStatus.Failed:
+                self.failed_tests = True
+            if stts not in self.status_results_summary:
+                self.status_results_summary[stts] = []
 
-        self.status_results_summary[stts].append(test_name)
-        self.results[test_name] = result
+            self.status_results_summary[stts].append(test_name)
+            self.results[test_name] = result
 
 
 class RunResult(MeasuredResult):
@@ -199,9 +202,6 @@ class RunResult(MeasuredResult):
         self.iterations: int = iterations
         self.iter_results = [IterationResult(i) for i in range(iterations)]
         self.criteria = criteria
-
-    def _test_result_key(self, test_name: str, iteration: int) -> str:
-        return f"{test_name}_{iteration}"
 
     @property
     def failed_tests(self) -> bool:
