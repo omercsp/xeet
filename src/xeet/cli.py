@@ -260,6 +260,7 @@ def run_tests(conf: str,
               repeat: int,
               show_summary: bool,
               debug: bool,
+              threads: int,
               **kwargs) -> RunResult:
     criteria = TestCriteria(**kwargs)
     console = Console(highlight=False, soft_wrap=True)
@@ -268,7 +269,8 @@ def run_tests(conf: str,
             reporter = CliDebugReporter(live)
         else:
             reporter = CliRunReporter(show_summary, live)
-        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat,
+                              threads=threads)
 
 
 def dump_test(file_path: str, name: str) -> None:
