@@ -1,0 +1,18 @@
+include: [xeet_base.yaml, inheritance.yaml, "xeet_{XG_PLATFORM}.yaml"]
+tests:
+  - name: sleeper_1
+    short_desc: returns true, always passes
+    run:
+      - cmd: "{sleep_cmd} 1"
+  - name: sleeper_2
+    short_desc: returns true, always passes
+    run:
+      - cmd: "{sleep_cmd} 1"
+  - name: sleeper_3
+    short_desc: returns true, always passes
+    run:
+      - cmd: "{sleep_cmd} 1"
+  - name: sleeper_4
+    short_desc: returns true, always passes
+    run:
+      - cmd: "{sleep_cmd} 1"
