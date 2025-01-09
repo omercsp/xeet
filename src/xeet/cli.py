@@ -305,13 +305,15 @@ class DebugPrinter(CliPrinter):
 def run_tests(conf: str,
               repeat: int,
               debug: bool,
+              threads: int,
               criteria: TestCriteria,
               reporter: CliPrinter,
               ) -> RunResult:
     console = Console(highlight=False, soft_wrap=True)
     with Live(console=console, refresh_per_second=4, transient=False) as live:
         reporter.set_live(live)
-        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat,
+                              threads=threads)
 
 
 def dump_test(file_path: str, name: str) -> None:

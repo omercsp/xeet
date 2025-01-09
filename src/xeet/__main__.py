@@ -66,6 +66,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='show test summary before run')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('--threads', metavar='COUNT', default=1, type=int,
+                            help='number of threads to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_true', default=False,
                                  help='concise output, results only')
@@ -160,8 +162,10 @@ def xrun() -> int:
         log_info(f"CWD is '{os.getcwd()}'")
         rc = 0
         if cmd_name == _RUN_CMD:
-            run_info = actions.run_tests(args.conf, args.repeat, args.debug,
-                                         _tests_criteria(args, False), _printer(args))
+            run_info = actions.run_tests(args.conf, args.repeat,
+                                         args.debug, args.threads,
+                                         _tests_criteria(args, False),
+                                         _printer(args))
             if run_info.failed_tests:
                 rc += 1
             if run_info.not_run_tests:
