@@ -71,6 +71,7 @@ class XeetRunSettings:
     iterations: int = 1
     debug: bool = False
     output_dir: str = ""
+    jobs: int = 1
 
 
 _UNINITIALIZED = "#UNINITIALIZED#"
