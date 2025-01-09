@@ -26,6 +26,7 @@ Duration: X.XXXs
 Accumulated summary:
 --------------------
 Total iterations: 3
+Threads used per iteration: 1
 Initialization error: 3
 Failed: 3
 Passed: 30
