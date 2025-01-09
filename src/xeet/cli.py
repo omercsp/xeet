@@ -104,7 +104,7 @@ def list_tests(conf: str, names_only: bool, criteria: TestCriteria) -> None:
 RunVerbosity = CliPrinterVerbosity
 
 
-def run_tests(conf: str, repeat: int, debug: bool, criteria: TestCriteria,
+def run_tests(conf: str, repeat: int, debug: bool, criteria: TestCriteria, threads: int,
               verbosity: RunVerbosity, summary_only: bool) -> RunResult:
 
     with Live(console=stdout(), refresh_per_second=4, transient=False) as live:
@@ -112,7 +112,8 @@ def run_tests(conf: str, repeat: int, debug: bool, criteria: TestCriteria,
             reporter = DebugPrinter(live=live)
         else:
             reporter = CliPrinter(live=live, verbosity=verbosity, summary_only=summary_only)
-        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat,
+                              threads=threads)
 
 
 def dump_test(file_path: str, name: str) -> None:
