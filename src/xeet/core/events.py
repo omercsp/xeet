@@ -1,3 +1,4 @@
+from xeet.common import Lockable
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
@@ -15,6 +16,7 @@ class EventReporter:
     run_res: "RunResult | None" = None
     iter_res: "IterationResult | None" = None
     tests: list["Test"] = field(default_factory=list)
+    threads: int = 1
 
     @property
     def iterations(self) -> int:
@@ -74,6 +76,12 @@ class EventReporter:
         ...
 
 
+@dataclass
+class LockableEventReporter(EventReporter, Lockable):
+    def __post_init__(self):
+        Lockable.__init__(self)
+
+
 class EventNotifier:
     def __init__(self):
         self._reporters: list[EventReporter] = []
@@ -99,10 +107,11 @@ class EventNotifier:
             r.on_init()
 
     #  Global events
-    def on_run_start(self, run_res: "RunResult", tests: list["Test"]) -> None:
+    def on_run_start(self, run_res: "RunResult", tests: list["Test"], threads: int) -> None:
         for r in self._reporters:
             r.run_res = run_res
             r.tests = tests
+            r.threads = threads
             r.on_run_start()
 
     def on_run_end(self) -> None:

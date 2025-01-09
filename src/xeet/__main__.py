@@ -79,6 +79,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='repeat count')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
+                            help='number of jobs to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -138,6 +140,13 @@ def parse_arguments() -> argparse.Namespace:
             parser.error("test name and groups are mutually exclusive")
         if args.repeat < 1:
             parser.error("repeat count must be a psitive integer")
+        if args.jobs is None:
+            args.jobs = os.cpu_count()
+            if args.jobs is None or args.jobs < 1:
+                pr_warn("Cannot determine number of processors, using 1")
+                args.jobs = 1
+        elif args.jobs <= 0:
+            parser.error("number of jobs must be a positive integer")
     elif args.subparsers_name == _INFO_CMD:
         args.all = True
     return args
@@ -193,7 +202,8 @@ def xrun() -> int:
         log_info(f"CWD is '{os.getcwd()}'")
         if cmd_name == _RUN_CMD:
             return actions.run_tests(args.conf, args.repeat, args.debug,
-                                     _tests_criteria(args, False), _display_settings(args))
+                                     _tests_criteria(args, False), args.jobs,
+                                     _display_settings(args))
         if cmd_name == _LIST_CMD:
             actions.list_tests(args.conf, args.names_only, _tests_criteria(args, True))
         elif cmd_name == _GROUPS_CMD:
