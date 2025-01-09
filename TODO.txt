@@ -5,7 +5,6 @@
 - Exec step: save diff file
 - Allow a test to be excluded from an 'all' run
 - Add variable matrix support
-- Add parallel execution
 - Add test randomization
 - Add server mode
 - Add save results to file option
