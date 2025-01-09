@@ -8,6 +8,7 @@ from enum import Enum
 from io import TextIOWrapper
 from dataclasses import dataclass
 from typing import Any
+import time
 import shlex
 import os
 import subprocess
@@ -43,6 +44,7 @@ class ExecStepModel(StepModel):
     expected_stderr_file: str | None = None
     debug_new_line: bool = False
     output_filters: list[StrFilterData] = Field(default_factory=list)
+    stop_process_wait: float = Field(3, ge=0)
 
     @field_validator('allowed_rc')
     @classmethod
@@ -104,6 +106,7 @@ class ExecStep(Step):
             self.shell_path, _ = self.rti.config_ref("settings.exec_step.default_shell_path")
         self.output_verification_err = False
         self.output_filters: list[StrFilterData] = []
+        self.p: subprocess.Popen | None = None
 
     def setup(self, **kwargs) -> None:  # type: ignore
         super().setup(**kwargs)
@@ -221,7 +224,11 @@ class ExecStep(Step):
             self.warn(res.errmsg)
             return False
 
+        #  start_new_session=True is used to make sure the process is detached from the current
+        #  session, so that it isn't killed when the parent process is killed. Instead we can
+        #  kill the spawned process orderly.
         subproc_args: dict = {
+            "start_new_session": True,
             "env": env,
             "cwd": self.cwd if self.cwd else None,
             "shell": self.use_shell,
@@ -243,7 +250,6 @@ class ExecStep(Step):
         res.allowed_rc = self.exec_model.allowed_rc
         timeout = self.exec_model.timeout
 
-        p = None
         out_file, err_file = self._io_descriptors()
         subproc_args["stdout"] = out_file
         subproc_args["stderr"] = err_file
@@ -254,12 +260,20 @@ class ExecStep(Step):
                 tails.append(FileTailer(self.stderr_file, pr_func=self.notify))
         try:
             self.debug(" output start ".center(33, "-"))
-            p = subprocess.Popen(**subproc_args)
-            for tail in tails:
-                tail.start()
-            res.rc = p.wait(timeout)
+            with self.step_run_cond:
+                if self.stop_requested:
+                    res.errmsg = "Stop requested before starting the process"
+                    return False
+                self.p = subprocess.Popen(**subproc_args)
+                self.notify(f"process started with pid {self.p.pid}", dbg_pr=False)
+                for tail in tails:
+                    tail.start()
+            res.rc = self.p.wait(timeout)
             for tail in tails:
                 tail.stop()
+            if self.stop_requested:
+                res.errmsg = "Stop requested while waiting for the process"
+                return False
             if self.exec_model.debug_new_line:
                 self.debug("")
         except OSError as e:
@@ -270,12 +284,12 @@ class ExecStep(Step):
             self.notify(res.errmsg)
             return False
         except subprocess.TimeoutExpired as e:
-            assert p is not None
+            assert self.p is not None
             try:
                 for tail in tails:
                     tail.stop(kill=True)
-                p.kill()
-                p.wait()
+                self.p.kill()
+                self.p.wait()
             except OSError as kill_e:
                 self.error(f"error killing process - {kill_e}")
             self.notify(str(e))
@@ -283,7 +297,7 @@ class ExecStep(Step):
             res.errmsg = f"Timeout expired after {timeout}s"
             return False
         except KeyboardInterrupt:
-            if p and not self.debug_mode:
+            if self.p and not self.debug_mode:
                 p.send_signal(signal.SIGINT)  # type: ignore
                 p.wait()  # type: ignore
             res.errmsg = "User interrupt"
@@ -294,6 +308,8 @@ class ExecStep(Step):
                 out_file.close()
             if isinstance(err_file, TextIOWrapper):
                 err_file.close()
+            with self.step_run_cond:
+                self.p = None
         self.notify(f"command finished with return code {res.rc}")
         try:
             self._verify_rc(res)
@@ -398,6 +414,28 @@ class ExecStep(Step):
                 self.debug(res.errmsg)
                 return
         self.notify("output is verified")
+
+    _STOP_WAIT_INTERVAL = 0.1
+
+    def _stop(self) -> None:
+        if self.p and self.p.poll() is None:
+            self.notify("Stopping process...{self.p.pid}")
+            self.p.terminate()
+
+            time_waited = 0
+
+            # Poll every interval until process is terminated
+            while time_waited <= self.exec_model.stop_process_wait:
+                if self.p.poll() is not None:  # Process exited
+                    return
+                time.sleep(self._STOP_WAIT_INTERVAL)
+                time_waited += self._STOP_WAIT_INTERVAL
+
+            if self.p.poll() is not None:  # Process exited
+                return
+            # If still running after timeout, force kill
+            self.notify("Process termination timeout, forcing kill...")
+            self.p.kill()
 
     def _detail_value(self, key: str, printable: bool, setup: bool = False, **_) -> Any:
         if key == "env":
