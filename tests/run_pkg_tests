@@ -54,7 +54,7 @@ echo "============================"
 
 # Notifiy the inner script about packages based venv path
 export XEET_PKG_VENV_PATH=${venv_dir}
-xeet run -c ${SCRIPT_DIR}/xeet.yaml "$@"
+xeet run -j -c ${SCRIPT_DIR}/xeet.yaml "$@"
 
 ret=$?
 _fini_pkg_env

@@ -79,6 +79,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='repeat count')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
+                            help='number of jobs to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -138,6 +140,13 @@ def parse_arguments() -> argparse.Namespace:
             parser.error("test name and groups are mutually exclusive")
         if args.repeat < 1:
             parser.error("repeat count must be a psitive integer")
+        if args.jobs is None:
+            args.jobs = os.cpu_count()
+            if args.jobs is None or args.jobs < 1:
+                pr_warn("Cannot determine number of processors, using 1")
+                args.jobs = 1
+        elif args.jobs <= 0:
+            parser.error("number of jobs must be a positive integer")
     elif args.subparsers_name == _INFO_CMD:
         args.all = True
     return args
@@ -177,7 +186,8 @@ def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
         conf=args.conf,
         criteria=_tests_criteria(args, False),
         debug=args.debug,
-        iterations=args.repeat)
+        iterations=args.repeat,
+        jobs=args.jobs)
 
 
 def xrun() -> int:

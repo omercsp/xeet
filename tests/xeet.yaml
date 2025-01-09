@@ -153,7 +153,7 @@ tests:
         base: settings.base_test_step_rc3
   - name: 311_verbose_output_summary_only_r3
     run:
-      - cmd: '{run_output_base_cmd} --verbose -r 3 --hide=tests,pre_run_summary,header,criteria'
+      - cmd: '{run_output_base_cmd} --verbose -r 3 --hide=tests,pre_run_summary,header,criteria,threads_header'
         base: settings.base_test_step_rc3
   - name: 312_quiet_output
     run:
