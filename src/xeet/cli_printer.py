@@ -1,4 +1,5 @@
-from xeet.core.events import EventReporter
+from xeet.core.events import LockableEventReporter
+from xeet.common import locked
 from xeet.pr import *
 from xeet.core.test import (TestPrimaryStatus, TestResult, TestStatus, TestSecondaryStatus, Test,
                             Phase)
@@ -45,7 +46,7 @@ class CliPrinterTestTimingOpts(str, Enum):
 
 
 @dataclass
-class CliPrinter(EventReporter):
+class CliPrinter(LockableEventReporter):
     live: Live = None  # type: ignore
     verbosity: CliPrinterVerbosity = CliPrinterVerbosity.Default
     summary_opt: CliPrinterSummaryOpts = CliPrinterSummaryOpts.Default
@@ -98,11 +99,16 @@ class CliPrinter(EventReporter):
         if self.verbose:
             pr_info(f"{run_res.criteria}\n")
             pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
+        if self.verbose or self.threads > 1:
+            pr_info(f"Using {self.threads} threads per iteration")
 
+    @locked
     def on_test_start(self, test: Test) -> None:
+
         self.curr_tests.append(test.name)
         self._print_curr_tests()
 
+    @locked
     def on_test_end(self, test_res: TestResult) -> None:
         test = test_res.test
         msg = short_str(test.name, 40)
@@ -203,7 +209,7 @@ _pr_debug_title = create_print_func("orange1", LogLevel.ALWAYS)
 
 
 @dataclass
-class DebugPrinter(EventReporter):
+class DebugPrinter(LockableEventReporter):
     def _step_title(self, step: Step, phase_name: str, step_index: int,
                     sentence_start: bool = False) -> str:
         if sentence_start:
@@ -221,9 +227,11 @@ class DebugPrinter(EventReporter):
     def on_init(self, **_) -> None:
         _pr_debug_title("Initializing Xeet")
 
+    @locked
     def on_test_start(self, test: Test) -> None:
         _pr_debug_title(f">>>>>>> Starting test '{test.name}' <<<<<<<")
 
+    @locked
     def on_test_end(self, test_res: TestResult) -> None:
         test = test_res.test
         _pr_debug_title(f"Test '{test.name}' ended. (status: {test_res.status.primary}, "
@@ -233,10 +241,12 @@ class DebugPrinter(EventReporter):
         if test_res.status.primary == TestPrimaryStatus.Failed:
             pr_error(f"Test failed")
 
+    @locked
     def on_step_start(self, step: Step) -> None:
         title = self._step_title(step, step.phase.name, step.step_index, sentence_start=True)
         _pr_debug_title(f"{title} - staring run")
 
+    @locked
     def on_step_end(self, step_res: StepResult) -> None:
         step = step_res.step
         text = self._step_title(step, step.phase.name, step.step_index, sentence_start=True)
@@ -245,6 +255,7 @@ class DebugPrinter(EventReporter):
         text += f"duration: {step_res.duration:.3f}s)"
         _pr_debug_title(text)
 
+    @locked
     def on_phase_start(self, phase: Phase) -> None:
         steps_count = len(phase.steps)
         if steps_count == 0:
@@ -252,6 +263,7 @@ class DebugPrinter(EventReporter):
             return
         _pr_debug_title(f"Starting {phase.name} phase run, {steps_count} step(s)")
 
+    @locked
     def on_phase_end(self, phase_res: PhaseResult) -> None:
         phase = phase_res.phase
         if not phase.steps:
@@ -260,9 +272,11 @@ class DebugPrinter(EventReporter):
         _pr_debug_title(f"{text} phase ended")
 
     # General event message
+    @locked
     def on_test_message(self, _: Test, msg: str, *args, **kwargs) -> None:
         self._print_msg(msg, *args, **kwargs)
 
+    @locked
     def on_step_message(self, _: Step, msg: str, *args, **kwargs) -> None:
         self._print_msg(msg, *args, **kwargs)
 
