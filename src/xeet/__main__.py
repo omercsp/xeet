@@ -64,6 +64,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='show test summary before run')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('--threads', metavar='COUNT', default=1, type=int,
+                            help='number of threads to use')
 
     info_parser = subparsers.add_parser(_INFO_CMD, help='show test info', parents=[common_parser])
     info_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
@@ -147,7 +149,8 @@ def xrun() -> int:
         rc = 0
         if cmd_name == _RUN_CMD:
             run_info = actions.run_tests(args.conf, args.repeat, args.show_summary,
-                                         args.debug, **_test_filter_args(args, False))
+                                         args.debug, args.threads,
+                                         **_test_filter_args(args, False))
             if run_info.failed_tests:
                 rc += 1
             if run_info.not_run_tests:
