@@ -130,6 +130,15 @@ class CliRunReporter(RunReporter):
     def __init__(self, iterations: int, show_summary: bool) -> None:
         super().__init__(iterations)
         self.show_summary = show_summary
+        self.curr_tests: list[str] = []
+
+    def _clear_line(self) -> None:
+        pr_info("\r", end='', flush=True)
+
+    def _print_curr_tests(self) -> None:
+        if not self.curr_tests:
+            return
+        pr_info(f"Running: {', '.join(self.curr_tests)}")
 
     def client_on_run_start(self) -> None:
         pr_info("Starting run\n------------")
@@ -146,23 +155,26 @@ class CliRunReporter(RunReporter):
         pr_info("Running tests: {}\n".format(", ".join([x.name for x in tests])))
 
     def client_on_test_enter(self) -> None:
-        assert isinstance(self.xtest, Xtest)
-        name = short_str(self.xtest.name, 40)
-
-        color = PrintColors.BOLD if colors_enabled() else ""
-        print_str = f"{color}{name}{_reset_color()}"
-        if self.show_summary:
-            pr_info(print_str)
-        else:  # normal mode
-            print_str = f"{print_str:<60} ....... "
-            pr_info(f"{print_str}", end='')
-        pr_info("", end='', flush=True)
+        self.curr_tests.append(self.xtest.name)
+        self._clear_line()
+        self._print_curr_tests()
 
     def client_on_test_end(self) -> None:
         assert isinstance(self.xtest_result, TestResult)
         result = self.xtest_result
 
         def _post_print_details(status_suffix: str = "", details: str = "") -> None:
+            assert isinstance(self.xtest, Xtest)
+            name = short_str(self.xtest.name, 40)
+            self._clear_line()
+            color = PrintColors.BOLD if colors_enabled() else ""
+            print_str = f"{color}{name}{_reset_color()}"
+            if self.show_summary:
+                pr_info(print_str)
+            else:  # normal mode
+                print_str = f"{print_str:<60} ....... "
+                pr_info(f"{print_str}", end='')
+            pr_info("", end='', flush=True)
             category = status_catgoery(result.status).value
             if colors_enabled():
                 stts_str = f"{_STATUS_PRINT_INFO[result.status].color}{category}{_reset_color()}"

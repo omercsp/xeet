@@ -1,10 +1,12 @@
 from typing import Any
+from threading import Lock
 
 
 #  Base class for run reporters (CLI, REST, etc.)
 class RunReporter:
     def __init__(self, iterations: int) -> None:
         super().__init__()
+        self._lock = Lock()
         self.run_info: Any = None
         self.iter_info: Any = None
         self.iteration: int = 0
@@ -49,34 +51,39 @@ class RunReporter:
         pass
 
     def on_test_enter(self, test) -> None:
-        self.xtest = test
-        self.client_on_test_enter()
+        with self._lock:
+            self.xtest = test
+            self.client_on_test_enter()
 
     def on_test_setup_start(self, test) -> None:
-        self.xtest = test
-        self.client_on_test_setup_start()
+        with self._lock:
+            self.xtest = test
+            self.client_on_test_setup_start()
 
     def client_on_test_setup_start(self) -> None:
         pass
 
     def on_test_setup_end(self) -> None:
-        self.client_on_test_setup_end()
+        with self._lock:
+            self.client_on_test_setup_end()
 
     def client_on_test_setup_end(self) -> None:
         pass
 
     def on_step_setup_start(self, step, step_index: int) -> None:
-        self.xstep = step
-        self.xstep_index = step_index
-        self.client_on_step_setup_start()
+        with self._lock:
+            self.xstep = step
+            self.xstep_index = step_index
+            self.client_on_step_setup_start()
 
     def client_on_step_setup_start(self) -> None:
         pass
 
     def on_step_setup_end(self) -> None:
-        self.client_on_step_setup_end()
-        self.xstep = None
-        self.xstep_index = -1
+        with self._lock:
+            self.client_on_step_setup_end()
+            self.xstep = None
+            self.xstep_index = -1
 
     def client_on_step_setup_end(self) -> None:
         pass
@@ -85,44 +92,49 @@ class RunReporter:
         pass
 
     def on_test_end(self, res) -> None:
-        self.xtest_result = res
-        self.client_on_test_end()
-        self.xtest = None
-        self.xtest_result = None
+        with self._lock:
+            self.xtest_result = res
+            self.client_on_test_end()
+            self.xtest = None
+            self.xtest_result = None
 
     def client_on_test_end(self) -> None:
         pass
 
     def on_phase_start(self, phase_name: str, steps_count: int) -> None:
-        self.phase_name = phase_name
-        self.steps_count = steps_count
-        self.client_on_phase_start()
+        with self._lock:
+            self.phase_name = phase_name
+            self.steps_count = steps_count
+            self.client_on_phase_start()
 
     def client_on_phase_start(self) -> None:
         pass
 
     def on_phase_end(self) -> None:
-        self.client_on_phase_end()
-        self.phase_name = ""
-        self.steps_count = 0
+        with self._lock:
+            self.client_on_phase_end()
+            self.phase_name = ""
+            self.steps_count = 0
 
     def client_on_phase_end(self) -> None:
         pass
 
     def on_step_start(self, step, step_index: int) -> None:
-        self.xstep = step
-        self.xstep_index = step_index
-        self.client_on_step_start()
+        with self._lock:
+            self.xstep = step
+            self.xstep_index = step_index
+            self.client_on_step_start()
 
     def client_on_step_start(self) -> None:
         pass
 
     def on_step_end(self, res) -> None:
-        self.xstep_result = res
-        self.client_on_step_end()
-        self.xstep = None
-        self.xstep_index = -1
-        self.xstep_result = None
+        with self._lock:
+            self.xstep_result = res
+            self.client_on_step_end()
+            self.xstep = None
+            self.xstep_index = -1
+            self.xstep_result = None
 
     def client_on_step_end(self) -> None:
         pass
