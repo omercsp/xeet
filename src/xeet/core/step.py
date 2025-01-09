@@ -4,6 +4,7 @@ from .result import StepResult, time_result
 from xeet.common import XeetVars, XeetException, KeysBaseModel, yes_no_str, platform_path
 from pydantic import ConfigDict, Field
 from typing import Any, TYPE_CHECKING
+from threading import Condition
 import os
 
 if TYPE_CHECKING:
@@ -53,6 +54,8 @@ class Step:
         self.step_index = step_index
         self.xvars: XeetVars = None  # type: ignore
         self.output_dir = ""
+        self.step_run_cond = Condition()
+        self.stop_requested = False
 
     @property
     def rti(self) -> RuntimeInfo:
@@ -100,6 +103,14 @@ class Step:
 
     def _run(self, _: StepResult) -> bool:
         raise NotImplementedError
+
+    def stop(self):
+        with self.step_run_cond:
+            self.stop_requested = True
+            self._stop()
+
+    def _stop(self) -> None:
+        ...
 
     _DFLT_KEYS = ["name", "step_type", "base"]
 
