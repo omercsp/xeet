@@ -3,7 +3,7 @@ from .test import Test, TestModel
 from .result import RunResult
 from .driver import XeetModel, xeet_init
 from .events import EventReporter
-from .test_runner import TestRunner
+from .test_runner import XeetRunner
 from xeet import XeetException
 from enum import Enum
 
@@ -51,5 +51,6 @@ def run_tests(conf: str,
               criteria: TestsCriteria,
               reporters: EventReporter | list[EventReporter],
               debug_mode: bool = False,
+              threads: int = 1,
               iterations: int = 1) -> RunResult:
-    return TestRunner(conf, criteria, reporters, debug_mode, iterations).run()
+    return XeetRunner(conf, criteria, reporters, debug_mode, threads, iterations).run()
