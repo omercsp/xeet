@@ -62,6 +62,8 @@ def parse_arguments() -> argparse.Namespace:
                             help='repeat count')
     run_parser.add_argument('-V', '--variable', metavar='VAR', default=[], action='append',
                             help='set a variable')
+    run_parser.add_argument('--threads', metavar='COUNT', default=1, type=int,
+                            help='number of threads to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -158,7 +160,7 @@ def xrun() -> int:
         log_info(f"CWD is '{os.getcwd()}'")
         if cmd_name == _RUN_CMD:
             return actions.run_tests(args.conf, args.repeat, args.debug,
-                                     _tests_criteria(args, False), args.run_verbosity,
+                                     _tests_criteria(args, False), args.threads, args.run_verbosity,
                                      args.summary_opt, args.test_timing)
         if cmd_name == _LIST_CMD:
             actions.list_tests(args.conf, args.names_only, _tests_criteria(args, True))
