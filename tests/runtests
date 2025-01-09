@@ -36,9 +36,25 @@ def _run_tests():
     xeet_pkg_venv_path = os.environ.get("XEET_PKG_VENV_PATH")
     if xeet_pkg_venv_path:
         print(f"Internal XEET virtual environment path is set to {xeet_pkg_venv_path}")
+    user_args = []
+    jobs = os.environ.get("XEET_JOBS")
+    if jobs:
+        try:
+            jobs = int(jobs)
+        except ValueError:
+            print(f"Invalid value for XEET_JOBS: {jobs}")
+            sys.exit(1)
+    else:
+        #  Get the number of processors
+        cpus = os.cpu_count()
+        if cpus and cpus > 1:
+            jobs = int(cpus / 2)
+        else:
+            jobs = 1
+    user_args.append(f"--jobs={jobs}")
 
     # Run the xeet command
-    command = [xeet_bin, "run"] + sys.argv[1:]
+    command = [xeet_bin, "run"] + user_args + sys.argv[1:]
     subprocess.run(command)
 
 

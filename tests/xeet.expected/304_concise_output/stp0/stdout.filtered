@@ -16,6 +16,7 @@ Iteration #0/0
 Summary:
 ========
 Total iterations: 1
+Threads used per iteration: 1
 Initialization error: 1
 Failed: 1
 Passed: 10
