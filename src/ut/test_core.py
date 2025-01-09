@@ -279,7 +279,7 @@ class TestCore(DummyTestConfig):
         xtest = fetch_xtest(self.main_config_wrapper.file_path, _TEST2)
         self.assertIsNone(xtest)
 
-    def _fetch_tests(self) -> list[Xtest]:
+    def fetch_tests_list(self) -> list[Xtest]:
         return fetch_tests_list(self.main_config_wrapper.file_path, self.criteria)
 
     def test_fetch_tests_list(self):
@@ -291,18 +291,18 @@ class TestCore(DummyTestConfig):
         self.add_test(_TEST4)
         self.add_test(_TEST5, save=True)
 
-        tests = self._fetch_tests()
+        tests = self.fetch_tests_list()
         self.assertEqual(len(tests), 6)
         self.assertSetEqual(set([t.name for t in tests]),
                             set([_TEST0, _TEST1, _TEST2, _TEST3, _TEST4, _TEST5]))
 
         self.criteria.names = set([_TEST0, _TEST1, _TEST5])
-        tests = self._fetch_tests()
+        tests = self.fetch_tests_list()
         self.assertEqual(len(tests), 3)
         self.assertSetEqual(set([t.name for t in tests]), self.criteria.names)
 
         self.criteria.names = set([_TEST0, _TEST1, _TEST5, "no such test"])
-        tests = self._fetch_tests()
+        tests = self.fetch_tests_list()
         self.assertEqual(len(tests), 3)
         self.assertSetEqual(set([t.name for t in tests]), set([_TEST0, _TEST1, _TEST5]))
 
@@ -315,14 +315,64 @@ class TestCore(DummyTestConfig):
         self.add_test(_TEST5, save=True)
         self.criteria = TestCriteria([], ["group1"], [], [], False)
 
-        tests = self._fetch_tests()
+        tests = self.fetch_tests_list()
         self.assertEqual(len(tests), 3)
         self.assertSetEqual(set([t.name for t in tests]), set([_TEST0, _TEST1, _TEST2]))
 
         self.criteria.names = set([_TEST0, _TEST2, _TEST3, "no such test"])
-        tests = self._fetch_tests()
+        tests = self.fetch_tests_list()
         self.assertEqual(len(tests), 2)
         self.assertSetEqual(set([t.name for t in tests]), set([_TEST0, _TEST2]))
+
+    def test_step_details(self):
+        test_desc = gen_dummy_step_desc(dummy_val0="test {test_var}", dummy_val1=10)
+        self.add_var("test_var", "var", reset=True)
+        self.add_test(_TEST0, run=[test_desc], save=True)
+
+        test = fetch_xtest(self.main_config_wrapper.file_path, _TEST0)
+        self.assertIsNotNone(test)
+        assert test is not None
+        step = test.run_steps.steps[0]
+
+        step_details = step.details(full=False, printable=False, setup=False)
+        step_details = dict(step_details)
+        self.assertSetEqual(set(step_details.keys()),
+                            {"dummy_val0", "dummy_val1", "step_type"})
+        self.assertEqual(step_details["dummy_val0"], "test {test_var}")
+        self.assertEqual(step_details["dummy_val1"], 10)
+        self.assertEqual(step_details["step_type"], "dummy")
+
+        step_details = step.details(full=False, printable=True, setup=False)
+        self.assertGreater(len(step_details), 2)
+        self.assertEqual(step_details[1][0], "Dummy val1")  # check the dummy reordering, type is 0
+        self.assertEqual(step_details[2][0], "Dummy val0")
+        step_details = dict(step_details)
+        self.assertSetEqual(set(step_details.keys()), {"Dummy val0", "Dummy val1", "Step type"})
+
+        self.assertEqual(step_details["Dummy val0"], "test {test_var}")
+        self.assertEqual(step_details["Dummy val1"], 10)
+        self.assertEqual(step_details["Step type"], "dummy")
+
+        test = fetch_xtest(self.main_config_wrapper.file_path, _TEST0, setup=True)
+        self.assertIsNotNone(test)
+        assert test is not None
+        step = test.run_steps.steps[0]
+        step_details = step.details(full=False, printable=False, setup=True)
+        step_details = dict(step_details)
+        self.assertSetEqual(set(step_details.keys()),
+                            {"dummy_val0", "dummy_val1", "step_type", "dummy_extra"})
+        self.assertEqual(step_details["dummy_val0"], "test var")
+        self.assertEqual(step_details["dummy_val1"], 10)
+        self.assertEqual(step_details["step_type"], "dummy")
+        self.assertEqual(step_details["dummy_extra"], id(step))
+
+        step_details = step.details(full=False, printable=True, setup=True)
+        step_details = dict(step_details)
+        self.assertSetEqual(set(step_details.keys()),
+                            {"Dummy val0", "Dummy val1", "Step type", "Dummy extra print"})
+        self.assertEqual(step_details["Dummy val0"], "test var")
+        self.assertEqual(step_details["Dummy val1"], 10)
+        self.assertEqual(step_details["Step type"], "dummy")
 
     def test_platform_support(self):
         this_platform = os.name

@@ -118,7 +118,7 @@ class XStep:
     #  fields can be added or removed by the _details_include() and _details_exclude()
     #  methods. Values can be formatted by the _printable_value() method.
     def details(self, full: bool, printable: bool, setup: bool) -> DetailList:
-        keys = self._detail_keys(full, setup)
+        keys = self._details_keys(full=full, setup=setup)
         dflt_exclude = KeysBaseModel.model_fields.keys() | {"model_config", "parent"}
 
         for key in dflt_exclude:
@@ -128,7 +128,8 @@ class XStep:
         #  For printabel details request, we first insert the fields in the order
         #  defined by _printable_field_order() and then the rest of the fields.
         if printable:
-            for key in self._printable_field_order():
+            order = ["name", "step_type", "base"] + self._printable_field_order()
+            for key in order:
                 if key not in keys:
                     self.log_warn(f"Ordered key '{key}' not in valid keys")
                     continue
@@ -141,12 +142,12 @@ class XStep:
             keys = sorted(keys)
 
         for key in keys:
-            key_name = self._printable_field_name(key)
+            key_name = self._printable_field_name(key) if printable else key
             value = self._detail_value(key, setup, printable)
             ret.append((key_name, value))
         return ret
 
-    def _detail_keys(self, full: bool, setup: bool) -> set[str]:
+    def _details_keys(self, full: bool, setup: bool) -> set[str]:
         if full:
             return set(self.model.model_dump().keys())
         else:
@@ -156,29 +157,30 @@ class XStep:
     #  shoudl be printed but not on the list, will be printed after the fields
     #  in this list in arbitrary order.
     def _printable_field_order(self) -> list[str]:
-        return ["name", "step_type", "base"]
+        return []
 
     #  Converts the value of the field to a printable string. Derived classes
     #  can override this method to provide custom formatting
     def _detail_value(self, key: str, setup: bool, printable: bool) -> Any:
-        base_obj = self if setup else self.model
         try:
-            value = getattr(base_obj, key)
+            value = getattr(self.model, key)
         except AttributeError:
             return "<Not set>"
+        return self._printable_value(value) if printable else value
 
-        if not printable:
-            return value
+    def _printable_value(self, value: Any) -> Any:
         if isinstance(value, bool):
             return yes_no_str(value)
-        if isinstance(value, list):
+        if isinstance(value, (list, tuple)):
             if not value:
-                return "<empty list>"
+                return "[] <empty list>"
             return ", ".join([str(x) for x in value])
         if isinstance(value, str) and not value:
-            return "''"
+            return "'' <empty string>"
         if isinstance(value, dict) and not value:
-            return "{}"
+            return "{} <empty dict>"
+        if isinstance(value, (float, int, bool, str)):
+            return value
         return str(value)
 
     #  Converts the field name to a printable string. Derived classes can override
