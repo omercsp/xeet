@@ -139,15 +139,7 @@ def run_tests(conf: str,
         reporters = [reporters]
     driver = xeet_init(conf, debug_mode, reporters)
     notifier = driver.xdefs.notifier
-    if criteria.include_groups:
-        groups_str = ", ".join(sorted(criteria.include_groups))
-        log_info(f"Included groups: {groups_str}")
-    if criteria.exclude_groups:
-        groups_str = ", ".join(sorted(criteria.exclude_groups))
-        log_info(f"Excluded groups: {groups_str}")
-    if criteria.require_groups:
-        groups_str = ", ".join(sorted(criteria.require_groups))
-        log_info(f"Required groups: {groups_str}")
+    log_info(f"Tests criteria:\n{criteria}")
 
     tests = driver.xtests(criteria)
     if not tests:
