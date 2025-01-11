@@ -134,15 +134,7 @@ class CliRunReporter(RunReporter):
         self.console.print("Starting run\n------------")
         run_res = self.run_res
         assert run_res is not None
-        if run_res.criteria.include_groups:
-            groups_str = ", ".join(sorted(run_res.criteria.include_groups))
-            self.console.print(f"Included groups: {groups_str}")
-        if run_res.criteria.exclude_groups:
-            groups_str = ", ".join(sorted(run_res.criteria.exclude_groups))
-            self.console.print(f"Excluded groups: {groups_str}")
-        if run_res.criteria.require_groups:
-            groups_str = ", ".join(sorted(run_res.criteria.require_groups))
-            self.console.print(f"Required groups: {groups_str}")
+        self.console.print(f"Test criteria:\n{run_res.criteria}\n")
         self.console.print("Running tests: {}\n".format(", ".join([x.name for x in tests])))
 
     def on_test_start(self, test: Xtest) -> None:
