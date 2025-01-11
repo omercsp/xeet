@@ -1,5 +1,8 @@
 Starting run
 ------------
+Test criteria:
+Explicity included tests: 003_fail_over_output
+
 Running tests: 003_fail_over_output
 
 003_fail_over_output                                         ....... [Failed]
