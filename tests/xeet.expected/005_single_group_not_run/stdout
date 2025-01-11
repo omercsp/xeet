@@ -1,6 +1,8 @@
 Starting run
 ------------
+Test criteria:
 Included groups: not_run
+
 Running tests: 008_bad_desc, 011_bad_cmd, 010_timeout_fail, 016_not_run_pre_test_fail, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run
 
 008_bad_desc                                                 ....... [Not run] Initialization error
