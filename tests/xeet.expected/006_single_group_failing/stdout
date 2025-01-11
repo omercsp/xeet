@@ -1,6 +1,8 @@
 Starting run
 ------------
+Test criteria:
 Included groups: failing
+
 Running tests: 003_fail_over_output, 004_fail_over_rc, 005_fail_2nd_step, 010_unexpected_pass, 025_inherit_abstract_run_bad, 026_inherit_abstract_run_bad_add_run
 
 003_fail_over_output                                         ....... [Failed]

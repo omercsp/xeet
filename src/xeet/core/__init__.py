@@ -99,3 +99,25 @@ class TestCriteria:
         if self.exclude_groups and self.exclude_groups.intersection(groups):
             return False
         return True
+
+    def __str__(self):
+        lines = []
+        if self.names:
+            lines.append(f"Explicity included tests: " + ", ".join(sorted(self.names)))
+        if self.include_groups:
+            lines.append(f"Included groups: " + ", ".join(sorted(self.include_groups)))
+        if self.fuzzy_names:
+            lines.append(f"Fuzzy included tests: " + ", ".join(sorted(self.fuzzy_names)))
+        if self.exclude_names:
+            lines.append(f"Explicity excluded tests: " + ", ".join(sorted(self.exclude_names)))
+        if self.fuzzy_exclude_names:
+            lines.append(f"Fuzzy excluded tests: " + ", ".join(sorted(self.fuzzy_exclude_names)))
+        if self.exclude_groups:
+            lines.append(f"Excluded groups: " + ", ".join(sorted(self.exclude_groups)))
+        if self.require_groups:
+            lines.append(f"Required groups: " + ", ".join(sorted(self.require_groups)))
+        if not lines:
+            lines.append("No criteria specified, all tests are included")
+        if self.hidden_tests:
+            lines.append("Hidden tests are included")
+        return "\n".join(lines)
