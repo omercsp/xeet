@@ -1,6 +1,8 @@
 Starting run
 ------------
+Test criteria:
 Included groups: passing
+
 Running tests: 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info, 031_platform
 
 001_pass                                  [Passed]

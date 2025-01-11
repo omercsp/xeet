@@ -1,5 +1,8 @@
 Starting run
 ------------
+Test criteria:
+Explicity included tests: 004_fail_over_rc, 008_bad_desc
+
 Running tests: 004_fail_over_rc, 008_bad_desc
 
 004_fail_over_rc                          [Failed]
