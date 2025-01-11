@@ -1,13 +1,14 @@
-from xeet.core.xtest import Xtest
+from xeet.core.xtest import Xtest, TestStatus
 from xeet.core.xres import (TestResult, XStepResult, IterationResult, RunResult, TestStatus,
                             TestSubStatus, status_as_str)
 from xeet.core.xstep import XStep
 from xeet.core.run_reporter import RunReporter
 from xeet.core import TestCriteria
 import xeet.core.api as core
-from xeet.pr import (DictPrintType, pr_obj, pr_info, PrintColors, colors_enabled, create_print_func,
-                     LogLevel)
+from xeet.pr import DictPrintType, pr_obj, pr_info, colors_enabled, create_print_func, LogLevel
 from xeet.common import XeetException, json_values, short_str, yes_no_str
+from rich.live import Live
+from rich.console import Console
 import textwrap
 import shutil
 
@@ -102,69 +103,79 @@ def list_tests(conf: str, names_only: bool, **kwargs) -> None:
                                  _display_token(test.model.short_desc, _max_desc_print_len)))
 
 
-_STATUS_COLOR = {
-    TestStatus.Passed: PrintColors.GREEN,
-    TestStatus.Failed: PrintColors.RED,
-    TestStatus.RunErr: PrintColors.YELLOW,
-    TestStatus.Skipped: PrintColors.RESET,
-}
-
-
-def _reset_color():
-    return PrintColors.RESET if colors_enabled() else ""
-
-
 class CliRunReporter(RunReporter):
-    def __init__(self, show_summary: bool) -> None:
+    _NO_COLORS = ("", "")
+    _STATUS_COLORS = {
+        TestStatus.RunErr: ("[orange1]", "[/orange1]"),
+        TestStatus.Failed: ("[red]", "[/red]"),
+        TestStatus.Passed: ("[green]", "[/green]"),
+    }
+
+    @staticmethod
+    def status_colors(status: TestStatus) -> tuple[str, str]:
+        if not colors_enabled():
+            return CliRunReporter._NO_COLORS
+        return CliRunReporter._STATUS_COLORS.get(status, CliRunReporter._NO_COLORS)
+
+    def __init__(self, show_summary: bool, live: Live) -> None:
         super().__init__()
         self.show_summary = show_summary
+        self.curr_tests: list[str] = []
+        self.live = live
+        self.console = live.console
+
+    def _print_curr_tests(self) -> None:
+        if self.curr_tests:
+            self.live.update(f"Running: {', '.join(self.curr_tests)}")
+        else:
+            self.live.update("")
 
     def on_run_start(self, tests: list[Xtest]) -> None:
-        pr_info("Starting run\n------------")
+        self.console.print("Starting run\n------------")
         run_res = self.run_res
         assert run_res is not None
         if run_res.criteria.include_groups:
             groups_str = ", ".join(sorted(run_res.criteria.include_groups))
-            pr_info(f"Included groups: {groups_str}")
+            self.console.print(f"Included groups: {groups_str}")
         if run_res.criteria.exclude_groups:
             groups_str = ", ".join(sorted(run_res.criteria.exclude_groups))
-            pr_info(f"Excluded groups: {groups_str}")
+            self.console.print(f"Excluded groups: {groups_str}")
         if run_res.criteria.require_groups:
             groups_str = ", ".join(sorted(run_res.criteria.require_groups))
-            pr_info(f"Required groups: {groups_str}")
-        pr_info("Running tests: {}\n".format(", ".join([x.name for x in tests])))
+            self.console.print(f"Required groups: {groups_str}")
+        self.console.print("Running tests: {}\n".format(", ".join([x.name for x in tests])))
 
     def on_test_start(self, test: Xtest) -> None:
-        name = short_str(test.name, 40)
-
-        color = PrintColors.BOLD if colors_enabled() else ""
-        print_str = f"{color}{name}{_reset_color()}"
-        if self.show_summary:
-            pr_info(print_str)
-        else:  # normal mode
-            print_str = f"{print_str:<60} ....... "
-            pr_info(f"{print_str}", end='')
-        pr_info("", end='', flush=True)
+        self.curr_tests.append(test.name)
+        self._print_curr_tests()
 
     def on_test_end(self, test: Xtest, test_res: TestResult) -> None:
+        name = short_str(test.name, 40)
+        colors = ("[bold]", "[/bold]") if colors_enabled() else self._NO_COLORS
+
+        # TODO: reintroduce show summary
+        msg = f"{colors[0]}{name}{colors[1]}"
+        msg = f"{msg:<60} ....... "
+
         status_text = status_as_str(test_res.status)
         status_suffix = ""
         if test_res.sub_status != TestSubStatus.Undefined:
             status_suffix = status_as_str(test_res.status, test_res.sub_status)
 
         if colors_enabled():
-            color = _STATUS_COLOR[test_res.status]
-            stts_str = f"{color}{status_text}{_reset_color()}"
+            colors = self.status_colors(test_res.status)
+            stts_str = f"{colors[0]}{status_text}{colors[1]}"
         else:
             stts_str = status_text
-        msg = f"[{stts_str}]"
+        msg += f"[{stts_str}]"
         if status_suffix:
             msg += f" {short_str(status_suffix, 30)}"
 
         details = test_res.error_summary()
         if details:
             msg += f"\n{details}\n"
-        pr_info(msg)
+        self.curr_tests.remove(test.name)
+        self.console.print(msg)
 
     def on_iteration_end(self) -> None:
         assert isinstance(self.iter_res, IterationResult)
@@ -175,21 +186,22 @@ class CliRunReporter(RunReporter):
             if not names:
                 return
             title = status_as_str(status, sub_status)
-            color = _STATUS_COLOR[status] if colors_enabled() else ""
+            colors = self.status_colors(status)
             test_list_str = ", ".join(names)
-            pr_info(f"{color}{title}{_reset_color()}: {test_list_str}")
+            self.console.print(f"{colors[0]}{title}{colors[1]}: {test_list_str}")
 
-        pr_info()
+        self.console.print()
         iter_n = self.iter_res.iter_n
         if self.run_res.iterations > 1:
-            pr_info(f"\nIteration #{iter_n}/{self.run_res.iterations - 1} summary:")
+            self.console.print(f"\nIteration #{iter_n}/{self.run_res.iterations - 1} summary:")
 
         assert isinstance(self.iter_res, IterationResult)
         keys = sorted(self.iter_res.status_results_summary.keys(), key=lambda x: x[0].value)
         for k in keys:
             test_names = self.iter_res.status_results_summary[k]
             summarize_test_list(k[0], k[1], test_names)
-        pr_info()
+        self.live.update("")
+        self.console.print()
 
 
 _ORANGE = '\033[38;5;208m'
@@ -197,8 +209,8 @@ _pr_debug_title = create_print_func(_ORANGE, LogLevel.ALWAYS)
 
 
 class CliDebugReporter(CliRunReporter):
-    def __init__(self) -> None:
-        super().__init__(show_summary=False)
+    def __init__(self, live: Live) -> None:
+        super().__init__(False, live)
 
     def _step_title(self, step: XStep, phase_name: str, step_index: int,
                     sentence_start: bool = False) -> str:
@@ -251,11 +263,13 @@ def run_tests(conf: str,
               debug: bool,
               **kwargs) -> RunResult:
     criteria = TestCriteria(**kwargs)
-    if debug:
-        reporter = CliDebugReporter()
-    else:
-        reporter = CliRunReporter(show_summary=show_summary)
-    return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+    console = Console(highlight=False, soft_wrap=True)
+    with Live(console=console, refresh_per_second=4, transient=False) as live:
+        if debug:
+            reporter = CliDebugReporter(live)
+        else:
+            reporter = CliRunReporter(show_summary, live)
+        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
 
 
 def dump_test(file_path: str, name: str) -> None:
