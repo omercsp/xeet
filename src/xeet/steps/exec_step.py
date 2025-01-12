@@ -97,26 +97,21 @@ class ExecStep(XStep):
         self.expected_stderr = ""
         self.expected_stdout_file = ""
         self.expected_stderr_file = ""
-        self.stdout_file = ""
-        self.stderr_file = ""
         self.output_behavior = self.exec_model.output_behavior
 
-        if model.stdout_file:
-            self.stdout_file = os.path.join(self.xdefs.output_dir, model.stdout_file)
-        else:
-            self.stdout_file = os.path.join(self.xdefs.output_dir, f"{base_name}_stdout")
-        file_title = "unified output" if self.output_behavior == _OutputBehavior.Unify else "stdout"
-        self.log_info(f"{file_title} will be written to '{self.stdout_file}'")
+        stdout_name = self.exec_model.stdout_file if self.exec_model.stdout_file else "stdout"
+        self.stdout_file = self._output_file(stdout_name)
+
+        file_title = "Unified" if self.output_behavior == _OutputBehavior.Unify else "Standard"
+        self.log_info(f"{file_title} output will be written to '{self.stdout_file}'")
 
         if self.output_behavior == _OutputBehavior.Unify:
             self.stderr_file = ""
-            self.filtered_stderr_file = ""
             return
-        if model.stderr_file:
-            self.stderr_file = os.path.join(self.xdefs.output_dir, model.stderr_file)
-        else:
-            self.stderr_file = os.path.join(self.xdefs.output_dir, f"{base_name}_stderr")
-        self.log_info(f"stderr will be written to '{self.stderr_file}'")
+
+        stderr_name = self.exec_model.stderr_file if self.exec_model.stderr_file else "stderr"
+        self.stderr_file = self._output_file(stderr_name)
+        self.log_info(f"Standard error output will be written to '{self.stderr_file}'")
 
     def setup(self, xvars: XeetVars) -> None:  # type: ignore
         super().setup(xvars)

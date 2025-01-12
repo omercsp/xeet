@@ -386,6 +386,7 @@ class Xtest:
             xstep_model = xstep_model_class(**desc)
             if base_step_model:
                 xstep_model.inherit(base_step_model)
+            xstep_model.test_output_dir = self.output_dir
         except ValidationError as e:
             raise XeetStepInitException(f"{pydantic_errmsg(e)}")
         return xstep_model

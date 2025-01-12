@@ -1,12 +1,13 @@
 from . import XeetDefs
 from .xres import XStepResult
-from xeet.common import XeetVars, XeetException, KeysBaseModel, yes_no_str
+from xeet.common import XeetVars, XeetException, KeysBaseModel, yes_no_str, platform_path
 from xeet.log import log_info, log_warn, log_error, log_raw
 from xeet.pr import pr_info, pr_warn, pr_error
 from pydantic import ConfigDict, Field
 from timeit import default_timer as timer
 from typing import Any
 import sys
+import os
 
 
 class XStepModel(KeysBaseModel):
@@ -15,6 +16,7 @@ class XStepModel(KeysBaseModel):
     step_type: str = Field("", validation_alias="type")
     name: str = ""
     parent: "XStepModel | None" = Field(None, exclude=True)
+    test_output_dir: str = Field("", exclude=True)
 
     def inherit(self, parent: "XStepModel") -> None:
         self.parent = parent
@@ -135,6 +137,13 @@ class XStep:
             value = self._detail_value(key=key, setup=setup, printable=printable)
             ret.append((key_name, value))
         return ret
+
+    #  Return a valid output path for the step.
+    def _output_file(self, name: str) -> str:
+        if os.path.isabs(name):
+            raise XeetStepException(f"Output file '{name}' must be relative")
+        ret = os.path.join(self.model.test_output_dir, name)
+        return platform_path(ret)
 
     def _details_keys(self, full: bool, **_) -> set[str]:
         if full:
