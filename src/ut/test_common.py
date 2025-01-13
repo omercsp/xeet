@@ -1,5 +1,5 @@
 from ut import unittest, ref_str
-from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException,
+from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException, XeetInvalidVarType,
                          XeetRecursiveVarException, XeetBadVarNameException)
 import tempfile
 import os
@@ -74,6 +74,15 @@ class TestCommon(unittest.TestCase):
 
         expanded_d1 = xvars.expand(ref_str("d1"))
         self.assertDictEqual(expanded_d1, {"a": 1, "b": 5, "c": ["a", "value1", 5]})
+
+    def test_invlid_var_name(self):
+        xvars = XeetVars()
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"bad name": "value"})
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"bad.name": "value"})
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"bad name": "value"})
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"bad-name": "value"})
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"bad?name": "value"})
+        self.assertRaises(XeetBadVarNameException, xvars.set_vars, {"0bad_name": "value"})
 
     def test_xeet_vars_string_literals(self):
         xvars = XeetVars({"ROOT": "/tmp/xxx"})
@@ -168,3 +177,60 @@ class TestCommon(unittest.TestCase):
         self.assertRaises(XeetNoSuchVarException, xvars0.expand, ref_str("varx"))
         self.assertRaises(XeetNoSuchVarException, xvars1.expand, ref_str("varx"))
         self.assertRaises(XeetNoSuchVarException, xvars2.expand, ref_str("varx"))
+
+    def test_xeet_vars_path(self):
+        xvars = XeetVars({
+            "var1": {
+                "var2": {
+                    "var3": 5,
+                },
+            },
+            "var2": [{"field": 5}, {"field": 10}]
+        })
+
+        self.assertEqual(xvars.expand(ref_str("var1.var2.var3")), 5)
+        self.assertEqual(xvars.expand(ref_str("var1.['var2']['var3']")), 5)
+        self.assertEqual(xvars.expand(ref_str("var1.['var2'].var3")), 5)
+        self.assertEqual(xvars.expand("{var1.var2.var3}"), "5")
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, ref_str("var1.var2.var4"))
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, ref_str("var1.var2.var4"))
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, ref_str("var1.var2.var3.var4"))
+        self.assertEqual(xvars.expand(ref_str("var2.$[0].field")), 5)
+        self.assertEqual(xvars.expand(ref_str("var2.$[1].field")), 10)
+        self.assertRaises(XeetNoSuchVarException, xvars.expand, ref_str("var2.$[3].field"))
+
+    def test_xeet_vars_type_required(self):
+        xvars = XeetVars({
+            "var1": "value1",
+            "var2": 5,
+            "var3": -1.1,
+            "var4": [1, 2, 3],
+            "var5": {"a": 1, "b": 2},
+            "var6": True,
+            "var7": None
+        })
+        self.assertEqual(xvars.expand(ref_str("var1"), [str]), "value1")
+        self.assertEqual(xvars.expand(ref_str("var1"), [str, int]), "value1")
+        self.assertRaises(XeetInvalidVarType, xvars.expand, ref_str("var1"), [int])
+
+        self.assertEqual(xvars.expand(ref_str("var2"), [int]), 5)
+        self.assertRaises(XeetInvalidVarType, xvars.expand, ref_str("var2"), [str])
+
+        self.assertEqual(xvars.expand(ref_str("var3"), [float]), -1.1)
+        self.assertRaises(XeetInvalidVarType, xvars.expand, ref_str("var3"), [int])
+
+        self.assertEqual(xvars.expand(ref_str("var4"), [list]), [1, 2, 3])
+        self.assertRaises(XeetInvalidVarType, xvars.expand, ref_str("var4"), [dict])
+
+        self.assertEqual(xvars.expand(ref_str("var5"), [dict]), {"a": 1, "b": 2})
+        self.assertRaises(XeetInvalidVarType, xvars.expand, ref_str("var5"), [list])
+
+        self.assertEqual(xvars.expand(ref_str("var5.a"), [int]), 1)
+
+        self.assertEqual(xvars.expand(ref_str("var6"), [bool]), True)
+        self.assertRaises(XeetInvalidVarType, xvars.expand, ref_str("var6"), [list, int])
+
+        self.assertEqual(xvars.expand(ref_str("var7"), [type(None)]), None)
+
+        self.assertEqual(xvars.expand("{var2}", [str]), "5")
+        self.assertRaises(XeetInvalidVarType, xvars.expand, "{var2}", [list, int])
