@@ -6,7 +6,7 @@ Running tests: 001_pass, 002_pass_with_output, 003_fail_over_output, 004_fail_ov
 002_pass_with_output                                         ....... [Passed]
 003_fail_over_output                                         ....... [Failed]
 Run step #0:  failed: stdout differs from expected
---- /home/omer/devel/xeet/tests/testbed/xeet.out/003_fail_over_output_main_0_stdout
+--- /home/omer/devel/xeet/tests/testbed/xeet.out/003_fail_over_output/stp0/stdout
 +++ expected_stdout
 @@ -1,2 +1,2 @@
 -Hello World!

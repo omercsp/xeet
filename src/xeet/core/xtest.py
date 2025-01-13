@@ -107,6 +107,7 @@ class XtestModel(KeysBaseModel):
 @dataclass
 class _XStepList:
     name: str
+    short_name: str
     stop_on_err: bool
     steps: list[XStep] = field(default_factory=list)
     on_fail_status: TestStatus = TestStatus.Undefined
@@ -121,30 +122,26 @@ class Xtest:
         if model.error:
             self.error = model.error
             return
-        self._log_info(f"initializing test {self.name}")
-        self.output_dir = f"{xdefs.output_dir}/{self.name}"
-        self._log_info(f"Test output dir: {self.output_dir}")
 
         self.base = self.model.base
         self.error = _EMPTY_STR
-        self.pre_run_steps = self._init_step_list(self.model.pre_run, "pre", True)
+        self.pre_run_steps = self._init_step_list(self.model.pre_run, "pre", "pre", True)
         if self.error:
             return
-        self.run_steps = self._init_step_list(self.model.run, "main", True)
+        self.run_steps = self._init_step_list(self.model.run, "main", "stp", True)
         if self.error:
             return
-        self.post_run_steps = self._init_step_list(self.model.post_run, "post", False)
+        self.post_run_steps = self._init_step_list(self.model.post_run, "post", "pst", False)
         if self.error:
             return
 
         self.xvars = XeetVars(model.var_map, xdefs.xvars)
-        self.xvars.set_vars({
-            system_var_name("TEST_NAME"): self.name,
-            system_var_name("TEST_OUT_DIR"): self.output_dir,
-        })
+        self.xvars.set_vars({system_var_name("TEST_NAME"): self.name})
+        self.output_dir = _EMPTY_STR
 
-    def _init_step_list(self, step_list: list[dict], name: str, stop_on_err: bool) -> _XStepList:
-        ret = _XStepList(name=name, stop_on_err=stop_on_err)
+    def _init_step_list(self, step_list: list[dict], name: str, short_name: str, stop_on_err: bool
+                        ) -> _XStepList:
+        ret = _XStepList(name=name, short_name=short_name, stop_on_err=stop_on_err)
         id_base = self.name
         id_base += f"_{name}"
         for index, step_desc in enumerate(step_list):
@@ -154,7 +151,8 @@ class Xtest:
                 step_class = get_xstep_class(step_model.step_type)
                 if step_class is None:  # Shouldn't happen
                     raise XeetStepInitException(f"Unknown step type '{step_model.step_type}'")
-                step = step_class(step_model, self.xdefs, f"{id_base}_{index}")
+                step = step_class(model=step_model, xdefs=self.xdefs, test_name=self.name,
+                                  phase_name=short_name, step_index=index)
                 ret.steps.append(step)
             except XeetStepInitException as e:
                 self._log_warn(f"Error initializing {name}step {index}: {e}")
@@ -167,18 +165,18 @@ class Xtest:
 
     def setup(self) -> None:
         self._log_info("Pre execution setup")
+        self.output_dir = f"{self.xdefs.output_dir}/{self.name}"
+
+        self.xvars.set_vars({system_var_name("TEST_OUT_DIR"): self.output_dir})
         step_xvars = XeetVars(parent=self.xvars)
-        notifier = self.xdefs.notifier
 
         try:
             for steps in (self.pre_run_steps, self.run_steps,
                           self.post_run_steps):
                 if steps is None:
                     continue
-                for index, step in enumerate(steps.steps):
-                    notifier.on_step_setup_start(self, steps.name, step, index)
-                    step.setup(step_xvars)
-                    notifier.on_step_setup_end(self, steps.name, step, index)
+                for step in steps.steps:
+                    step.setup(xvars=step_xvars, base_dir=self.output_dir)
                     step_xvars.reset()
         except XeetException as e:
             self.error = str(e)
@@ -186,45 +184,32 @@ class Xtest:
 
     def _mkdir_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
-        if os.path.isdir(self.output_dir):
-            # Clear the output director
-            for f in os.listdir(self.output_dir):
-                try:
-                    os.remove(os.path.join(self.output_dir, f))
-                except OSError as e:
-                    raise XeetRunException(f"Error removing file '{f}' - {e.strerror}")
-        else:
-            try:
-                log_verbose("Creating output directory if it doesn't exist: '{}'", self.output_dir)
-                os.makedirs(self.output_dir, exist_ok=False)
-            except OSError as e:
-                raise XeetRunException(f"Error creating output directory - {e.strerror}")
+        try:
+            log_verbose("Creating output directory if it doesn't exist: '{}'", self.output_dir)
+            os.makedirs(self.output_dir, exist_ok=True)
+        except OSError as e:
+            raise XeetRunException(f"Error creating output directory - {e.strerror}")
 
     def run(self) -> TestResult:
-        res = TestResult()
-        if self.error:
-            res.status = TestStatus.RunErr
-            res.sub_status = TestSubStatus.InitErr
-            res.status_reason = self.error
-            return res
-        if self.model.skip:
-            res.status = TestStatus.Skipped
-            res.status_reason = self.model.skip_reason
-            self._log_info("Marked to be skipped", dbg_pr=True)
-            return res
-        if not self.run_steps:
-            self._log_info("No command for test, will not run", dbg_pr=True)
-            res.status = TestStatus.RunErr
-            res.status_reason = "No command"
-            return res
-
         if self.model.abstract:
             raise XeetRunException("Can't run abstract tasks")
 
+        self.setup()
+        if self.error:
+            return TestResult(status=TestStatus.RunErr, sub_status=TestSubStatus.InitErr,
+                              status_reason=self.error)
+        if self.model.skip:
+            self._log_info("Marked to be skipped", dbg_pr=True)
+            return TestResult(status=TestStatus.Skipped, status_reason=self.model.skip_reason)
+        if not self.run_steps:
+            self._log_info("No command for test, will not run", dbg_pr=True)
+            return TestResult(status=TestStatus.RunErr, status_reason="No command")
+
+        res = TestResult()
         self._log_info("Starting run")
         self._mkdir_output_dir()
         self._phase_wrapper(self.pre_run_steps, res, self._pre_test)
-        self._phase_wrapper(self.run_steps, res, self._run)
+        self._phase_wrapper(self.run_steps, res, self._main_run)
         self._phase_wrapper(self.post_run_steps, res, self._post_test)
 
         if res.status == TestStatus.Passed or res.sub_status == TestSubStatus.ExpectedFail:
@@ -250,7 +235,7 @@ class Xtest:
         func(res)
         notifier.on_phase_end(self, step_list.name, len(step_list.steps))
 
-    def _run(self, res: TestResult) -> None:
+    def _main_run(self, res: TestResult) -> None:
         if res.status != TestStatus.Undefined:
             self._log_info("Skipping run. Prior stage failed")
             return
@@ -370,7 +355,6 @@ class Xtest:
             xstep_model = xstep_model_class(**desc)
             if base_step_model:
                 xstep_model.inherit(base_step_model)
-            xstep_model.test_output_dir = self.output_dir
         except ValidationError as e:
             raise XeetStepInitException(f"{pydantic_errmsg(e)}")
         return xstep_model

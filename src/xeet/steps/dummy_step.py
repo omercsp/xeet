@@ -1,7 +1,6 @@
 #  Dummy step for testing purposes
 from xeet.common import XeetVars
 from xeet.core.xstep import XStep, XStepModel, XStepResult
-from xeet.core import XeetDefs
 from typing import ClassVar, Any
 from dataclasses import dataclass
 
@@ -41,15 +40,16 @@ class DummyStep(XStep):
     def result_class() -> type[XStepResult]:
         return DummyStepResult
 
-    def __init__(self, model: DummyStepModel, xdefs: XeetDefs, base_name: str) -> None:
-        super().__init__(model, xdefs, base_name)
-        self.dummy_model = model
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.dummy_model: DummyStepModel = kwargs["model"]
         self.dummy_val0 = None
         self.dummy_val1 = None
 
-    def setup(self, xvars: XeetVars) -> None:  # type: ignore
-        self.dummy_val0 = xvars.expand(self.dummy_model.dummy_val0)
-        self.dummy_val1 = xvars.expand(self.dummy_model.dummy_val1)
+    def setup(self, **kwargs) -> None:  # type: ignore
+        super().setup(**kwargs)
+        self.dummy_val0 = self.xvars.expand(self.dummy_model.dummy_val0)
+        self.dummy_val1 = self.xvars.expand(self.dummy_model.dummy_val1)
 
     def _run(self, res: DummyStepResult) -> bool:  # type: ignore
         res.dummy_val0 = self.dummy_val0

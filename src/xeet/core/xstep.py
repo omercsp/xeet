@@ -1,4 +1,4 @@
-from . import XeetDefs
+from . import XeetDefs, system_var_name
 from .xres import XStepResult
 from xeet.common import XeetVars, XeetException, KeysBaseModel, yes_no_str, platform_path
 from xeet.log import log_info, log_warn, log_error, log_raw
@@ -6,6 +6,7 @@ from xeet.pr import pr_info, pr_warn, pr_error
 from pydantic import ConfigDict, Field
 from timeit import default_timer as timer
 from typing import Any
+from functools import cached_property
 import sys
 import os
 
@@ -16,7 +17,6 @@ class XStepModel(KeysBaseModel):
     step_type: str = Field("", validation_alias="type")
     name: str = ""
     parent: "XStepModel | None" = Field(None, exclude=True)
-    test_output_dir: str = Field("", exclude=True)
 
     def inherit(self, parent: "XStepModel") -> None:
         self.parent = parent
@@ -47,29 +47,44 @@ class XStep:
     def result_class() -> type[XStepResult]:
         return XStepResult
 
-    def __init__(self, model: XStepModel, xdefs: XeetDefs, base_name: str) -> None:
+    def __init__(self, model: XStepModel, xdefs: XeetDefs, test_name: str, phase_name: str,
+                 step_index) -> None:
         self.model = model
         self.xdefs = xdefs
-        self.base_name = base_name
+        self.test_name = test_name
+        self.phase_name = phase_name
+        self.step_index = step_index
+        self.xvars: XeetVars = None  # type: ignore
+        self.output_dir = ""
 
-    def setup(self, _: XeetVars) -> str:
-        ...
+    def setup(self, xvars: XeetVars, base_dir: str):
+        self.xvars = xvars
+        self.output_dir = os.path.join(base_dir, f"{self.phase_name}{self.step_index}")
+        self.output_dir = platform_path(self.output_dir)
+        self.xvars.set_vars({
+            system_var_name("STEP_OUT_DIR"): self.output_dir,
+            system_var_name("STEP_INDEX"): self.step_index,
+        })
+
+    @cached_property
+    def _log_prefix(self) -> str:
+        return f"{self.phase_name}{self.step_index}.{self.test_name}"
 
     def log_info(self, msg, *args, **kwargs) -> None:
         if self.debug_mode and kwargs.pop("dbg_pr", True):
             kwargs.pop("pr", None)  # Prevent double printing
             pr_info(msg, *args, **kwargs)
-        log_info(f"{self.base_name}: {msg}", *args, depth=1, **kwargs)
+        log_info(f"{self._log_prefix}: {msg}", *args, depth=1, **kwargs)
 
     def log_warn(self, msg, *args, **kwargs) -> None:
         if self.debug_mode:
             pr_warn(msg, *args, **kwargs, pr_file=sys.stdout)
-        log_warn(f"{self.base_name}: {msg}", *args, depth=1, pr=None,  **kwargs)
+        log_warn(f"{self._log_prefix}: {msg}", *args, depth=1, pr=None,  **kwargs)
 
     def log_error(self, msg, *args, **kwargs) -> None:
         if self.debug_mode:
             pr_error(msg, *args, **kwargs, pr_file=sys.stdout)
-        log_error(f"{self.base_name}: {msg}", *args, depth=1, pr=None, **kwargs)
+        log_error(f"{self._log_prefix}: {msg}", *args, depth=1, pr=None, **kwargs)
 
     def log_raw(self, msg, *args, **kwargs) -> None:
         log_raw(msg, *args, pr=self.debug_mode, **kwargs)
@@ -80,6 +95,7 @@ class XStep:
 
     def run(self) -> XStepResult:
         res = self.result_class()()
+        os.makedirs(self.output_dir, exist_ok=True)
         start = timer()
         res.completed = self._run(res)
         res.duration = timer() - start
@@ -142,7 +158,7 @@ class XStep:
     def _output_file(self, name: str) -> str:
         if os.path.isabs(name):
             raise XeetStepException(f"Output file '{name}' must be relative")
-        ret = os.path.join(self.model.test_output_dir, name)
+        ret = os.path.join(self.output_dir, name)
         return platform_path(ret)
 
     def _details_keys(self, full: bool, **_) -> set[str]:

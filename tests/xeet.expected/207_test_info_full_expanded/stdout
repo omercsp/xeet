@@ -76,8 +76,8 @@ Post-run steps:
        Allowed return codes:     0
        Command:                  python /home/omer/devel/xeet/tests/testbed/..
                                  /../scripts/testing/echo.py Test output dir: 
-                                 /home/omer/devel/xeet/tests/testbed/xeet.out/
-                                 030_for_info
+                                 /home/omer/devel/xeet/tests/testbed/xeet.out[
+                                 /iteration]/030_for_info
        Working directory:        None
        Debug new line:           No
        Environment variables:    None
@@ -85,7 +85,7 @@ Post-run steps:
        Expected stderr:          None
        Expected stderr file:     None
        Expected stdout:          Test output dir: /home/omer/devel/xeet/tests/
-                                 testbed/xeet.out/030_for_info
+                                 testbed/xeet.out[/iteration]/030_for_info
        Expected stdout file:     None
        Output behavior:          unify
        Shell path:               None

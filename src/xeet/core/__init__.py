@@ -24,26 +24,42 @@ class XeetDefs:
             self.root_dir = self.cwd
         else:
             self.root_dir = os.path.abspath(self.root_dir)
+
+        #  Output dir is set here for informational purposes. It will be updated later the test
+        #  is ran, possibly with an iteration number appended to it.
         self.output_dir = f"{self.root_dir}/xeet.out"
-        self.expected_output_dir = f"{self.root_dir}/xeet.expected"
         if in_windows():
             self.cwd = platform_path(self.cwd)
             self.root_dir = platform_path(self.root_dir)
             self.output_dir = platform_path(self.output_dir)
             self.expected_output_dir = platform_path(self.expected_output_dir)
+        self.output_dir += f"[/iteration]"
+        self.expected_output_dir = f"{self.root_dir}/xeet.expected"
+
         self.xvars = XeetVars(start_vars={
             system_var_name("CWD"): self.cwd,
             system_var_name("ROOT"): self.root_dir,
-            system_var_name("OUT_DIR"): self.output_dir,
             system_var_name("EXPECTED_DIR"): self.expected_output_dir,
+            system_var_name("OUT_DIR"): self.output_dir,
             system_var_name("DEBUG"): "1" if debug_mode else "0"
         })
         self.defs_dict = {}
         self.debug_mode = debug_mode
         self.notifier = notifier
+        self.current_iteration = 0
 
     def set_defs(self, defs_dict: dict) -> None:
         self.defs_dict = defs_dict
+
+    def set_iteration(self, iteration: int, total_iterations: int) -> None:
+        self.current_iteration = iteration
+        if total_iterations > 1:
+            self.output_dir = f"{self.root_dir}/xeet.out/{iteration}"
+        else:
+            self.output_dir = f"{self.root_dir}/xeet.out"
+        self.xvars.set_vars({
+            system_var_name("OUT_DIR"): self.output_dir,
+        })
 
     @cache
     def config_ref(self, path: str) -> tuple[Any, bool]:

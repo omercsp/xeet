@@ -22,7 +22,7 @@ Post-run steps:
  - [0] Step type:                exec
        Command:                  python /home/omer/devel/xeet/tests/testbed/..
                                  /../scripts/testing/echo.py Test output dir: 
-                                 /home/omer/devel/xeet/tests/testbed/xeet.out/
-                                 030_for_info
+                                 /home/omer/devel/xeet/tests/testbed/xeet.out[
+                                 /iteration]/030_for_info
        Expected stdout:          Test output dir: /home/omer/devel/xeet/tests/
-                                 testbed/xeet.out/030_for_info
+                                 testbed/xeet.out[/iteration]/030_for_info

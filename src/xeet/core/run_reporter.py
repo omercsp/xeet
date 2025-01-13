@@ -26,12 +26,6 @@ class RunReporter:
     def on_test_end(self, test, test_res) -> None:
         pass
 
-    def on_test_setup_start(self, test) -> None:
-        pass
-
-    def on_test_setup_end(self, test) -> None:
-        pass
-
     def on_phase_start(self, test, phase_name: str, steps_count: int) -> None:
         pass
 
@@ -39,12 +33,6 @@ class RunReporter:
         pass
 
     # Step events
-    def on_step_setup_start(self, test, phase_name: str, step, step_index: int) -> None:
-        pass
-
-    def on_step_setup_end(self, test, phase_name: str, step, step_index: int) -> None:
-        pass
-
     def on_step_start(self, test, phase_name: str, step, step_index: int) -> None:
         pass
 
@@ -89,14 +77,6 @@ class RunNotifier:
         for r in self.reporters:
             r.on_test_end(test, test_res)
 
-    def on_test_setup_start(self, test) -> None:
-        for r in self.reporters:
-            r.on_test_setup_start(test)
-
-    def on_test_setup_end(self, test) -> None:
-        for r in self.reporters:
-            r.on_test_setup_end(test)
-
     def on_phase_start(self, test, phase_name: str, steps_count: int) -> None:
         for r in self.reporters:
             r.on_phase_start(test, phase_name, steps_count)
@@ -106,13 +86,6 @@ class RunNotifier:
             r.on_phase_end(test, phase_name, steps_count)
 
     # Step events
-    def on_step_setup_start(self, test, phase_name: str, step, step_index: int) -> None:
-        for r in self.reporters:
-            r.on_step_setup_start(test, phase_name, step, step_index)
-
-    def on_step_setup_end(self, test, phase_name: str, step, step_index: int) -> None:
-        for r in self.reporters:
-            r.on_step_setup_end(test, phase_name, step, step_index)
 
     def on_step_start(self, test, phase_name: str, step, step_index: int) -> None:
         for r in self.reporters:

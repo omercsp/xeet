@@ -31,7 +31,7 @@ def fetch_test_desc(config_path: str, name: str) -> dict | None:
 
 
 def fetch_config(config_path: str) -> dict:
-    return xeet_init(config_path).defs.defs_dict
+    return xeet_init(config_path).xdefs.defs_dict
 
 
 class SchemaType(str, Enum):
@@ -58,9 +58,6 @@ def _run_test(test: Xtest) -> TestResult:
                           status_reason=test.error)
 
     log_info(f"Running test '{test.name}'")
-    test.xdefs.notifier.on_test_setup_start(test)
-    test.setup()
-    test.xdefs.notifier.on_test_setup_end(test)
     start = timer()
     ret = test.run()
     ret.duration = timer() - start
@@ -76,7 +73,7 @@ def run_tests(conf: str,
     if not isinstance(reporters, list):
         reporters = [reporters]
     driver = xeet_init(conf, debug_mode, reporters)
-    notifier = driver.defs.notifier
+    notifier = driver.xdefs.notifier
     if criteria.include_groups:
         groups_str = ", ".join(sorted(criteria.include_groups))
         log_info(f"Included groups: {groups_str}")
@@ -91,7 +88,7 @@ def run_tests(conf: str,
     if not tests:
         raise XeetException("No tests to run")
 
-    log_info("Running tests: {}\n".format(", ".join([x.name for x in tests])))
+    log_info("Tests run list: {}".format(", ".join([x.name for x in tests])))
 
     run_res = RunResult(iterations=iterations, criteria=criteria)
     notifier.on_run_start(run_res, tests)
@@ -100,6 +97,7 @@ def run_tests(conf: str,
         iter_res = run_res.iter_results[iter_n]
         if iterations > 1:
             log_info(f">>> Iteration {iter_n}/{iterations - 1}")
+        driver.xdefs.set_iteration(iter_n, iterations)
         notifier.on_iteration_start(iter_res, iter_n)
         for test in tests:
             notifier.on_test_start(test)

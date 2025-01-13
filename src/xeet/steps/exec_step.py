@@ -1,6 +1,5 @@
-from xeet.common import XeetVars, text_file_tail, in_windows, FileTailer, yes_no_str
+from xeet.common import text_file_tail, in_windows, FileTailer, yes_no_str
 from xeet.pr import pr_info
-from xeet.core import XeetDefs
 from xeet.core.xstep import XStep, XStepModel, XStepResult
 from pydantic import field_validator, ValidationInfo, model_validator, Field
 from enum import Enum
@@ -82,9 +81,9 @@ class ExecStep(XStep):
     def result_class() -> type[XStepResult]:
         return ExecStepResult
 
-    def __init__(self, model: ExecStepModel, xdefs: XeetDefs, base_name: str) -> None:
-        super().__init__(model, xdefs, base_name)
-        self.exec_model = model
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.exec_model: ExecStepModel = kwargs["model"]
         self.shell_path = ""
         self.cmd = ""
         self.cwd = ""
@@ -95,51 +94,57 @@ class ExecStep(XStep):
         self.expected_stderr = ""
         self.expected_stdout_file = ""
         self.expected_stderr_file = ""
+        self.stdout_file = ""
+        self.stderr_file = ""
         self.output_behavior = self.exec_model.output_behavior
 
-        stdout_name = self.exec_model.stdout_file if self.exec_model.stdout_file else "stdout"
-        self.stdout_file = self._output_file(stdout_name)
-
-        file_title = "Unified" if self.output_behavior == _OutputBehavior.Unify else "Standard"
-        self.log_info(f"{file_title} output will be written to '{self.stdout_file}'")
-
-        if self.output_behavior == _OutputBehavior.Unify:
-            self.stderr_file = ""
-            return
-
-        stderr_name = self.exec_model.stderr_file if self.exec_model.stderr_file else "stderr"
-        self.stderr_file = self._output_file(stderr_name)
-        self.log_info(f"Standard error output will be written to '{self.stderr_file}'")
-
-    def setup(self, xvars: XeetVars) -> None:  # type: ignore
-        super().setup(xvars)
-        self.shell_path = xvars.expand(self.exec_model.shell_path)
+    def setup(self, **kwargs) -> None:  # type: ignore
+        super().setup(**kwargs)
+        self.shell_path = self.xvars.expand(self.exec_model.shell_path)
         if not self.shell_path:
             self.shell_path, _ = self.xdefs.config_ref("settings.exec_step.default_shell_path")
 
-        self.cmd = xvars.expand(self.exec_model.cmd)
+        self.cmd = self.xvars.expand(self.exec_model.cmd)
         self.use_shell = (not in_windows()) and self.exec_model.use_shell
-        self.cwd = xvars.expand(self.exec_model.cwd)
+        self.cwd = self.xvars.expand(self.exec_model.cwd)
         if self.cwd:
             self.log_info(f"Working directory will be set to '{self.cwd}'")
         else:
             self.log_info(f"Using current working directory '{os.getcwd()}'")
-        self.env = xvars.expand(self.exec_model.env)
-        self.env_file = xvars.expand(self.exec_model.env_file)
+        self.env = self.xvars.expand(self.exec_model.env)
+        self.env_file = self.xvars.expand(self.exec_model.env_file)
 
         if self.exec_model.env_file:
-            self.env_file = xvars.expand(self.env_file)
+            self.env_file = self.xvars.expand(self.env_file)
         if self.exec_model.env is not None:
             for k, v in self.exec_model.env.items():
                 name = k.strip()
                 if not name:
                     continue
-                self.env[k] = xvars.expand(v)
+                self.env[k] = self.xvars.expand(v)
 
-        self.expected_stdout = xvars.expand(self.exec_model.expected_stdout)
-        self.expected_stderr = xvars.expand(self.exec_model.expected_stderr)
-        self.expected_stdout_file = xvars.expand(self.exec_model.expected_stdout_file)
-        self.expected_stderr_file = xvars.expand(self.exec_model.expected_stderr_file)
+        #  Output files
+        if self.exec_model.stdout_file:
+            stdout_name = self.xvars.expand(self.exec_model.stdout_file)
+        else:
+            stdout_name = "stdout"
+        self.stdout_file = self._output_file(stdout_name)
+        if self.output_behavior == _OutputBehavior.Unify:
+            self.log_info(f"Unified output will be written to '{self.stdout_file}'")
+        else:
+            if self.exec_model.stderr_file:
+                stderr_name = self.xvars.expand(self.exec_model.stderr_file)
+            else:
+                stderr_name = "stderr"
+            self.stderr_file = self._output_file(stderr_name)
+            self.log_info(f"Stdout will be written to '{self.stdout_file}'")
+            self.log_info(f"Stderr will be written to '{self.stderr_file}'")
+
+        #  Expected output
+        self.expected_stdout = self.xvars.expand(self.exec_model.expected_stdout)
+        self.expected_stderr = self.xvars.expand(self.exec_model.expected_stderr)
+        self.expected_stdout_file = self.xvars.expand(self.exec_model.expected_stdout_file)
+        self.expected_stderr_file = self.xvars.expand(self.exec_model.expected_stderr_file)
 
     def _io_descriptors(self) -> tuple[TextIOWrapper, TextIOWrapper]:
         out_file = open(self.stdout_file, "w")

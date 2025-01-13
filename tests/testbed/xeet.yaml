@@ -241,8 +241,7 @@ tests:
     run:
       - cmd: "{pwd_cmd}"
         expected_stdout: "{XEET_CWD}\n"
-      - cmd:
-        env:
+      - env:
           TEST_ENV_VAR: test value
         cmd: "{showenv_cmd} TEST_ENV_VAR"
         expected_stdout: "test value\n"

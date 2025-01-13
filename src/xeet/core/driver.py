@@ -62,7 +62,7 @@ class XeetModel(BaseModel):
 class Driver:
     def __init__(self, model: XeetModel, xdefs: XeetDefs) -> None:
         self.model = model
-        self.defs = xdefs
+        self.xdefs = xdefs
         self.xvars = xdefs.xvars
 
         for v in model.variables:
@@ -70,7 +70,6 @@ class Driver:
                 log_warn(f"Variable '{v}' is already defined in the environment")
                 model.variables.pop(v)
         self.xvars.set_vars(model.variables)
-        log_info(f"Output directory: {self.defs.output_dir}")
 
     def _xtest_model(self, desc: dict, inherited: set[str] | None = None) -> XtestModel:
         if inherited is None:
@@ -106,7 +105,7 @@ class Driver:
 
     def _xtest(self, desc: dict) -> Xtest:
         model = self._xtest_model(desc)
-        return Xtest(model, self.defs)
+        return Xtest(model, self.xdefs)
 
     def xtest(self, name: str) -> Xtest | None:
         desc = self.test_desc(name)
@@ -193,7 +192,6 @@ def xeet_init(file_path: str, debug_mode=False, reporters: list[RunReporter] = l
     log_info(f"Main Xeet configuration file: {xdefs.xeet_file_path}")
     log_info(f"Root directory: {xdefs.root_dir}")
     log_info(f"Current working directory: {xdefs.cwd}")
-    log_info(f"Output directory: {xdefs.output_dir}")
     log_info(f"Expected output directory: {xdefs.expected_output_dir}")
     model = _read_conf_file(xdefs.xeet_file_path, xdefs.xvars, xdefs.root_dir)
     xdefs.set_defs(model.model_dump(by_alias=True))

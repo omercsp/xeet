@@ -221,11 +221,6 @@ class CliDebugReporter(CliRunReporter):
         _pr_debug_title(f"Test '{test.name}' ended. (status: {test_res.status}, "
                         f"duration: {test_res.duration:.3f}s)")
 
-    def on_step_setup_start(self, test: Xtest, phase_name: str, step: XStep, step_index: int
-                            ) -> None:
-        text = self._step_title(step, phase_name, step_index, sentence_start=True)
-        _pr_debug_title(f"{text} - setup")
-
     def on_step_start(self, test: Xtest, phase_name: str, step: XStep, step_index: int) -> None:
         title = self._step_title(step, phase_name, step_index, sentence_start=True)
         _pr_debug_title(f"{title} - staring run")
