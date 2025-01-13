@@ -8,6 +8,7 @@ from xeet.steps import get_xstep_class
 from xeet.pr import pr_info, pr_warn
 from typing import Any
 from pydantic import Field, ValidationError, ConfigDict, AliasChoices, model_validator
+from functools import cache
 from enum import Enum
 from dataclasses import dataclass, field
 import os
@@ -127,6 +128,7 @@ class Xtest:
         if model.error:
             self.error = model.error
             return
+        self.runner_id = ""
 
         self.base = self.model.base
         self.error = _EMPTY_STR
@@ -168,7 +170,9 @@ class Xtest:
     def debug_mode(self) -> bool:
         return self.xdefs.debug_mode
 
-    def setup(self) -> None:
+    def setup(self, runner_id: str = "") -> None:
+        self.runner_id = runner_id
+        self._log_prefix.cache_clear()
         self._log_info("Pre execution setup")
         self.output_dir = f"{self.xdefs.output_dir}/{self.name}"
 
@@ -181,7 +185,7 @@ class Xtest:
                 if steps is None:
                     continue
                 for step in steps.steps:
-                    step.setup(xvars=step_xvars, base_dir=self.output_dir)
+                    step.setup(xvars=step_xvars, base_dir=self.output_dir, runner_id=runner_id)
                     step_xvars.reset()
         except XeetException as e:
             self.error = str(e)
@@ -195,11 +199,11 @@ class Xtest:
         except OSError as e:
             raise XeetRunException(f"Error creating output directory - {e.strerror}")
 
-    def run(self) -> TestResult:
+    def run(self, **steup_args) -> TestResult:
         if self.model.abstract:
             raise XeetRunException("Can't run abstract tasks")
 
-        self.setup()
+        self.setup(**steup_args)
         if self.error:
             return TestResult(status=TestStatus.NotRun, sub_status=TestSubStatus.InitErr,
                               status_reason=self.error)
@@ -308,17 +312,23 @@ class Xtest:
             if step_list.stop_on_err and (step_res.failed or not step_res.completed):
                 break
 
+    @cache
+    def _log_prefix(self) -> str:
+        if not self.runner_id:
+            return f"{self.name}:"
+        return f"{self.name}@{self.runner_id}:"
+
     def _log_info(self, msg, *args, **kwargs) -> None:
         if self.debug_mode and kwargs.pop("dbg_pr", False):
             kwargs.pop("pr", None)  # Prevent double printing
             pr_info(msg, *args, **kwargs)
-        log_info(f"{self.name}: {msg}", *args, depth=1, **kwargs)
+        log_info(f"{self._log_prefix()} {msg}", *args, depth=1, **kwargs)
 
     def _log_warn(self, msg, *args, **kwargs) -> None:
         if self.debug_mode and kwargs.pop("dbg_pr", True):
             kwargs.pop("pr", None)  # Prevent double printing
             pr_warn(msg, *args, **kwargs)
-        log_warn(f"{self.name}: {msg}", *args, depth=1, **kwargs)
+        log_warn(f"{self._log_prefix()} {msg}", *args, depth=1, **kwargs)
 
     _DFLT_STEP_TYPE_PATH = "settings.xeet.default_step_type"
 
