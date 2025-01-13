@@ -106,6 +106,7 @@ class _TestRunner(Thread):
                 break
             self.log_info(f"got test '{test.name}'")
             self.notifier.on_test_start(test)
+            test.set_runner_id(self.runner_id)
             try:
                 test_res = self._run_test(test)
             except XeetException as e:

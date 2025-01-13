@@ -8,6 +8,7 @@ from xeet.steps import get_xstep_class
 from xeet.pr import pr_info, pr_warn
 from typing import Any
 from pydantic import Field, ValidationError, ConfigDict, AliasChoices, model_validator
+from functools import cache
 from enum import Enum
 from dataclasses import dataclass, field
 import os
@@ -126,6 +127,7 @@ class Xtest:
         if model.error:
             self.error = model.error
             return
+        self.runner_id = ""
         self._log_info(f"initializing test {self.name}")
         self.output_dir = f"{xdefs.output_dir}/{self.name}"
         self._log_info(f"Test output dir: {self.output_dir}")
@@ -324,17 +326,27 @@ class Xtest:
             if step_list.stop_on_err and (step_res.failed or not step_res.completed):
                 break
 
+    def set_runner_id(self, runner_id: str) -> None:
+        self.runner_id = runner_id
+        self._log_prefix.cache_clear()
+
+    @cache
+    def _log_prefix(self) -> str:
+        if not self.runner_id:
+            return f"{self.name}:"
+        return f"{self.name}@{self.runner_id}:"
+
     def _log_info(self, msg, *args, **kwargs) -> None:
         if self.debug_mode and kwargs.pop("dbg_pr", False):
             kwargs.pop("pr", None)  # Prevent double printing
             pr_info(msg, *args, **kwargs)
-        log_info(f"{self.name}: {msg}", *args, depth=1, **kwargs)
+        log_info(f"{self._log_prefix()} {msg}", *args, depth=1, **kwargs)
 
     def _log_warn(self, msg, *args, **kwargs) -> None:
         if self.debug_mode and kwargs.pop("dbg_pr", True):
             kwargs.pop("pr", None)  # Prevent double printing
             pr_warn(msg, *args, **kwargs)
-        log_warn(f"{self.name}: {msg}", *args, depth=1, **kwargs)
+        log_warn(f"{self._log_prefix()} {msg}", *args, depth=1, **kwargs)
 
     _DFLT_STEP_TYPE_PATH = "settings.xeet.default_step_type"
 
