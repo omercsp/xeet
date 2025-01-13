@@ -56,8 +56,9 @@ class Step:
         self.step_index = step_index
         self.xvars: XeetVars = None  # type: ignore
         self.output_dir = ""
+        self.runner_id = ""
 
-    def setup(self, xvars: XeetVars, base_dir: str):
+    def setup(self, xvars: XeetVars, base_dir: str, runner_id: str):
         self.xvars = xvars
         self.output_dir = os.path.join(base_dir, f"{self.phase_name}{self.step_index}")
         self.output_dir = platform_path(self.output_dir)
@@ -65,10 +66,18 @@ class Step:
             system_var_name("STEP_OUT_DIR"): self.output_dir,
             system_var_name("STEP_INDEX"): self.step_index,
         })
+        if runner_id:
+            self.runner_id = runner_id
+            #  Clear the _log_prefix cache
+            if hasattr(self, "_log_prefix"):
+                del self._log_prefix
 
     @cached_property
     def _log_prefix(self) -> str:
-        return f"{self.phase_name}{self.step_index}.{self.test_name}"
+        prefix = f"{self.phase_name}{self.step_index}.{self.test_name}"
+        if self.runner_id:
+            return f"{prefix}@{self.runner_id}"
+        return prefix
 
     def log_info(self, msg, *args, **kwargs) -> None:
         if self.debug_mode and kwargs.pop("dbg_pr", True):
