@@ -122,7 +122,7 @@ class _TestRunner(Thread):
                               status_reason=test.error)
 
         start = timer()
-        ret = test.run()
+        ret = test.run(runner_id=self.runner_id)
         ret.duration = timer() - start
         return ret
 
