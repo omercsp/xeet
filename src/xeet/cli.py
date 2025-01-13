@@ -166,6 +166,7 @@ class CliRunReporter(RunReporter):
         details = test_res.error_summary()
         if details:
             msg += f"\n{details}\n"
+        self.curr_tests.remove(test.name)
         self.console.print(msg)
 
     def on_iteration_end(self) -> None:

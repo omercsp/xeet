@@ -85,6 +85,13 @@ class XeetVars:
         except XeetException as e:
             raise XeetNoSuchVarException(f"Invalid variable path '{name}.{path}' - {e}")
 
+    def has_var(self, name: str) -> bool:
+        try:
+            self._value_of(name)
+            return True
+        except XeetNoSuchVarException:
+            return False
+
     def _set_var(self, name: str, value: Any) -> None:
         if not self._var_name_re.match(name):
             raise XeetBadVarNameException(f"Invalid variable name '{name}'")

@@ -5,7 +5,6 @@ import inspect
 import os
 import sys
 
-
 __logger = None
 
 
@@ -53,34 +52,9 @@ class VrdLogger(object):
             self._logger.log(verbosity, msg)
 
 
-def start_raw_logging() -> None:
-    global __logger
-    if __logger is None:
-        return
-    __logger.set_raw_format()
-
-
-def stop_raw_logging() -> None:
-    global __logger
-    if __logger is None:
-        return
-    __logger.set_default_format()
-
-
-def log_raw(msg, pr: bool = False) -> None:
-    if pr:
-        print(msg)
-
-    global __logger
-    if __logger is None:
-        return
-    __logger.set_raw_format()
-    __logger.log(logging.INFO, msg)
-    __logger.set_default_format()
-
-
+#  Not thread safe. As it change the format of the logger to raw format which
+#  might affect other threads
 def log_blank(count=1) -> None:
-    global __logger
     if __logger is None:
         return
     __logger.set_raw_format()

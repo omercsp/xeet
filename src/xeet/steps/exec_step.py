@@ -190,8 +190,7 @@ class ExecStep(XStep):
             "shell": self.use_shell,
             "executable": self.shell_path if self.shell_path and self.use_shell else None,
         }
-        self.log_info(f"Running command (shell: {self.use_shell}):")
-        self.log_raw(self.cmd)
+        self.log_info(f"Running command (shell: {self.use_shell}):\n{self.cmd}")
         command = self.cmd
         if not self.use_shell and isinstance(command, str):
             try:

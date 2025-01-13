@@ -1,5 +1,6 @@
 from .xtest import Xtest, XtestModel
 from .run_reporter import RunReporter, RunNotifier
+from .resource import ResourceModel
 from . import TestCriteria, XeetDefs
 from xeet.log import log_info, log_warn
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars
@@ -26,6 +27,7 @@ class XeetModel(BaseModel):
     tests: list[dict] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, dict] = Field(default_factory=dict)
+    resources: dict[str, list[ResourceModel]] = Field(default_factory=dict)
 
     root_dir: str = Field(default_factory=str, exclude=True)
     tests_dict: dict[str, dict] = Field(default_factory=dict, alias="test_names", exclude=True)
@@ -70,6 +72,9 @@ class Driver:
                 log_warn(f"Variable '{v}' is already defined in the environment")
                 model.variables.pop(v)
         self.xvars.set_vars(model.variables)
+
+        for name, resources in model.resources.items():
+            self.xdefs.add_resource_pool(name, resources)
 
     def _xtest_model(self, desc: dict, inherited: set[str] | None = None) -> XtestModel:
         if inherited is None:

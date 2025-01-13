@@ -1,3 +1,4 @@
+from .resource import Resource
 from .import XeetDefs, system_var_name, is_system_var_name
 from .xres import TestResult, TestStatus, TestSubStatus, XStepListResult
 from .xstep import XStep, XStepModel, XeetStepInitException
@@ -7,7 +8,7 @@ from xeet.log import log_info, log_verbose, log_warn
 from xeet.steps import get_xstep_class
 from xeet.pr import pr_info, pr_warn
 from typing import Any
-from pydantic import Field, ValidationError, ConfigDict, AliasChoices, model_validator
+from pydantic import Field, ValidationError, ConfigDict, AliasChoices, model_validator, BaseModel
 from functools import cache
 from enum import Enum
 from dataclasses import dataclass, field
@@ -25,6 +26,19 @@ class StepsInheritType(str, Enum):
     Prepend = "prepend"
     Append = "append"
     Replace = "replace"
+
+
+class _ResouceRequiremnt(KeysBaseModel):
+    pool: NonEmptyStr
+    count: int = Field(1, ge=1)
+    names: list[NonEmptyStr] = Field(default_factory=list)
+    as_var: str = _EMPTY_STR
+
+    @model_validator(mode='after')
+    def post_validate(self) -> "_ResouceRequiremnt":
+        if self.has_key("names") and self.has_key("count"):
+            raise ValueError("Resource requirement can't have both 'names' and 'count'")
+        return self
 
 
 class XtestModel(KeysBaseModel):
@@ -47,6 +61,9 @@ class XtestModel(KeysBaseModel):
                                     validation_alias=AliasChoices("var_map", "variables", "vars"))
 
     platforms: list[str] = Field(default_factory=list)
+
+    # Resource requirements
+    resources: list[_ResouceRequiremnt] = Field(default_factory=list)
 
     # Inheritance behavior
     inherit_variables: bool = True
@@ -145,6 +162,11 @@ class Xtest:
         self.xvars = XeetVars(model.var_map, xdefs.xvars)
         self.xvars.set_vars({system_var_name("TEST_NAME"): self.name})
         self.output_dir = _EMPTY_STR
+        self.obtained_resources: list[Resource] = []
+
+    def set_runner_id(self, runner_id: str = "") -> None:
+        self.runner_id = runner_id
+        self._log_prefix.cache_clear()
 
     def _init_step_list(self, step_list: list[dict], name: str, short_name: str, stop_on_err: bool
                         ) -> _XStepList:
@@ -170,8 +192,7 @@ class Xtest:
     def debug_mode(self) -> bool:
         return self.xdefs.debug_mode
 
-    def setup(self, runner_id: str = "") -> None:
-        self.runner_id = runner_id
+    def setup(self) -> None:
         self._log_prefix.cache_clear()
         self._log_info("Pre execution setup")
         self.output_dir = f"{self.xdefs.output_dir}/{self.name}"
@@ -185,11 +206,52 @@ class Xtest:
                 if steps is None:
                     continue
                 for step in steps.steps:
-                    step.setup(xvars=step_xvars, base_dir=self.output_dir, runner_id=runner_id)
+                    step.setup(xvars=step_xvars, base_dir=self.output_dir, runner_id=self.runner_id)
                     step_xvars.reset()
         except XeetException as e:
             self.error = str(e)
             self._log_info(f"Error setting up test - {e}", dbg_pr=True)
+
+    def release_resources(self) -> None:
+        for r in self.obtained_resources:
+            r.release()
+        self.obtained_resources.clear()
+
+    def obtain_resources(self) -> bool:
+        try:
+            for req in self.model.resources:
+                self._log_info(f"Obtaining '{req.pool.root}' resource(s)")
+                if req.names:
+                    names = [n.root for n in req.names]
+                    obtained = self.xdefs.obtain_resource_list(req.pool.root, names)
+                else:
+                    obtained = self.xdefs.obtain_resource_list(req.pool.root, req.count)
+
+                if not obtained:
+                    self._log_info("Resource not available")
+                    self.release_resources()
+                    return False
+
+                self.obtained_resources.extend(obtained)
+                if req.as_var:
+                    if self.xvars.has_var(req.as_var):
+                        raise XeetRunException(f"Variable '{req.as_var}' already exists."
+                                               " Can't assign resource to it")
+                    if req.names:
+                        var_value = {r.name: r.value for r in obtained}
+                    else:
+                        if req.count == 1:
+                            var_value = obtained[0].value
+                        else:
+                            var_value = [r.value for r in obtained]
+                    self.xvars.set_vars({req.as_var: var_value})
+        except XeetException as e:
+            self.error = f"Error obtaining resources - {e}"
+            self._log_info(self.error)
+            self.release_resources()
+            # We return true, as thes test doesn't have any resources at this point
+            # and we don't want to prevent it from running to run error completion
+        return True
 
     def _mkdir_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")

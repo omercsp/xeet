@@ -1,7 +1,7 @@
 from . import XeetDefs, system_var_name
 from .xres import XStepResult
 from xeet.common import XeetVars, XeetException, KeysBaseModel, yes_no_str, platform_path
-from xeet.log import log_info, log_warn, log_error, log_raw
+from xeet.log import log_info, log_warn, log_error
 from xeet.pr import pr_info, pr_warn, pr_error
 from pydantic import ConfigDict, Field
 from timeit import default_timer as timer
@@ -94,9 +94,6 @@ class XStep:
         if self.debug_mode:
             pr_error(msg, *args, **kwargs, pr_file=sys.stdout)
         log_error(f"{self._log_prefix}: {msg}", *args, depth=1, pr=None, **kwargs)
-
-    def log_raw(self, msg, *args, **kwargs) -> None:
-        log_raw(msg, *args, pr=self.debug_mode, **kwargs)
 
     def pr_debug(self, msg, *args, **kwargs) -> None:
         if self.debug_mode:
