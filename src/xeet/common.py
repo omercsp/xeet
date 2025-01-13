@@ -44,9 +44,13 @@ class XeetBadVarNameException(XeetException):
     ...
 
 
+class XeetInvalidVarType(XeetException):
+    ...
+
+
 class XeetVars:
     _REF_PREFIX = "$ref://"
-    _var_re = re.compile(r'\\*{[a-zA-Z_][a-zA-Z0-9_]*?}')
+    _var_re = re.compile(r'\\*{[a-zA-Z0-9"\'_\.\$\[\]]*?}')
     _var_name_re = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
     def __init__(self, start_vars: dict | None = None, parent: "XeetVars | None" = None) -> None:
@@ -56,12 +60,28 @@ class XeetVars:
         else:
             self.vars_map = {**start_vars}
 
-    def _value_of(self, name: str) -> str:
+    def _value_of(self, name: str) -> Any:
+        #  Split the name by '.' and get the value of the last part
+        parts = name.split(".", 1)
+        name = parts[0]
+        path = ".".join(parts[1:])
         if name in self.vars_map:
-            return self.vars_map[name]
-        if self.parent is not None:
-            return self.parent._value_of(name)
-        raise XeetNoSuchVarException(f"Unknown variable '{name}'")
+            v = self.vars_map[name]
+        elif self.parent is not None:
+            v = self.parent._value_of(name)
+        else:
+            raise XeetNoSuchVarException(f"Unknown variable '{name}'")
+        if not path:
+            return v
+        if not isinstance(v, (dict, list)):
+            raise XeetNoSuchVarException(f"Invalid variable path '{name}.{path}'")
+        try:
+            ret, found = json_value(v, path)
+            if not found:
+                raise XeetNoSuchVarException(f"Invalid variable path '{name}.{path}'")
+            return ret
+        except XeetException as e:
+            raise XeetNoSuchVarException(f"Invalid variable path '{name}.{path}' - {e}")
 
     def has_var(self, name: str) -> bool:
         try:
@@ -92,20 +112,24 @@ class XeetVars:
         self.vars_map.clear()
         self._expand_str.cache_clear()
 
-    def expand(self, v: Any) -> Any:
+    def expand(self, v: Any, value_types: list[type] = list()) -> Any:
         try:
             if isinstance(v, str):
-                return self._expand_str(v)
-            if isinstance(v, dict):
-                return {k: self.expand(v) for k, v in v.items()}
-            if isinstance(v, list):
-                return [self.expand(v) for v in v]
-            return v
+                ret = self._expand_str(v)
+            elif isinstance(v, dict):
+                ret = {k: self.expand(v) for k, v in v.items()}
+            elif isinstance(v, list):
+                ret = [self.expand(v) for v in v]
+            else:
+                ret = v
+            if value_types and type(ret) not in value_types:
+                raise XeetInvalidVarType(f"Invalid value type for {v}: {ret} is {type(ret)}")
+            return ret
         except RecursionError:
             raise XeetRecursiveVarException("Recursive var expansion for '{s}'")
 
     @cache
-    def _expand_str(self, s: str) -> str:
+    def _expand_str(self, s: str) -> Any:
         if not s:
             return s
         if len(s) >= len(self._REF_PREFIX):
@@ -220,7 +244,7 @@ def platform_path(path: str) -> str:
 
 
 #  Return a list of values found by the JSONPath expression
-def json_values(obj: dict, path: str) -> list[Any]:
+def json_values(obj: dict | list, path: str) -> list[Any]:
     try:
         expr = parse_ext(path)
         return [match.value for match in expr.find(obj)]
@@ -230,7 +254,7 @@ def json_values(obj: dict, path: str) -> list[Any]:
 
 #  Return the first value found by the JSONPath expression. If no value is found, return None
 #  If multiple values are found, raise an exception
-def json_value(obj: dict, path: str) -> tuple[Any, bool]:
+def json_value(obj: dict | list, path: str) -> tuple[Any, bool]:
     values = json_values(obj, path)
     if len(values) == 0:
         return None, False
