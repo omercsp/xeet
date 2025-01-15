@@ -1,3 +1,4 @@
+from .resource import Resource
 from .import RuntimeInfo, system_var_name, is_system_var_name
 from .result import (TestResult, TestPrimaryStatus, TestSecondaryStatus, PhaseResult, TestStatus,
                      time_result)
@@ -150,6 +151,7 @@ class Test:
         self.pre_phase = Phase(name="pre", test=self, short_name="pre", stop_on_err=True)
         self.main_phase = Phase(name="main", test=self, short_name="stp", stop_on_err=True)
         self.post_phase = Phase(name="post", test=self, short_name="pst", stop_on_err=False)
+        self.obtained_resources: list[Resource] = []
 
         if model.error:
             self.error = model.error
@@ -209,6 +211,47 @@ class Test:
         except XeetException as e:
             self.error = str(e)
             self.notify(f"error setting up test - {e}", dbg_pr=True)
+
+    def release_resources(self) -> None:
+        for r in self.obtained_resources:
+            r.release()
+        self.obtained_resources.clear()
+
+    def obtain_resources(self) -> bool:
+        try:
+            for req in self.model.resources:
+                self.notify(f"obtaining resource '{req.pool.root}'")
+                if req.names:
+                    names = [n.root for n in req.names]
+                    obtained = self.rti.obtain_resource_list(req.pool.root, names)
+                else:
+                    obtained = self.rti.obtain_resource_list(req.pool.root, req.count)
+
+                if not obtained:
+                    self.notify(f"resource '{req.pool.root}' not available")
+                    self.release_resources()
+                    return False
+
+                self.obtained_resources.extend(obtained)
+                if req.as_var:
+                    if self.xvars.has_var(req.as_var):
+                        raise XeetException(f"Variable '{req.as_var}' already exists."
+                                            " Can't assign resource to it")
+                    if req.names:
+                        var_value = {r.name: r.value for r in obtained}
+                    else:
+                        if req.count == 1:
+                            var_value = obtained[0].value
+                        else:
+                            var_value = [r.value for r in obtained]
+                    self.xvars.set_vars({req.as_var: var_value})
+        except XeetException as e:
+            self.error = f"Error obtaining resources - {e}"
+            self.notify(self.error)
+            self.release_resources()
+            # We return true, as thes test doesn't have any resources at this point
+            # and we don't want to prevent it from running to run error completion
+        return True
 
     def _mkdir_output_dir(self) -> None:
         self.notify(f"setting up output directory '{self.output_dir}'")
