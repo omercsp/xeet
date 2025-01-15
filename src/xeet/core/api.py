@@ -8,7 +8,7 @@ from xeet import XeetException
 from timeit import default_timer as timer
 from enum import Enum
 from xeet.log import log_info, log_verbose
-from threading import Lock, Thread, Event
+from threading import Condition, Thread, Event
 
 
 def fetch_test(config_path: str, name: str, setup: bool = False) -> Test | None:
@@ -55,21 +55,73 @@ def fetch_schema(schema_type: str) -> dict:
 
 
 class _TestsPool:
-    def __init__(self, tests: list[Test]) -> None:
-        self.tests = tests
-        self._index = 0
-        self._lock = Lock()
+    def __init__(self, tests: list[Test], threads: int) -> None:
+        self._base_tests = tests
+        self.threads = threads
+        self._tests: list[Test] = []
+        self.condition = Condition()
+        self.abort = Event()
+        self.reset()
 
-    def get_next(self) -> Test | None:
-        with self._lock:
-            if self._index >= len(self.tests):
-                return None
-            ret = self.tests[self._index]
-            self._index += 1
-            return ret
+    def stop(self) -> None:
+        self.abort.set()
+        with self.condition:
+            self.condition.notify_all()
+
+    def next_test(self, runner_name: str) -> Test | None:
+        with self.condition:
+            while True:
+                if self.abort.is_set():
+                    return None
+                test, busy = self._next_test(runner_name)
+                if busy:
+                    log_info(f"{runner_name}: No obtainable tests, waiting")
+                    self.condition.wait()
+                    log_info(f"{runner_name}: Woke up")
+                    continue
+                return test
+
+    def _next_test(self, runner_name: str) -> tuple[Test | None, bool]:
+        if len(self._tests) == 0:
+            return None, False
+        for i, test in enumerate(self._tests):
+            log_info(f"{runner_name}: Trying to get test '{test.name}'")
+            try:
+                test.set_runner_id(runner_name)
+                #  if test.error is set, it means that the test is not runnable
+                #  and should be skipped. No need to check for resources.
+                if not test.error and not test.obtain_resources():
+                    test.set_runner_id()
+                    continue
+                if i > 0:
+                    busy_tests = self._tests[0:i]
+                    self._tests = self._tests[i:]
+                    if len(self._tests) < self.threads:
+                        self._tests.extend(busy_tests)
+                    else:
+                        self._tests = self._tests[0:self.threads] + busy_tests + \
+                            self._tests[self.threads:]
+                log_info(f"{runner_name}: got '{test.name}'")
+                return self._tests.pop(i), False
+            except XeetException as e:
+                log_info(f"Error occurred during test '{test.name}': {e}")
+                test.error = str(e)
+                return test, False  # return the test with error, will become a runtime error
+        return None, True
+
+    def release_test(self, test: Test) -> None:
+        with self.condition:
+            test.release_resources()
+            self.condition.notify_all()
+
+    def insert(self, test: Test) -> None:
+        if len(self._tests) < self.threads:
+            self._tests.append(test)
+        else:
+            self._tests.insert(self.threads, test)
 
     def reset(self) -> None:
-        self._index = 0
+        self._tests = self._base_tests.copy()
 
 
 class _TestRunner(Thread):
@@ -98,24 +150,24 @@ class _TestRunner(Thread):
     def run(self) -> None:
         while True:
             if self._stop_event.is_set() or _TestRunner.runner_error.is_set():
+                self.pool.stop()
                 self.log_info("Stopping")
                 break
-            test = self.pool.get_next()
+            test = self.pool.next_test(self.runner_id)
             if test is None:
                 self.log_info("No more tests, goodbye")
                 break
-            self.log_info(f"got test '{test.name}'")
             self.notifier.on_test_start(test)
             try:
                 test_res = self._run_test(test)
+                self.iter_res.add_test_result(test.name, test_res)
+                self.notifier.on_test_end(test, test_res)
             except XeetException as e:
                 self.log_info(f"Error occurred during test '{test.name}': {e}")
                 self.error = e
                 _TestRunner.runner_error.set()
-                break
-
-            self.iter_res.add_test_result(test.name, test_res)
-            self.notifier.on_test_end(test, test_res)
+            finally:
+                self.pool.release_test(test)
 
     def _run_test(self, test: Test) -> TestResult:
         if test.error:
@@ -123,7 +175,7 @@ class _TestRunner(Thread):
                               status_reason=test.error)
 
         start = timer()
-        ret = test.run(runner_id=self.runner_id)
+        ret = test.run()
         ret.duration = timer() - start
         return ret
 
@@ -151,7 +203,7 @@ def run_tests(conf: str,
 
     run_res = RunResult(iterations=iterations, criteria=criteria)
     notifier.on_run_start(run_res, tests)
-    tests_pool = _TestsPool(tests)
+    tests_pool = _TestsPool(tests, threads)
 
     for iter_n in range(iterations):
         iter_res = run_res.iter_results[iter_n]
