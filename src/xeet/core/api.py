@@ -93,13 +93,14 @@ class _TestsPool:
     def _next_test(self, runner_id: int) -> tuple[Test | None, bool]:
         if len(self._tests) == 0:
             return None, False
+        runner_id_str = f"runner#{runner_id}"
         for i, test in enumerate(self._tests):
-            _notify(f"{runner_id}: Trying to get test '{test.name}'")
+            _notify(f"{runner_id_str}: Trying to get test '{test.name}'")
             try:
                 #  if test.error is set, it means that the test is not runnable
                 #  and should be skipped. No need to check for resources.
                 if not test.error and not test.obtain_resources():
-                    _notify(f"{runner_id}: resources not available for '{test.name}'")
+                    _notify(f"{runner_id_str}: resources not available for '{test.name}'")
                     continue
                 if i > 0:
                     busy_tests = self._tests[0:i]
@@ -109,7 +110,7 @@ class _TestsPool:
                     else:
                         self._tests = self._tests[0:self.threads] + busy_tests + \
                             self._tests[self.threads:]
-                _notify(f"{runner_id}: got '{test.name}'")
+                _notify(f"{runner_id_str}: got '{test.name}'")
                 return self._tests.pop(i), False
             except XeetException as e:
                 _notify(f"Error occurred getting test '{test.name}': {e}")
