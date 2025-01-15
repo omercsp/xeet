@@ -75,6 +75,9 @@ class _Driver:
         self.rti = rti
         self.rti.xvars.set_vars(model.variables)
 
+        for name, resources in model.resources.items():
+            self.rti.add_resource_pool(name, resources)
+
     def _test_model(self, desc: dict, inherited: set[str] | None = None) -> TestModel:
         if inherited is None:
             inherited = set()
