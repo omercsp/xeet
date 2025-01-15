@@ -1,5 +1,7 @@
+from xeet import XeetException
 from .events import EventNotifier, EventReporter
-from xeet.common import in_windows, platform_path, json_value, cache, XeetVars
+from .resource import ResourceModel, ResourcePool, Resource
+from xeet.common import in_windows, platform_path, json_value, cache, XeetVars, validate_token
 from dataclasses import dataclass, field
 from typing import Any
 import os
@@ -46,6 +48,7 @@ class RuntimeInfo:
 
         })
         self.defs_dict = {}
+        self.resources: dict[str, ResourcePool] = {}
         self.debug_mode = debug_mode
         self.notifier = EventNotifier()
         self.iterations = 0
@@ -57,6 +60,17 @@ class RuntimeInfo:
 
     def set_defs(self, defs_dict: dict) -> None:
         self.defs_dict = defs_dict
+
+    def add_resource_pool(self, name: str, resources: list[ResourceModel]) -> None:
+        if not validate_token(name):
+            raise XeetException(f"Invalid resource pool name '{name}'")
+        self.resources[name] = ResourcePool(name, resources)
+
+    def obtain_resource_list(self, pool: str, qualifier: list[str] | int) -> list[Resource]:
+        try:
+            return self.resources[pool].obtain(qualifier)
+        except KeyError:
+            raise XeetException(f"Resource pool '{pool}' not found")
 
     def set_iteration(self, iteration: int) -> None:
         self.iteration = iteration
