@@ -26,8 +26,8 @@ def xut():
 def _set_tests_order(**kwargs):
     items = kwargs.get('items', [])
     # Example: Define a custom order for specific modules
-    module_order = ["test_common",  "test_conf", "test_criteria", "test_core", "test_run_events",
-                    "test_exec_step"]
+    module_order = ["test_common",  "test_conf", "test_resource", "test_criteria", "test_core",
+                    "test_run_events", "test_exec_step"]
     module_order = [f"ut.{mod}" for mod in module_order]
 
     # Create a new list for sorted items
