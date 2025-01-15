@@ -1,5 +1,6 @@
 from functools import cache
 from .test import Test, TestModel
+from .resource import ResourceModel
 from . import TestsCriteria, RuntimeInfo
 from .event_logger import EventLogger
 from xeet.log import log_info, logging_enabled
@@ -28,6 +29,7 @@ class XeetModel(BaseModel):
     tests: list[dict] = Field(default_factory=list)
     variables: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, dict] = Field(default_factory=dict)
+    resources: dict[str, list[ResourceModel]] = Field(default_factory=dict)
 
     root_dir: str = Field(default_factory=str, exclude=True)
     tests_dict: dict[str, dict] = Field(default_factory=dict, alias="test_names", exclude=True)
@@ -49,6 +51,7 @@ class XeetModel(BaseModel):
 
     def include(self, other: "XeetModel") -> None:
         self.variables = {**other.variables, **self.variables}
+        self.resources = {**other.resources, **self.resources}
         other_tests = []
         for test in other.tests:
             name = test.get(_NAME)
