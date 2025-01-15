@@ -1,3 +1,4 @@
+from .resource import Resource
 from .import RuntimeInfo, system_var_name, is_system_var_name
 from .result import TestResult, TestPrimaryStatus, TestSecondaryStatus, StepsListResult, TestStatus
 from .step import Step, StepModel, XeetStepInitException
@@ -145,6 +146,7 @@ class Test:
         self.model = model
         self.rti = rti
         self.name: str = model.name.root
+        self.obtained_resources: list[Resource] = []
         if model.error:
             self.error = model.error
             return
@@ -165,6 +167,10 @@ class Test:
         self.xvars = XeetVars(model.var_map, rti.xvars)
         self.xvars.set_vars({system_var_name("TEST_NAME"): self.name})
         self.output_dir = _EMPTY_STR
+
+    def set_runner_id(self, runner_id: str = "") -> None:
+        self.runner_id = runner_id
+        self._log_prefix.cache_clear()
 
     def _init_step_list(self, step_list: list[dict], name: str, short_name: str, stop_on_err: bool
                         ) -> _StepList:
@@ -190,8 +196,7 @@ class Test:
     def debug_mode(self) -> bool:
         return self.rti.debug_mode
 
-    def setup(self, runner_id: str = "") -> None:
-        self.runner_id = runner_id
+    def setup(self) -> None:
         self._log_prefix.cache_clear()
         self._log_info("Pre execution setup")
         self.output_dir = f"{self.rti.output_dir}/{self.name}"
@@ -205,11 +210,52 @@ class Test:
                 if steps is None:
                     continue
                 for step in steps.steps:
-                    step.setup(xvars=step_xvars, base_dir=self.output_dir, runner_id=runner_id)
+                    step.setup(xvars=step_xvars, base_dir=self.output_dir, runner_id=self.runner_id)
                     step_xvars.reset()
         except XeetException as e:
             self.error = str(e)
             self._log_info(f"Error setting up test - {e}", dbg_pr=True)
+
+    def release_resources(self) -> None:
+        for r in self.obtained_resources:
+            r.release()
+        self.obtained_resources.clear()
+
+    def obtain_resources(self) -> bool:
+        try:
+            for req in self.model.resources:
+                self._log_info(f"Obtaining '{req.pool.root}' resource(s)")
+                if req.names:
+                    names = [n.root for n in req.names]
+                    obtained = self.rti.obtain_resource_list(req.pool.root, names)
+                else:
+                    obtained = self.rti.obtain_resource_list(req.pool.root, req.count)
+
+                if not obtained:
+                    self._log_info("Resource not available")
+                    self.release_resources()
+                    return False
+
+                self.obtained_resources.extend(obtained)
+                if req.as_var:
+                    if self.xvars.has_var(req.as_var):
+                        raise XeetRunException(f"Variable '{req.as_var}' already exists."
+                                               " Can't assign resource to it")
+                    if req.names:
+                        var_value = {r.name: r.value for r in obtained}
+                    else:
+                        if req.count == 1:
+                            var_value = obtained[0].value
+                        else:
+                            var_value = [r.value for r in obtained]
+                    self.xvars.set_vars({req.as_var: var_value})
+        except XeetException as e:
+            self.error = f"Error obtaining resources - {e}"
+            self._log_info(self.error)
+            self.release_resources()
+            # We return true, as thes test doesn't have any resources at this point
+            # and we don't want to prevent it from running to run error completion
+        return True
 
     def _mkdir_output_dir(self) -> None:
         self._log_info(f"setting up output directory '{self.output_dir}'")
