@@ -1,7 +1,8 @@
 from .import RuntimeInfo, system_var_name, is_system_var_name
 from .result import TestResult, TestPrimaryStatus, TestSecondaryStatus, StepsListResult, TestStatus
 from .step import Step, StepModel, XeetStepInitException
-from xeet.common import XeetException, XeetVars, pydantic_errmsg, yes_no_str, KeysBaseModel
+from xeet.common import (XeetException, XeetVars, pydantic_errmsg, yes_no_str, KeysBaseModel,
+                         NonEmptyStr)
 from xeet.log import log_info, log_verbose, log_warn
 from xeet.steps import get_xstep_class
 from xeet.pr import pr_info, pr_warn
@@ -22,6 +23,22 @@ class StepsInheritType(str, Enum):
     Replace = "replace"
 
 
+class _ResouceRequiremnt(KeysBaseModel):
+    pool: NonEmptyStr
+    count: int = Field(1, ge=1)
+    names: list[NonEmptyStr] = Field(default_factory=list)
+    as_var: str = _EMPTY_STR
+
+    @model_validator(mode='after')
+    def post_validate(self) -> "_ResouceRequiremnt":
+        if self.has_key("names") and self.has_key("count"):
+            raise ValueError("Resource requirement can't have both 'names' and 'count'")
+        if len(set([n.root for n in self.names])) != len(self.names):
+            raise ValueError("Resource names must be unique")
+
+        return self
+
+
 class TestModel(KeysBaseModel):
     model_config = ConfigDict(extra='forbid')
     name: str
@@ -40,6 +57,9 @@ class TestModel(KeysBaseModel):
                                     validation_alias=AliasChoices("var_map", "variables", "vars"))
 
     platforms: list[str] = Field(default_factory=list)
+
+    #  Resource requirements
+    resources: list[_ResouceRequiremnt] = Field(default_factory=list)
 
     # Inheritance behavior
     inherit_variables: bool = True
@@ -101,6 +121,9 @@ class TestModel(KeysBaseModel):
 
         if not self.has_key("platforms") and other.has_key("platforms"):
             self.platforms = other.platforms
+
+        if not self.has_key("resources") and other.has_key("resources"):
+            self.resources = other.resources
 
 
 @dataclass
