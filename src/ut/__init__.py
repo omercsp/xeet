@@ -53,6 +53,7 @@ class ConfigTestWrapper:
         self.tests: list[dict] = list()
         self.variables: dict[str, Any] = dict()
         self.settings: dict[str, Any] = dict()
+        self.resources: dict[str, list[dict]] = dict()
         if os.path.isabs(self.name):
             self.file_path = self.name
         else:
@@ -67,6 +68,7 @@ class ConfigTestWrapper:
             "tests": self.tests,
             "variables": self.variables,
             "settings": self.settings,
+            "resources": self.resources,
         }
 
     def save(self, show: bool = False) -> None:
@@ -117,11 +119,22 @@ class ConfigTestWrapper:
     def add_setting(self, name: str, value: Any, **_) -> None:
         self.settings[name] = value
 
+    @config_set
+    def add_resource(self, pool_name, name: str, value: Any, **_) -> None:
+        if pool_name not in self.resources:
+            self.resources[pool_name] = []
+        desc = {"value": value}
+        if name:
+            desc["name"] = name
+
+        self.resources[pool_name].append(desc)
+
     def reset(self):
         self.tests.clear()
         self.variables.clear()
         self.includes.clear()
         self.settings.clear()
+        self.resources.clear()
         clear_conf_cache()
 
 
