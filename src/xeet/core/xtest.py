@@ -27,6 +27,19 @@ class StepsInheritType(str, Enum):
     Replace = "replace"
 
 
+class _ResouceRequiremnt(KeysBaseModel):
+    pool: NonEmptyStr
+    count: int = Field(1, ge=1)
+    names: list[NonEmptyStr] = Field(default_factory=list)
+    as_var: str = _EMPTY_STR
+
+    @model_validator(mode='after')
+    def post_validate(self) -> "_ResouceRequiremnt":
+        if self.has_key("names") and self.has_key("count"):
+            raise ValueError("Resource requirement can't have both 'names' and 'count'")
+        return self
+
+
 class XtestModel(KeysBaseModel):
     model_config = ConfigDict(extra='forbid')
     name: NonEmptyStr
@@ -47,6 +60,9 @@ class XtestModel(KeysBaseModel):
                                     validation_alias=AliasChoices("var_map", "variables", "vars"))
 
     platforms: list[str] = Field(default_factory=list)
+
+    #  Resource requirements
+    resources: list[_ResouceRequiremnt] = Field(default_factory=list)
 
     # Inheritance behavior
     inherit_variables: bool = True
@@ -108,6 +124,9 @@ class XtestModel(KeysBaseModel):
 
         if not self.has_key("platforms") and other.has_key("platforms"):
             self.platforms = other.platforms
+
+        if not self.has_key("resources") and other.has_key("resources"):
+            self.resources = other.resources
 
 
 @dataclass
