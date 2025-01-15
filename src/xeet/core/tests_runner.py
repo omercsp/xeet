@@ -6,8 +6,10 @@ from .driver import xeet_init
 from .events import EventReporter, EventNotifier
 from .test import Test
 from xeet import XeetException
-from threading import Lock, Thread, Event
+from xeet.log import log_info
+from threading import Thread, Event, Condition
 from signal import signal, SIGINT
+from typing import Callable
 
 
 _INIT_ERR_STTS = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
@@ -24,21 +26,78 @@ class XeetRunSettings:
 
 
 class _TestsPool:
-    def __init__(self, tests: list[Test]) -> None:
-        self.tests = tests
-        self._index = 0
-        self._lock = Lock()
+    def __init__(self, tests: list[Test], threads: int) -> None:
+        self._base_tests = tests
+        self.threads = threads
+        self._tests: list[Test] = []
+        self.condition = Condition()
+        self.abort = Event()
+        self.reset()
+        self.runner_id_str = ""
+        self.info: Callable = log_info
 
-    def get_next(self) -> Test | None:
-        with self._lock:
-            if self._index >= len(self.tests):
-                return None
-            ret = self.tests[self._index]
-            self._index += 1
-            return ret
+    def stop(self) -> None:
+        self.abort.set()
+        with self.condition:
+            self.condition.notify_all()
+
+    def next_test(self, info: Callable) -> Test | None:
+        self.info = info
+        with self.condition:
+            while True:
+                if self.abort.is_set():
+                    return None
+                test, busy = self._next_test()
+                if busy:
+                    self.info(f"no obtainable tests, waiting")
+                    self.condition.wait()
+                    self.info(f"woke up")
+                    continue
+                return test
+
+    #  returns a tuple of test and a boolean indicating if there are no tests to run
+    #  in case there are tests but they are busy, the return value is (None, True),
+    #  meaning not current test is available but there are tests to run
+    def _next_test(self) -> tuple[Test | None, bool]:
+        if len(self._tests) == 0:
+            return None, False
+        for i, test in enumerate(self._tests):
+            self.info(f"Trying to get test '{test.name}'")
+            try:
+                #  if test.error is set, it means that the test is not runnable
+                #  and should be skipped. No need to check for resources.
+                if not test.error and not test.obtain_resources():
+                    self.info(f"resources not available for '{test.name}'")
+                    continue
+                if i > 0:
+                    busy_tests = self._tests[0:i]
+                    self._tests = self._tests[i:]
+                    if len(self._tests) < self.threads:
+                        self._tests.extend(busy_tests)
+                    else:
+                        self._tests = self._tests[0:self.threads] + busy_tests + \
+                            self._tests[self.threads:]
+                self.info(f"got '{test.name}'")
+                return self._tests.pop(i), False
+            except XeetException as e:
+                self.info(f"Error occurred getting test '{test.name}': {e}")
+                test.error = str(e)
+                return test, False  # return the test with error, will become a runtime error
+        return None, True
+
+    def release_test(self, test: Test) -> None:
+        with self.condition:
+            test.release_resources()
+            self.condition.notify_all()
+
+    def insert(self, test: Test) -> None:
+        if len(self._tests) < self.threads:
+            self._tests.append(test)
+        else:
+            self._tests.insert(self.threads, test)
 
     def reset(self) -> None:
-        self._index = 0
+        self._tests = self._base_tests.copy()
 
 
 class _TestRunner(Thread):
@@ -68,7 +127,7 @@ class _TestRunner(Thread):
             if self.stop_event.is_set():
                 self.info(f"stopping")
                 break
-            self.test = self.pool.get_next()
+            self.test = self.pool.next_test(self.info)
             if self.test is None:
                 self.info("No more tests, goodbye")
                 break
@@ -80,6 +139,8 @@ class _TestRunner(Thread):
                 self.error = e
                 #  _TestRunner.stop_all()
                 break
+            finally:
+                self.pool.release_test(self.test)
 
             self.iter_res.add_test_result(self.test.name, test_res)
             self.notifier.on_test_end(test_res)
@@ -107,7 +168,7 @@ class XeetRunner:
             self.rti.add_run_reporter(reporter)
         self.run_res = RunResult(iterations=settings.iterations, criteria=settings.criteria)
         self.tests = self.driver.get_tests(settings.criteria)
-        self.pool = _TestsPool(self.tests)
+        self.pool = _TestsPool(self.tests, settings.jobs)
         self.threads = settings.jobs
         self.runners: list[_TestRunner] = []
         self.stop_event = Event()
