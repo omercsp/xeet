@@ -31,6 +31,7 @@ class ConfigTestWrapper:
     tests: list[dict] = field(default_factory=list)
     variables: dict[str, Any] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
+    resources: dict[str, list[dict]] = field(default_factory=dict)
 
     file_path: str = ""
     _xeet_dir: ClassVar[tempfile.TemporaryDirectory] = None  # type: ignore
@@ -53,6 +54,7 @@ class ConfigTestWrapper:
             "tests": self.tests,
             "variables": self.variables,
             "settings": self.settings,
+            "resources": self.resources,
         }
 
     def save(self, show: bool = False) -> None:
@@ -103,11 +105,22 @@ class ConfigTestWrapper:
     def add_settings(self, name: str, value: Any, **_) -> None:
         self.settings[name] = value
 
+    @config_set
+    def add_resource(self, pool_name, name: str, value: Any, **_) -> None:
+        if pool_name not in self.resources:
+            self.resources[pool_name] = []
+        desc = {"value": value}
+        if name:
+            desc["name"] = name
+
+        self.resources[pool_name].append(desc)
+
     def _reset(self):
         self.tests.clear()
         self.variables.clear()
         self.includes.clear()
         self.settings.clear()
+        self.resources.clear()
         clear_drivers_cache()
 
     @staticmethod
@@ -174,6 +187,10 @@ class XeetUnittest(unittest.TestCase):
         cls.main_config_wrapper.add_settings(name, value, **kwargs)
 
     @classmethod
+    def add_resource(cls, pool_name: str, name: str, value: Any, **kwargs) -> None:
+        cls.main_config_wrapper.add_resource(pool_name, name, value, **kwargs)
+
+    @classmethod
     def run_tests(cls, iteraions: int = 1, threads: int = 1, **kwargs) -> RunResult:
         criteria = TestsCriteria(**kwargs)
         run_sttings = XeetRunSettings(file_path=cls.main_config_wrapper.file_path,
@@ -188,6 +205,13 @@ class XeetUnittest(unittest.TestCase):
     @classmethod
     def run_tests_list(cls, names: Iterable[str], **kwargs) -> list[TestResult]:
         run_info = cls.run_tests(names=set(names), **kwargs)
+        return [run_info.test_result(name, 0) for name in names]
+
+    @classmethod
+    def run_all_tests(cls, threads: int = 1) -> Iterable[TestResult]:
+        names = [t["name"] for t in cls.main_config_wrapper.tests]
+        run_settings = XeetRunSettings(cls.main_config_wrapper.file_path, jobs=threads)
+        run_info = run_tests(run_settings)
         return [run_info.test_result(name, 0) for name in names]
 
     @classmethod
