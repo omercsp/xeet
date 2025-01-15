@@ -30,7 +30,7 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 | Module | Role |
 |---|---|
 | `core/conf.py` | YAML/JSON load, `XeetConfModel`, recursive `include` merge with loop detection |
-| `core/driver.py` | `_XeetDriver` — builds all `Test`s, resolves test inheritance, filters by criteria, drives iterations (distributing tests to `_TestRunner` worker threads via `_TestsPool`). `xeet_driver()` is `@cache`d on `XeetSettings.__hash__` (= config file path) — clear/bypass the cache if a config is rewritten and re-driven within the same process |
+| `core/driver.py` | `_XeetDriver` — builds all `Test`s, resolves test inheritance, filters by criteria, drives iterations (distributing tests to `_TestRunner` worker threads via `_TestsPool`, synchronizing on shared resource pools). `xeet_driver()` is `@cache`d on `XeetSettings.__hash__` (= config file path) — clear/bypass the cache if a config is rewritten and re-driven within the same process |
 | `core/test.py` | `TestModel` (pydantic) + `Test` runtime + `Phase`; phase status logic |
 | `core/step.py` | `StepModel` + `Step` base class — the step plugin contract |
 | `core/result.py` | Result tree: `RunResult -> IterationResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator) |
@@ -43,8 +43,9 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 ### Execution flow
 
 `xrun` -> `run_tests` -> `xeet_driver(settings)` -> for each iteration ->
-for each test -> `Test.run()` -> `setup()` -> three phases
-(`pre`/`main`/`post`) -> per step `Step.run()`.
+for each test -> obtain resources (defer if busy) -> `Test.run()` ->
+`setup()` -> three phases (`pre`/`main`/`post`) -> per step `Step.run()` ->
+release resources.
 
 Phase semantics (`core/test.py`, `Test._exec_phase`):
 - `pre` (output dir `pre0`, stop-on-error) — failure => test
@@ -117,11 +118,9 @@ This `devel` branch is a ground-up **rehaul** — its root commit
 from scratch, with no shared history with `master` (`git merge-base` finds
 no common ancestor). The `master` branch contains substantial features not
 yet ported to this architecture: a variable **matrix**/permutation
-facility (`core/matrix.py`), **resource pools** for concurrency
-(`core/resource.py`), and **parallel execution** (`core/tests_runner.py`).
+facility (`core/matrix.py`), and test randomization.
 See `TODO.txt` for the running list of what's still missing on `devel`
-(matrix, resource pools, test randomization, etc.) — treat it as the
-feature backlog.
+(matrix, test randomization, etc.) — treat it as the feature backlog.
 
 ## Testing
 

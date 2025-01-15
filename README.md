@@ -21,6 +21,7 @@
 - **Scoped Variable System**: Recursive string interpolation (`{var}`), environment variable access (`{$ENV_VAR}`), object references (`$ref://...`), and built-in runtime variables (`{XEET_ROOT}`, `{XEET_OUT_DIR}`, etc.).
 - **Platform-Specific Testing**: Target specific OS environments (`posix`, `nt`), inherit platform constraints, and load platform-specific config files dynamically via `{XEET_PLATFORM}`.
 - **Parallel Execution**: Execute tests concurrently across worker threads with `-j/--jobs` (defaults to auto-detecting core count).
+- **Resource Pools & Concurrency Control**: Define shared resource pools (ports, database instances, accounts) and allocate them to tests to prevent contention or serialize specific tests during parallel execution.
 - **Fine-Grained Filtering**: Select tests by exact name, fuzzy match, or tag groups with include/exclude rules.
 - **Rich Terminal UI**: Live progress display with customizable output detail, timing breakdowns, and `--debug` live process tailing.
 
@@ -155,6 +156,7 @@ A list of test descriptors.
 | `groups` | `list[string]` | Categorical tags used for filtering (`-g`, `-G`, `-X`). |
 | `variables` | `dict` | Test-scoped variables overriding global variables. |
 | `platforms` | `list[string]` | List of supported platforms (`posix`, `nt`). If set, test only runs on matching OS. |
+| `resources` | `list[resource_req]` | Shared resources required by this test before execution. |
 | `pre_run` | `list[step]` | Setup steps executed before the main phase. |
 | `run` | `list[step]` | Main test steps. |
 | `post_run` | `list[step]` | Tear-down steps executed after the main phase. |
@@ -187,6 +189,24 @@ A list of test descriptors.
 | `expected_stderr_file` | `string` | `null` | File path containing expected stderr. |
 | `output_filters` | `list[filter]` | `[]` | Text scrubbers applied to output before comparison. |
 
+### 5. `resources`
+Define pools of shared resources that tests can acquire:
+
+```yaml
+resources:
+  # Named resources (accessible by specific name or FIFO)
+  app_ports:
+    - name: primary
+      value: 8080
+    - name: secondary
+      value: 8081
+
+  # Anonymous pool of interchangeable resources
+  db_connections:
+    - value: "postgres://localhost:5432/test1"
+    - value: "postgres://localhost:5432/test2"
+```
+
 ---
 
 ## Inheritance Guide
@@ -199,6 +219,7 @@ A test can inherit from another test by specifying `base: <parent_test_name>`.
 
 - **Variables**: Inherited by default (`inherit_variables: true`). A child test's `variables` override the parent's.
 - **Platforms**: Inherited as a whole list if unset on the child. A child test can override its base's platforms list, or explicitly set `platforms: []` to clear an inherited restriction.
+- **Resources**: Inherited as a whole list if unset on the child. A child test can override its base's resource requirements, or explicitly set `resources: []` to clear an inherited restriction.
 - **Phase Steps (`pre_run`, `run`, `post_run`)**: Combined according to the phase inheritance policy:
   - `replace` *(default)*: The child phase steps replace the parent's phase steps.
   - `append`: Parent steps execute first, followed by child steps.
@@ -335,6 +356,65 @@ tests:
   - name: run_service
     base: platform_service_step
 ```
+
+---
+
+## Resource Pools & Concurrency Control
+
+When running tests in parallel (`-j`), tests may contend for shared physical or virtual resources (such as server ports, test accounts, database instances, or hardware devices). `xeet` provides resource pools to synchronize access and prevent conflicts without manually orchestrating execution order.
+
+### 1. Declaring Resource Pools
+
+Define one or more resource pools under the top-level `resources` section. Resources can be anonymous (defined by value) or named:
+
+```yaml
+resources:
+  # Named resources (accessible by specific name or FIFO)
+  app_ports:
+    - name: primary
+      value: 8080
+    - name: secondary
+      value: 8081
+
+  # Anonymous pool of interchangeable resources
+  db_connections:
+    - value: "postgres://localhost:5432/db1"
+    - value: "postgres://localhost:5432/db2"
+```
+
+### 2. Requesting Resources in Tests
+
+Tests declare resource requirements under the `resources` field. A test will only be scheduled when all requested resources are available:
+
+- **By Count**: Request a number of interchangeable resources from a pool:
+  ```yaml
+  tests:
+    - name: test_db_migration
+      resources:
+        - pool: db_connections
+          count: 1
+          as_var: db_url
+      run:
+        - cmd: "migrate --database {db_url}"
+  ```
+
+- **By Specific Names**: Request specific named resources from a pool:
+  ```yaml
+  tests:
+    - name: test_primary_endpoint
+      resources:
+        - pool: app_ports
+          names: [primary]
+          as_var: port
+      run:
+        - cmd: "curl http://localhost:{port.primary}/status"
+  ```
+
+### 3. How Synchronization Works
+
+- **Automatic Deferral**: If a test's required resources are currently in use by another thread, the runner automatically defers that test and executes other runnable tests, retrying the deferred test as soon as resources are released.
+- **Resource Variables (`as_var`)**: Acquired resources are injected as scoped test variables (`{as_var_name}`) accessible in step commands, environment variables, and working directories.
+- **Automatic Cleanup**: Resources are automatically freed and their variables cleanly cleared when the test finishes (or fails), making them available for subsequent tests or iterations.
 
 ---
 
