@@ -36,6 +36,7 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 | `core/result.py` | Result tree: `RunResult -> IterationResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator) |
 | `core/events.py` | Observer pattern — `EventNotifier` fans out to `EventReporter`s |
 | `core/__init__.py` | `RuntimeInfo` — holds cwd/dirs/xvars/notifier/iteration state; `TestsCriteria` (test selection filter) |
+| `core/resource.py` | `ResourceModel`, `Resource`, `ResourcePool` — in-memory resource allocation pool (FIFO or by name) |
 | `steps/exec_step.py`, `steps/dummy_step.py` | The two built-in step types |
 | `reporters/` | `ConsolePrinter` (normal run output), `ConsoleDebugPrinter` (`--debug`) |
 
