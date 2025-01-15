@@ -74,6 +74,9 @@ class Driver:
                 model.variables.pop(v)
         self.xvars.set_vars(model.variables)
 
+        for name, resources in model.resources.items():
+            self.xdefs.add_resource_pool(name, resources)
+
     def _xtest_model(self, desc: dict, inherited: set[str] | None = None) -> XtestModel:
         if inherited is None:
             inherited = set()
