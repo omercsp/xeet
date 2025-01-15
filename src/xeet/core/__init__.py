@@ -1,4 +1,6 @@
+from xeet import XeetException
 from .run_reporter import RunNotifier
+from .resource import ResourceModel, ResourcePool, Resource
 from xeet.common import in_windows, platform_path, json_value, cache, XeetVars
 from typing import Any
 import os
@@ -46,12 +48,22 @@ class XeetDefs:
 
         })
         self.defs_dict = {}
+        self.resources: dict[str, ResourcePool] = {}
         self.debug_mode = debug_mode
         self.notifier = notifier
         self.current_iteration = 0
 
     def set_defs(self, defs_dict: dict) -> None:
         self.defs_dict = defs_dict
+
+    def add_resource_pool(self, name: str, resources: list[ResourceModel]) -> None:
+        self.resources[name] = ResourcePool(name, resources)
+
+    def obtain_resource_list(self, pool: str, qualifier: list[str] | int) -> list[Resource]:
+        try:
+            return self.resources[pool].obtain(qualifier)
+        except KeyError:
+            raise XeetException(f"Resource pool '{pool}' not found")
 
     def set_iteration(self, iteration: int, total_iterations: int) -> None:
         self.current_iteration = iteration
