@@ -1,5 +1,26 @@
 {
     "$defs": {
+        "ResourceModel": {
+            "properties": {
+                "value": {
+                    "title": "Value"
+                },
+                "name": {
+                    "default": "",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "pool": {
+                    "default": null,
+                    "title": "Pool"
+                }
+            },
+            "required": [
+                "value"
+            ],
+            "title": "ResourceModel",
+            "type": "object"
+        },
         "StepsInheritType": {
             "enum": [
                 "prepend",
@@ -97,6 +118,13 @@
                     "title": "Platforms",
                     "type": "array"
                 },
+                "resources": {
+                    "items": {
+                        "$ref": "#/$defs/_ResouceRequiremnt"
+                    },
+                    "title": "Resources",
+                    "type": "array"
+                },
                 "inherit_variables": {
                     "default": true,
                     "title": "Inherit Variables",
@@ -119,6 +147,41 @@
                 "name"
             ],
             "title": "TestModel",
+            "type": "object"
+        },
+        "_ResouceRequiremnt": {
+            "properties": {
+                "pool": {
+                    "minLength": 1,
+                    "pattern": "^*$",
+                    "title": "Pool",
+                    "type": "string"
+                },
+                "count": {
+                    "default": 1,
+                    "minimum": 1,
+                    "title": "Count",
+                    "type": "integer"
+                },
+                "names": {
+                    "items": {
+                        "minLength": 1,
+                        "pattern": "^*$",
+                        "type": "string"
+                    },
+                    "title": "Names",
+                    "type": "array"
+                },
+                "as_var": {
+                    "default": "",
+                    "title": "As Var",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "pool"
+            ],
+            "title": "_ResouceRequiremnt",
             "type": "object"
         }
     },
@@ -172,6 +235,21 @@
                 "minLength": 1
             },
             "title": "Settings",
+            "type": "object"
+        },
+        "resources": {
+            "patternProperties": {
+                "^*$": {
+                    "items": {
+                        "$ref": "#/$defs/ResourceModel"
+                    },
+                    "type": "array"
+                }
+            },
+            "propertyNames": {
+                "minLength": 1
+            },
+            "title": "Resources",
             "type": "object"
         }
     },
