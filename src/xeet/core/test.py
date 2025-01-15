@@ -28,6 +28,23 @@ class Platform(str, Enum):
     Nt = "nt"
 
 
+class _ResouceRequiremnt(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    pool: XeetToken
+    count: int = Field(1, ge=1)
+    names: list[XeetToken] = Field(default_factory=list)
+    as_var: str = _EMPTY_STR
+
+    @model_validator(mode='after')
+    def post_validate(self) -> "_ResouceRequiremnt":
+        if "names" in self.model_fields_set and "count" in self.model_fields_set:
+            raise ValueError("Resource requirement can't have both 'names' and 'count'")
+        if len(set([n for n in self.names])) != len(self.names):
+            raise ValueError("Resource names must be unique")
+
+        return self
+
+
 class TestModel(BaseModel):
     model_config = ConfigDict(extra='forbid')
     name: str = Field(pattern=_TEST_NANE_PATTERN, min_length=1)
@@ -46,6 +63,9 @@ class TestModel(BaseModel):
                                    validation_alias=AliasChoices("var_map", "variables", "vars"))
 
     platforms: list[Platform] = Field(default_factory=list)
+
+    #  Resource requirements
+    resources: list[_ResouceRequiremnt] = Field(default_factory=list)
 
     # Inheritance behavior
     inherit_variables: bool = True
@@ -110,6 +130,9 @@ class TestModel(BaseModel):
 
     def platform_list(self) -> list[Platform]:
         return self._inherited_value("platforms")
+
+    def resource_list(self) -> list[_ResouceRequiremnt]:
+        return self._inherited_value("resources")
 
 
 @dataclass
