@@ -1,3 +1,4 @@
+from .resource import ResourceModel
 from xeet.log import log_info
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars, XeetToken
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -22,6 +23,7 @@ class XeetConfModel(BaseModel):
     variables: dict[XeetToken, Any] = Field(default_factory=dict)
     settings: dict[XeetToken, dict] = Field(default_factory=dict)
     tests_dict: dict[str, dict] = Field(default_factory=dict, exclude=True)
+    resources: dict[XeetToken, list[ResourceModel]] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def post_validate(self) -> "XeetConfModel":
@@ -37,6 +39,7 @@ class XeetConfModel(BaseModel):
 
     def include(self, other: "XeetConfModel") -> None:
         self.variables = {**other.variables, **self.variables}
+        self.resources = {**other.resources, **self.resources}
         other_tests = []
         for test in other.tests:
             name = test.get(_NAME)
