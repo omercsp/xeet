@@ -4,6 +4,27 @@
             "minLength": 1,
             "title": "NonEmptyStr",
             "type": "string"
+        },
+        "ResourceModel": {
+            "properties": {
+                "value": {
+                    "title": "Value"
+                },
+                "name": {
+                    "default": "",
+                    "title": "Name",
+                    "type": "string"
+                },
+                "pool": {
+                    "default": null,
+                    "title": "Pool"
+                }
+            },
+            "required": [
+                "value"
+            ],
+            "title": "ResourceModel",
+            "type": "object"
         }
     },
     "additionalProperties": false,
@@ -30,6 +51,11 @@
         "tests": {
             "items": {
                 "$defs": {
+                    "NonEmptyStr": {
+                        "minLength": 1,
+                        "title": "NonEmptyStr",
+                        "type": "string"
+                    },
                     "StepsInheritType": {
                         "enum": [
                             "prepend",
@@ -38,6 +64,36 @@
                         ],
                         "title": "StepsInheritType",
                         "type": "string"
+                    },
+                    "_ResouceRequiremnt": {
+                        "properties": {
+                            "pool": {
+                                "$ref": "#/$defs/NonEmptyStr"
+                            },
+                            "count": {
+                                "default": 1,
+                                "minimum": 1,
+                                "title": "Count",
+                                "type": "integer"
+                            },
+                            "names": {
+                                "items": {
+                                    "$ref": "#/$defs/NonEmptyStr"
+                                },
+                                "title": "Names",
+                                "type": "array"
+                            },
+                            "as_var": {
+                                "default": "",
+                                "title": "As Var",
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "pool"
+                        ],
+                        "title": "_ResouceRequiremnt",
+                        "type": "object"
                     }
                 },
                 "additionalProperties": false,
@@ -116,6 +172,13 @@
                         "title": "Platforms",
                         "type": "array"
                     },
+                    "resources": {
+                        "items": {
+                            "$ref": "#/$defs/_ResouceRequiremnt"
+                        },
+                        "title": "Resources",
+                        "type": "array"
+                    },
                     "inherit_variables": {
                         "default": true,
                         "title": "Inherit Variables",
@@ -154,6 +217,16 @@
                 "type": "object"
             },
             "title": "Settings",
+            "type": "object"
+        },
+        "resources": {
+            "additionalProperties": {
+                "items": {
+                    "$ref": "#/$defs/ResourceModel"
+                },
+                "type": "array"
+            },
+            "title": "Resources",
             "type": "object"
         }
     },
