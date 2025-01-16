@@ -1,0 +1,57 @@
+
+Starting xeet run
+=================
+
+001_pass                                     [Passed]
+002_pass_with_output                         [Passed]
+008_bad_desc                                 [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+011_bad_cmd                                  [Not run] Test error
+Run step #0 incompleted: [Errno 2] No such file or directory: 'bad_command'
+
+012_inherit_and_fix_bad_cmd                  [Passed]
+013_env_pass                                 [Passed]
+010_timeout_fail                             [Not run] Test error
+Run step #0 incompleted: Timeout expired after 0.5s
+
+014_multi_rc_passing                         [Passed]
+015_show_auto_vars_internal                  [Passed]
+016_pre_test_ok                              [Passed]
+017_not_run_pre_test_fail                    [Not run] Pre-test error
+Pre-run step #1 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+018_post_test_ok                             [Passed]
+019_post_test_fail                           [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+020_fix_post_fail                            [Passed]
+021_inherit_abstract_pre_run_good            [Passed]
+022_inherit_abstract_pre_run_bad             [Not run] Pre-test error
+Pre-run step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+023_inherit_abstract_pre_run_bad_add_...     [Not run] Pre-test error
+Pre-run step #1 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+024_inherit_abstract_run_good                [Passed]
+025_inherit_abstract_run_good_add_run        [Passed]
+028_inherit_abstract_post_run_good           [Passed]
+029_inherit_abstract_post_run_bad            [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+031_for_info                                 [Passed]
+
+Summary:
+========
+Initialization error (1): 008_bad_desc
+Test error (2): 011_bad_cmd, 010_timeout_fail
+Pre-test error (3): 017_not_run_pre_test_fail, 022_inherit_abstract_pre_run_bad, 023_inherit_abstract_pre_run_bad_add_pre_run
+Passed (16): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 020_fix_post_fail, 021_inherit_abstract_pre_run_good, 024_inherit_abstract_run_good, 025_inherit_abstract_run_good_add_run, 028_inherit_abstract_post_run_good, 029_inherit_abstract_post_run_bad, 031_for_info
+
