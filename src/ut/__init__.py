@@ -1,3 +1,4 @@
+from sys import thread_info
 from xeet.log import init_logging, log_info
 from xeet.pr import mute_prints, pr_obj, DictPrintType
 from xeet.common import XeetVars, _REF_PREFIX
@@ -174,10 +175,10 @@ class XeetUnittest(unittest.TestCase):
         cls.main_config_wrapper.add_settings(name, value, **kwargs)
 
     @classmethod
-    def run_tests(cls, iteraions: int = 1, **kwargs) -> RunResult:
+    def run_tests(cls, iteraions: int = 1, threads: int = 1, **kwargs) -> RunResult:
         criteria = TestsCriteria(**kwargs)
         run_sttings = XeetRunSettings(conf=cls.main_config_wrapper.file_path, criteria=criteria,
-                                      iterations=iteraions)
+                                      iterations=iteraions, jobs=threads)
         return run_tests(run_sttings)
 
     @classmethod
