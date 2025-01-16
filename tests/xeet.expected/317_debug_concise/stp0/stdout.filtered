@@ -1,0 +1,12 @@
+>>>>>>> Starting test 'debug_test_001' <<<<<<<
+1
+2
+3
+Test 'debug_test_001' ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Starting test 'debug_test_002_fail' <<<<<<<
+1
+2
+3
+Test 'debug_test_002_fail' ended. (status: Failed, duration: X.XXXs)
+

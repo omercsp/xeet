@@ -4,6 +4,7 @@ pyrightconfig.json
 .idea/
 __pycache__/
 xeet.out/
+xeet_out*/
 .tasks.json
 xeet.log
 .python-version

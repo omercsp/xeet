@@ -1,0 +1,56 @@
+Starting run
+>>>>>>> Starting test 'debug_test_001' <<<<<<<
+initializing main step 0
+using default step type 'exec'
+setting up output directory '__XEET_ROOT__/testbed/xeet_out/316_debug/debug_test_001'
+Starting main phase run, 1 step(s)
+Main step #0 (exec) - staring run
+running command (shell: True):
+for i in {1..3}; do
+  sleep 0.1
+  echo $i
+done
+---------- output start ---------
+1
+2
+3
+----------- output end ----------
+command finished with return code 0
+return code is valid
+output is verified
+Main step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Main phase ended
+Test 'debug_test_001' ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Starting test 'debug_test_002_fail' <<<<<<<
+initializing main step 0
+using default step type 'exec'
+setting up output directory '__XEET_ROOT__/testbed/xeet_out/316_debug/debug_test_002_fail'
+Starting main phase run, 1 step(s)
+Main step #0 (exec) - staring run
+running command (shell: True):
+for i in {1..3}; do
+  sleep 0.1
+  echo $i
+done
+---------- output start ---------
+1
+2
+3
+----------- output end ----------
+command finished with return code 0
+return code is valid
+stdout differs from expected
+--- expected stdout
++++ actual stdout
+@@ -1,4 +1,4 @@
+ 1
+-3
++2
+ 3
+ 
+Main step #0 (exec) - run ended (completed, failed, duration: X.XXXs)
+Main phase ended
+Test 'debug_test_002_fail' ended. (status: Failed, duration: X.XXXs)
+Test failed
+
