@@ -2,6 +2,8 @@ from ut import pytest, ref_str
 from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException,
                          XeetRecursiveVarException, XeetBadVarNameException, filter_str,
                          StrFilterData, validate_str, validate_types)
+from xeet.core.resource import ResourcePool, ResourceModel, Resource
+from typing import Any
 import tempfile
 import os
 
@@ -302,3 +304,65 @@ def test_filter_string():
 
     filter3 = StrFilterData(from_str="[a-z]{3}", to_str="***")
     assert filter_str(s, [filter3]) == s
+
+
+def test_resource_pool():
+    def assert_resource(r: list[Resource], values: list[Any]):
+        assert len(r) == len(values)
+        for i, v in enumerate(r):
+            assert v.taken
+            assert v.value == values[i]
+
+    resource_models: list[ResourceModel] = [
+            ResourceModel(**{"value": 1, "name": "r1"}),
+            ResourceModel(**{"value": 2, "name": "r2"}),
+            ResourceModel(**{"value": 3, "name": "r3"}),
+            ResourceModel(**{"value": 4, "name": "r4"}),
+            ResourceModel(**{"value": 5, "name": "r5"})
+        ]
+    pool = ResourcePool("pool1", resource_models)
+    ra = pool.obtain()
+
+    rb = pool.obtain()
+    rc = pool.obtain()
+    rd = pool.obtain()
+    re = pool.obtain()
+    rf = pool.obtain()
+    assert pool.free_count() == 0
+    assert_resource(ra, [1])
+    assert_resource(rb, [2])
+    assert_resource(rc, [3])
+    assert_resource(rd, [4])
+    assert_resource(re, [5])
+    assert_resource(rf, [])
+
+    for r in ra + rb + rc + rd + re:
+        r.release()
+    assert pool.free_count() == 5
+
+    rf = pool.obtain(5)
+    assert_resource(rf, [1, 2, 3, 4, 5])
+
+    assert pool.free_count() == 0
+    for r in rf:
+        r.release()
+    assert pool.free_count() == 5
+
+    ra = pool.obtain(["r3"])
+    assert_resource(ra, [3])
+    assert pool.free_count() == 4
+    rb = pool.obtain(["r3"])
+    assert_resource(rb, [])
+    assert pool.free_count() == 4
+    rb = pool.obtain(["r4", "r5"])
+    assert_resource(rb, [4, 5])
+    assert pool.free_count() == 2
+    rc = pool.obtain(["r1", "r2", "r4", "r5"])
+    assert_resource(rc, [])
+    assert pool.free_count() == 2
+    for r in rb:
+        r.release()
+
+    rc = pool.obtain(["r1", "r2", "r4", "r5"])
+    assert_resource(rc, [1, 2, 4, 5])
+    assert pool.free_count() == 0
