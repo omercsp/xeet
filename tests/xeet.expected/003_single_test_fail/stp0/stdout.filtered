@@ -1,0 +1,19 @@
+
+Starting xeet run
+=================
+
+003_fail_over_output                         [Failed]
+Run step #0 failed: stdout differs from expected
+--- __XEET_ROOT__/testbed/xeet_out/003_single_test_fail/003_fail_over_output/stp0/stdout
++++ expected_stdout
+@@ -1,2 +1,2 @@
+-Hello World!
++Goodbye World!
+ 
+
+
+Summary:
+========
+Failed (1): 003_fail_over_output
+Duration: X.XXXs
+
