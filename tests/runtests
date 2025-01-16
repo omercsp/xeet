@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import sys
+import subprocess
+import os
+import shutil
+
+
+def _run_tests():
+    # Get the directory of the current script
+    here = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(here)
+
+    # Locate the 'xeet' binary
+    xeet_bin = shutil.which("xeet")
+
+    # Exit if 'xeet' is not found
+    if xeet_bin is None:
+        print("xeet is not installed in the search path.")
+        sys.exit(1)
+
+    # Check if a virtual environment is active
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        print("This is a high-level xeet test invocation.")
+        print("Since we use xeet to test itself, the xeet used here shouldn't be from a virtual "
+              "environment,")
+        print("but from the system path where a stable version of xeet is installed.")
+        print("Please deactivate the virtual environment and make installed xeet in the system "
+              "path before running this script.")
+        print("")
+        sys.exit(1)
+
+    print(f"Using xeet from '{xeet_bin}'")
+
+    # Check for the XEET_PKG_VENV_PATH environment variable
+    xeet_pkg_venv_path = os.environ.get("XEET_PKG_VENV_PATH")
+    if xeet_pkg_venv_path:
+        print(f"Internal XEET virtual environment path is set to {xeet_pkg_venv_path}")
+
+    # Run the xeet command
+    xeet_json_path = os.path.join(here, "xeet.json")
+    command = [xeet_bin, "run", "-c", xeet_json_path] + sys.argv[1:]
+    subprocess.run(command)
+
+
+if __name__ == '__main__':
+    try:
+        _run_tests()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
