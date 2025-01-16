@@ -1,0 +1,4 @@
+Initialization error (1): 008_bad_desc
+Failed (1): 004_fail_over_rc
+Passed (9): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+
