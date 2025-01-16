@@ -415,6 +415,7 @@ def test_step_lists_inheritance(xut: XeetUnittest):
                             run=[DUMMY_FAILING_STEP_DESC],
                             post_run=[DUMMY_OK_STEP_DESC, DUMMY_OK_STEP_DESC])
 
+
 def test_platform_support(xut: XeetUnittest):
     step_desc = gen_dummy_step_desc(dummy_val0="test", dummy_val1=10)
     expected_step_res = gen_dummy_step_result(step_desc)

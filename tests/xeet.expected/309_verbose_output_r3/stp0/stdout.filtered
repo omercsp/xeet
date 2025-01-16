@@ -8,7 +8,7 @@ Fuzzy included tests - 004, 008
 Fuzzy excluded tests - 003, 031
 Excluded groups - inheritance
 
-Running tests: 001_pass, 002_pass_with_output, 004_fail_over_rc, 008_bad_desc, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+Running tests: 001_pass, 002_pass_with_output, 004_fail_over_rc, 008_bad_desc, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 032_platform
 
 
 Iteration #0
@@ -32,6 +32,7 @@ NOTICE: Post-test failed or didn't complete
 Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
 empty output
 
+032_platform                                 [Passed] (X.XXXs)
 
 Iteration #1
 001_pass                                     [Passed] (X.XXXs)
@@ -54,6 +55,7 @@ NOTICE: Post-test failed or didn't complete
 Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
 empty output
 
+032_platform                                 [Passed] (X.XXXs)
 
 Iteration #2
 001_pass                                     [Passed] (X.XXXs)
@@ -76,6 +78,7 @@ NOTICE: Post-test failed or didn't complete
 Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
 empty output
 
+032_platform                                 [Passed] (X.XXXs)
 
 Summary:
 ========
@@ -83,21 +86,21 @@ Iteration #0
 ------------
 Initialization error (1): 008_bad_desc
 Failed (1): 004_fail_over_rc
-Passed (9): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+Passed (10): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 032_platform
 Duration: X.XXXs
 
 Iteration #1
 ------------
 Initialization error (1): 008_bad_desc
 Failed (1): 004_fail_over_rc
-Passed (9): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+Passed (10): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 032_platform
 Duration: X.XXXs
 
 Iteration #2
 ------------
 Initialization error (1): 008_bad_desc
 Failed (1): 004_fail_over_rc
-Passed (9): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+Passed (10): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 032_platform
 Duration: X.XXXs
 
 
@@ -106,6 +109,6 @@ Accumulated summary:
 Total iterations: 3
 Initialization error: 3
 Failed: 3
-Passed: 27
+Passed: 30
 Duration: X.XXXs
 
