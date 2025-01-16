@@ -2,6 +2,8 @@ from ut import unittest, ref_str
 from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException, XeetInvalidVarType,
                          XeetRecursiveVarException, XeetBadVarNameException, filter_str,
                          StrFilterData)
+from xeet.core.resource import ResourcePool, ResourceModel, Resource
+from typing import Any
 import tempfile
 import os
 
@@ -250,3 +252,66 @@ class TestCommon(unittest.TestCase):
 
         filter3 = StrFilterData(from_str="[a-z]{3}", to_str="***")
         self.assertEqual(filter_str(s, [filter3]), s)
+
+    def test_resource_pool(self):
+        def assertResource(r: list[Resource], values: list[Any]):
+            self.assertEqual(len(r), len(values))
+            for i, v in enumerate(r):
+                self.assertTrue(v.taken)
+                self.assertEqual(v.value, values[i])
+
+        def assertResourcePool(pool: ResourcePool, free: int):
+            self.assertEqual(pool.free_count(), free)
+
+        resource_models: list[ResourceModel] = [
+                ResourceModel(**{"value": 1, "name": "r1"}),
+                ResourceModel(**{"value": 2, "name": "r2"}),
+                ResourceModel(**{"value": 3, "name": "r3"}),
+                ResourceModel(**{"value": 4, "name": "r4"}),
+                ResourceModel(**{"value": 5, "name": "r5"})
+            ]
+        pool = ResourcePool("pool1", resource_models)
+        ra = pool.obtain()
+
+        rb = pool.obtain()
+        rc = pool.obtain()
+        rd = pool.obtain()
+        re = pool.obtain()
+        rf = pool.obtain()
+        assertResourcePool(pool, 0)
+        assertResource(ra, [1])
+        assertResource(rb, [2])
+        assertResource(rc, [3])
+        assertResource(rd, [4])
+        assertResource(re, [5])
+        assertResource(rf, [])
+
+        for r in ra + rb + rc + rd + re:
+            r.release()
+        assertResourcePool(pool, 5)
+
+        rf = pool.obtain(5)
+        assertResource(rf, [1, 2, 3, 4, 5])
+        assertResourcePool(pool, 0)
+        for r in rf:
+            r.release()
+        assertResourcePool(pool, 5)
+
+        ra = pool.obtain(["r3"])
+        assertResource(ra, [3])
+        assertResourcePool(pool, 4)
+        rb = pool.obtain(["r3"])
+        assertResource(rb, [])
+        assertResourcePool(pool, 4)
+        rb = pool.obtain(["r4", "r5"])
+        assertResource(rb, [4, 5])
+        assertResourcePool(pool, 2)
+        rc = pool.obtain(["r1", "r2", "r4", "r5"])
+        assertResource(rc, [])
+        assertResourcePool(pool, 2)
+        for r in rb:
+            r.release()
+
+        rc = pool.obtain(["r1", "r2", "r4", "r5"])
+        assertResource(rc, [1, 2, 4, 5])
+        assertResourcePool(pool, 0)
