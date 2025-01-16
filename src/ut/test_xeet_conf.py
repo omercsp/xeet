@@ -3,7 +3,7 @@ from ut.ut_dummy_defs import *
 from xeet.core import TestsCriteria
 from xeet.core.xeet_conf import (XeetModel, XeetIncludeLoopException, _XeetConf, xeet_conf,
                                  clear_conf_cache, BaseXeetSettings)
-from xeet.core.test import Test, StepsInheritType, TestModel
+from xeet.core.test import StepsInheritType, TestModel
 import os
 
 
