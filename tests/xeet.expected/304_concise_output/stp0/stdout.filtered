@@ -10,6 +10,7 @@ Iteration #0/0
 016_pre_test_ok                              [Passed]
 018_post_test_ok                             [Passed]
 019_post_test_fail                           [Passed]
+032_platform                                 [Passed]
 
 
 Summary:
@@ -17,6 +18,6 @@ Summary:
 Total iterations: 1
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 Duration: X.XXXs
 
