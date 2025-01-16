@@ -1,0 +1,35 @@
+
+001_pass                                     [Passed]
+002_pass_with_output                         [Passed]
+003_fail_over_output                         [Failed]
+004_fail_over_rc                             [Failed]
+005_fail_2nd_step                            [Failed]
+006_skip                                     [Skipped]
+007_skip_reason                              [Skipped]
+008_bad_desc                                 [Not run] Initialization error
+009_expected_fail                            [Passed] Expected failure
+010_timeout_fail                             [Not run] Test error
+010_unexpected_pass                          [Failed] Unexpected pass
+011_bad_cmd                                  [Not run] Test error
+012_inherit_and_fix_bad_cmd                  [Passed]
+013_env_pass                                 [Passed]
+014_multi_rc_passing                         [Passed]
+015_show_auto_vars_internal                  [Passed]
+016_pre_test_ok                              [Passed]
+017_not_run_pre_test_fail                    [Not run] Pre-test error
+018_post_test_ok                             [Passed]
+019_post_test_fail                           [Passed]
+020_fix_post_fail                            [Passed]
+021_inherit_abstract_pre_run_good            [Passed]
+022_inherit_abstract_pre_run_bad             [Not run] Pre-test error
+023_inherit_abstract_pre_run_bad_add_...     [Not run] Pre-test error
+024_inherit_abstract_run_good                [Passed]
+025_inherit_abstract_run_bad                 [Failed]
+025_inherit_abstract_run_good_add_run        [Passed]
+027_inherit_abstract_run_bad_add_run         [Failed]
+028_inherit_abstract_post_run_good           [Passed]
+029_inherit_abstract_post_run_bad            [Passed]
+031_for_info                                 [Passed]
+032_platform                                 [Passed]
+033_platform_missmatch                       [Skipped]
+Using 4 threads per iteration

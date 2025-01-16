@@ -1,3 +1,4 @@
+Using 1 threads per iteration
 Total iterations: 1
 Initialization error (1): 008_bad_desc
 Failed (1): 004_fail_over_rc

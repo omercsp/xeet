@@ -52,6 +52,7 @@ class CliPrinterShowOpts:
     iter_summary: bool = False
     detailed_summary: bool = True
     summary_header: bool = True
+    threads: bool = False
 
     _verbosity: CliPrinterVerbosity = field(default=CliPrinterVerbosity.Default, init=False)
 
@@ -60,6 +61,7 @@ class CliPrinterShowOpts:
         self.pre_run_summary = True
         self.iter_summary = True
         self.test_timing = True
+        self.threads = True
         self._verbosity = CliPrinterVerbosity.Verbose
 
     def set_concise(self):
@@ -116,7 +118,7 @@ class CliPrinter(LockableEventReporter):
             pr_info(f"{run_res.criteria}\n")
         if self.show_opts.pre_run_summary:
             pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
-        if self.verbose or self.threads > 1:
+        if self.show_opts.threads or self.threads > 1:
             pr_info(f"Using {self.threads} threads per iteration")
 
     @locked

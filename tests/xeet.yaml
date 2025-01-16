@@ -72,6 +72,11 @@ tests:
       - cmd: '{run_cmd} -g passing -g not_run'
         base: settings.base_test_step
         allowed_rc: [2]
+  - name: 010_threads_sanity
+    run:
+      - cmd: '{run_cmd} --jobs=4 --hide=summary --concise | sort'
+        base: settings.base_test_step
+        use_shell: true
   - name: 200_list_tests
     short_desc: Test list command
     run:
@@ -153,7 +158,7 @@ tests:
         base: settings.base_test_step_rc3
   - name: 311_verbose_output_summary_only_r3
     run:
-      - cmd: '{run_output_base_cmd} --verbose -r 3 --hide=tests,pre_run_summary,header,criteria'
+      - cmd: '{run_output_base_cmd} --verbose -r 3 --hide=tests,pre_run_summary,header,criteria,threads'
         base: settings.base_test_step_rc3
   - name: 312_quiet_output
     run:
