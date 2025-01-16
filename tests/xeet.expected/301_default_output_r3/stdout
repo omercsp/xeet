@@ -1,0 +1,100 @@
+
+Starting xeet run
+=================
+
+Iteration #0
+001_pass                                     [Passed]
+002_pass_with_output                         [Passed]
+004_fail_over_rc                             [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+008_bad_desc                                 [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+012_inherit_and_fix_bad_cmd                  [Passed]
+009_env_pass                                 [Passed]
+013_multi_rc_passing                         [Passed]
+014_show_auto_vars_internal                  [Passed]
+015_pre_test_ok                              [Passed]
+017_post_test_ok                             [Passed]
+018_post_test_fail                           [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+030_for_info                                 [Passed]
+
+Iteration #1
+001_pass                                     [Passed]
+002_pass_with_output                         [Passed]
+004_fail_over_rc                             [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+008_bad_desc                                 [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+012_inherit_and_fix_bad_cmd                  [Passed]
+009_env_pass                                 [Passed]
+013_multi_rc_passing                         [Passed]
+014_show_auto_vars_internal                  [Passed]
+015_pre_test_ok                              [Passed]
+017_post_test_ok                             [Passed]
+018_post_test_fail                           [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+030_for_info                                 [Passed]
+
+Iteration #2
+001_pass                                     [Passed]
+002_pass_with_output                         [Passed]
+004_fail_over_rc                             [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+008_bad_desc                                 [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+012_inherit_and_fix_bad_cmd                  [Passed]
+009_env_pass                                 [Passed]
+013_multi_rc_passing                         [Passed]
+014_show_auto_vars_internal                  [Passed]
+015_pre_test_ok                              [Passed]
+017_post_test_ok                             [Passed]
+018_post_test_fail                           [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+030_for_info                                 [Passed]
+
+Summary:
+========
+Iteration #0
+------------
+Initialization error: 1
+Failed: 1
+Passed: 10
+
+Iteration #1
+------------
+Initialization error: 1
+Failed: 1
+Passed: 10
+
+Iteration #2
+------------
+Initialization error: 1
+Failed: 1
+Passed: 10
+
+
+Accumulated summary:
+--------------------
+Initialization error: 3
+Failed: 3
+Passed: 30
+
