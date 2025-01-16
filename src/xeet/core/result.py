@@ -52,6 +52,7 @@ class StepResult(MeasuredResult):
 
 
 class TestPrimaryStatus(Enum):
+    __test__ = False
     Undefined = auto()
     Skipped = auto()
     NotRun = auto()  # This isn't a test failure per se, but a failure to run the test
@@ -60,6 +61,7 @@ class TestPrimaryStatus(Enum):
 
 
 class TestSecondaryStatus(Enum):
+    __test__ = False
     Undefined = auto()
     InitErr = auto()
     PreTestErr = auto()
@@ -91,6 +93,7 @@ _SUB_STATUS_TEXT = {
 class TestStatus:
     primary: TestPrimaryStatus = TestPrimaryStatus.Undefined
     secondary: TestSecondaryStatus = TestSecondaryStatus.Undefined
+    __test__ = False
 
     def __str__(self) -> str:
         if self.secondary == TestSecondaryStatus.Undefined:
@@ -131,6 +134,7 @@ class PhaseResult(MeasuredResult):
 
 @dataclass
 class TestResult(MeasuredResult):
+    __test__ = False
     test: "Test" = None  # type: ignore
     status: TestStatus = field(default_factory=TestStatus)
     post_run_status: TestPrimaryStatus = TestPrimaryStatus.Undefined
