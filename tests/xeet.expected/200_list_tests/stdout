@@ -31,3 +31,5 @@ Name                                      Description
 027_inherit_abstract_post_run_good        Inherit a good post-run command
 028_inherit_abstract_post_run_bad         Inherit a bad post-run command (passing, but with warning)
 030_for_info                              Test for info command testing
+031_platform                              Test for current platform
+032_platform_missmatch                    Test for incorrect platform
