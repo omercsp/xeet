@@ -1,0 +1,25 @@
+Iteration #0
+------------
+Initialization error (1): 008_bad_desc
+Failed (1): 004_fail_over_rc
+Passed (10): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 030_for_info
+
+Iteration #1
+------------
+Initialization error (1): 008_bad_desc
+Failed (1): 004_fail_over_rc
+Passed (10): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 030_for_info
+
+Iteration #2
+------------
+Initialization error (1): 008_bad_desc
+Failed (1): 004_fail_over_rc
+Passed (10): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 030_for_info
+
+
+Accumulated summary:
+--------------------
+Initialization error: 3
+Failed: 3
+Passed: 30
+
