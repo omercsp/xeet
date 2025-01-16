@@ -127,7 +127,7 @@ class _Reporter(EventReporter):
 
 
 class TestRunEvents(XeetUnittest):
-    def test_run_events(self):
+    def _test_run_events(self, threads: int):
         self.add_var("var0", 10, reset=True)
         self.add_var("var1", 11)
         step_desc0 = gen_dummy_step_desc(dummy_val0="test")
@@ -150,7 +150,8 @@ class TestRunEvents(XeetUnittest):
         reporter = _Reporter()
         conf = self.main_config_wrapper.file_path
         for i in [1, 2, 3]:
-            run_result = run_tests(conf, TestsCriteria(), reporters=[reporter], iterations=i)
+            run_result = run_tests(conf, TestsCriteria(), reporters=[reporter], iterations=i,
+                                   threads=threads)
             if reporter.errors:
                 print()
                 for e in reporter.errors:
@@ -181,3 +182,7 @@ class TestRunEvents(XeetUnittest):
             #  Clear the driver cache to avoid reporters duplication in iterations,
             #  as rpoerters are added to the driver in the test run
             clear_drivers_cache()
+
+    def test_run_events(self):
+        for threads in [1, 2, 4]:
+            self._test_run_events(threads)
