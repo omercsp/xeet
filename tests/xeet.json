@@ -88,6 +88,13 @@
 			"groups": ["sanity", "group"]
 		},
 		{
+			"name": "010_threads_sanity",
+			"base": "test_base",
+			"shell": true,
+			"test_cmd": "{{run_cmd}} --threads=4 --no-summary --concise | sort",
+			"groups": ["sanity", "group"]
+		},
+		{
 			"name": "200_list_tests",
 			"base": "test_base",
 			"short_desc": "Test list command",
