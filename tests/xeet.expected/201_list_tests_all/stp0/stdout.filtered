@@ -1,0 +1,40 @@
+Name                                      Description
+----                                      -----------
+abstract_pre_run_good                     
+abstract_pre_run_bad                      
+abstract_run_good                         
+abstract_run_bad                          
+abstract_post_run_good                    
+abstract_post_run_bad                     
+001_pass                                  returns true, always passes
+002_pass_with_output                      echoes 'Hello World!'
+003_fail_over_output                      echoes 'Goodbye World!' and fails
+004_fail_over_rc                          returns 0, expects 1 and fails
+005_fail_2nd_step                         runs two steps, fail over the second
+006_skip                                  expected to be skipped
+007_skip_reason                           expected to be skipped, issue a skip reason
+008_bad_desc                              <error: 'bad_setting': Extra inputs are not permitted>
+009_expected_fail                         expected to fail (2nd step)
+010_unexpected_pass                       unexpectedly passes
+011_bad_cmd                               test with a bad command (not run)
+012_inherit_and_fix_bad_cmd               inherits a bad command test, but replaces it with a good one
+013_env_pass                              prints environment variable
+010_timeout_fail                          timeout test
+014_multi_rc_passing                      Random RC, shoudld pass
+015_show_auto_vars_internal               Test auto variables
+016_pre_test_ok                           Test with passing pre-run command
+017_not_run_pre_test_fail                 Test with failing pre-run command (not run)
+018_post_test_ok                          Test with valid post-test command
+019_post_test_fail                        Test with invalid post-test command
+020_fix_post_fail                         Test with fixed invalid post-test command
+021_inherit_abstract_pre_run_good         Pre-run command
+022_inherit_abstract_pre_run_bad          Bad pre-run command (not run)
+023_inherit_abstract_pre_run_bad_add_...  Append to inherited pre-run command (not run)
+024_inherit_abstract_run_good             Inherit a good run command
+025_inherit_abstract_run_good_add_run     Append to inherited run command
+025_inherit_abstract_run_bad              Inherit a bad run command (failing)
+027_inherit_abstract_run_bad_add_run      Append to an inherited bad run command (failing)
+028_inherit_abstract_post_run_good        Inherit a good post-run command
+029_inherit_abstract_post_run_bad         Inherit a bad post-run command (passing, but with warning)
+030_for_info_abstract                     Abstract test for info command testing
+031_for_info                              Test for info command testing
