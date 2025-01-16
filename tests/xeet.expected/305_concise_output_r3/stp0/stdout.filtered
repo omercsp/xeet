@@ -10,6 +10,7 @@ Iteration #0/2
 016_pre_test_ok                              [Passed]
 018_post_test_ok                             [Passed]
 019_post_test_fail                           [Passed]
+032_platform                                 [Passed]
 
 Iteration #1/2
 001_pass                                     [Passed]
@@ -23,6 +24,7 @@ Iteration #1/2
 016_pre_test_ok                              [Passed]
 018_post_test_ok                             [Passed]
 019_post_test_fail                           [Passed]
+032_platform                                 [Passed]
 
 Iteration #2/2
 001_pass                                     [Passed]
@@ -36,6 +38,7 @@ Iteration #2/2
 016_pre_test_ok                              [Passed]
 018_post_test_ok                             [Passed]
 019_post_test_fail                           [Passed]
+032_platform                                 [Passed]
 
 
 Summary:
@@ -43,6 +46,6 @@ Summary:
 Total iterations: 3
 Initialization error: 3
 Failed: 3
-Passed: 27
+Passed: 30
 Duration: X.XXXs
 

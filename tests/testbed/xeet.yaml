@@ -1,4 +1,4 @@
-include: [xeet_base.yaml, inheritance.yaml]
+include: [xeet_base.yaml, inheritance.yaml, "xeet_{XEET_PLATFORM}.yaml"]
 tests:
   - name: 001_pass
     short_desc: returns true, always passes
@@ -249,3 +249,13 @@ tests:
       - cmd: "{echo_cmd} Test output dir: {XEET_TEST_OUT_DIR}"
         expected_stdout: "Test output dir: {XEET_OUT_DIR}/{XEET_TEST_NAME}\n"
     groups: [passing]
+
+  - name: 032_platform
+    short_desc: Test for current platform
+    base: platform_test
+    groups: [passing, platform]
+
+  - name: 033_platform_missmatch
+    short_desc: Test for incorrect platform
+    base: wrong_platform_test
+    groups: [skipped, platform]
