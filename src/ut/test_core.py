@@ -1,14 +1,14 @@
 from ut import *
 from ut.ut_dummy_defs import *
 from xeet import XeetException
-from xeet.core.result import (TestResult,  StepsListResult, TestStatus, TestPrimaryStatus,
-                              TestSecondaryStatus)
-from xeet.core.test import Test
-from xeet.core.result import StepsListResult
+from ut.ut_exec_defs import GOOD_EXEC_RES, gen_sleep_cmd, gen_exec_step_desc
+from xeet.core.result import StepsListResult, TestStatus, TestPrimaryStatus, TestSecondaryStatus
+from xeet.core.test import Test, TestResult, TestStatus
 from xeet.steps.dummy_step import DummyStepModel
 from xeet.core.api import fetch_xtest, fetch_tests_list
 from xeet.core.driver import TestsCriteria
 from xeet.common import platform_path
+from timeit import default_timer as timer
 import os
 
 
@@ -386,3 +386,18 @@ class TestCore(XeetUnittest):
 
         expected = TestResult(TestStatus(TestPrimaryStatus.Skipped))
         self.assertTestResultEqual(self.run_test(TEST2), expected)
+
+    def test_thread_support(self):
+        sleep1_desc = gen_exec_step_desc(cmd=gen_sleep_cmd(1))
+        self.add_test(TEST0, run=[sleep1_desc], reset=True)
+        self.add_test(TEST1, run=[sleep1_desc])
+        self.add_test(TEST2, run=[sleep1_desc], save=True)
+
+        start = timer()
+        results = self.run_tests_list([TEST0, TEST1, TEST2], threads=3)
+        results = list(results)
+        duration = timer() - start
+        self.assertLess(duration, 3)
+        self.assertGreater(duration, 1)
+        for res in results:
+            self.assertTestResultEqual(res, GOOD_EXEC_RES)
