@@ -23,6 +23,7 @@ NOTICE: Post-test failed or didn't complete
 Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
 empty output
 
+032_platform                                 [Passed]
 
 Iteration #1
 001_pass                                     [Passed]
@@ -45,6 +46,7 @@ NOTICE: Post-test failed or didn't complete
 Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
 empty output
 
+032_platform                                 [Passed]
 
 Iteration #2
 001_pass                                     [Passed]
@@ -67,6 +69,7 @@ NOTICE: Post-test failed or didn't complete
 Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
 empty output
 
+032_platform                                 [Passed]
 
 Summary:
 ========
@@ -74,24 +77,24 @@ Iteration #0
 ------------
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 
 Iteration #1
 ------------
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 
 Iteration #2
 ------------
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 
 
 Accumulated summary:
 --------------------
 Initialization error: 3
 Failed: 3
-Passed: 27
+Passed: 30
 
