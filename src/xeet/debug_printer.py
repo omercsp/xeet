@@ -1,4 +1,3 @@
-from re import L
 from xeet.core.events import LockableEventReporter
 from xeet.pr import *
 from xeet.core.test import TestPrimaryStatus, TestResult, Test, Phase
