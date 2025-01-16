@@ -1,0 +1,34 @@
+
+Starting xeet run
+=================
+Running tests: 001_pass, 002_pass_with_output, 004_fail_over_rc, 008_bad_desc, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+
+
+001_pass                                     [Passed]
+002_pass_with_output                         [Passed]
+004_fail_over_rc                             [Failed]
+Run step #0 failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+008_bad_desc                                 [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+012_inherit_and_fix_bad_cmd                  [Passed]
+013_env_pass                                 [Passed]
+014_multi_rc_passing                         [Passed]
+015_show_auto_vars_internal                  [Passed]
+016_pre_test_ok                              [Passed]
+018_post_test_ok                             [Passed]
+019_post_test_fail                           [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+
+Summary:
+========
+Initialization error (1): 008_bad_desc
+Failed (1): 004_fail_over_rc
+Passed (9): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail
+Duration: X.XXXs
+
