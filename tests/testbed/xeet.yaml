@@ -1,0 +1,251 @@
+include: [xeet_base.yaml, inheritance.yaml]
+tests:
+  - name: 001_pass
+    short_desc: returns true, always passes
+    run:
+      - base: "settings.common_steps._true"
+    groups: [passing]
+
+  - name: 002_pass_with_output
+    short_desc: echoes 'Hello World!'
+    run:
+      - base: "settings.common_steps.hello"
+        expected_stdout: "Hello World!\n"
+    groups: [passing]
+
+  - name: 003_fail_over_output
+    short_desc: echoes 'Goodbye World!' and fails
+    run:
+      - base: "settings.common_steps.hello"
+        expected_stdout: "Goodbye World!\n"
+    groups: [failing]
+
+  - name: 004_fail_over_rc
+    short_desc: returns 0, expects 1 and fails
+    run:
+      - base: "settings.common_steps._true"
+        allowed_rc: [1]
+    groups: [failing]
+
+  - name: 005_fail_2nd_step
+    short_desc: runs two steps, fail over the second
+    run:
+      - base: "settings.common_steps._true"
+      - base: "settings.common_steps._false"
+    groups: [failing]
+
+  - name: 006_skip
+    short_desc: expected to be skipped
+    run:
+      - base: "settings.common_steps._true"
+    groups: [skipped]
+    skip: true
+
+  - name: 007_skip_reason
+    short_desc: expected to be skipped, issue a skip reason
+    run:
+      - base: "settings.common_steps._true"
+    groups: [skipped]
+    skip: true
+    skip_reason: This test is expected to be skipped
+
+  - name: 008_bad_desc
+    short_desc: bad test descriptor
+    bad_setting: bad_value
+    groups: [not_run]
+
+  - name: 009_expected_fail
+    short_desc: expected to fail (2nd step)
+    run:
+      - base: "settings.common_steps._true"
+      - base: "settings.common_steps._false" #  will fail here
+      - base: "settings.common_steps._true" #  will not run
+    expected_failure: true
+    groups: [expected_failure]
+
+  - name: 010_unexpected_pass
+    short_desc: unexpectedly passes
+    run:
+      - base: "settings.common_steps._true"
+    expected_failure: true
+    groups: [failing]
+
+  - name: 011_bad_cmd
+    short_desc: test with a bad command (not run)
+    run:
+      - cmd: "bad_command"
+    groups: [not_run]
+
+  - name: 012_inherit_and_fix_bad_cmd
+    base: 011_bad_cmd
+    short_desc: inherits a bad command test, but replaces it with a good one
+    run:
+      - cmd: "{true_cmd}"
+    groups: [passing]
+
+  - name: 009_env_pass
+    short_desc: prints environment variable
+    run:
+      - cmd: "{showenv_cmd} TEST_ENV_VAR"
+        env:
+          TEST_ENV_VAR: test value
+        expected_stdout: "test value\n"
+    groups: [passing]
+
+  - name: 010_timeout_fail
+    short_desc: timeout test
+    run:
+      - cmd: "{sleep_cmd} 1"
+        timeout: 0.5
+    groups: [not_run]
+
+  - name: 013_multi_rc_passing
+    short_desc: Random RC, shoudld pass
+    run:
+      - cmd: '{rand_rc_cmd}'
+        allowed_rc: "*"
+    groups: [passing]
+
+  - name: 014_show_auto_vars_internal
+    short_desc: Test auto variables
+    run:
+      - cmd: "{echo_cmd} Xeet root: {XEET_ROOT}"
+        expected_stdout: "Xeet root: {XEET_ROOT}\n"
+      - cmd: "{echo_cmd} Test name: {XEET_TEST_NAME}"
+        expected_stdout: "Test name: 014_show_auto_vars_internal\n"
+      - cmd: "{echo_cmd} Test output dir: {XEET_TEST_OUT_DIR}"
+        expected_stdout: "Test output dir: {XEET_OUT_DIR}/{XEET_TEST_NAME}\n"
+    groups: [passing]
+
+  - name: 015_pre_test_ok
+    short_desc: Test with passing pre-run command
+    pre_run:
+      - cmd: "{true_cmd}"
+    run:
+      - cmd: "{echo_cmd} hey!"
+        expected_stdout: "hey!\n"
+    groups: [passing]
+
+  - name: 016_not_run_pre_test_fail
+    short_desc: Test with failing pre-run command (not run)
+    pre_run:
+      - cmd: "{true_cmd}"
+      - cmd: "{false_cmd}"
+    run:
+      - cmd: "{echo_cmd} hey!"
+        expected_stdout: "hey!\n"
+    groups: [not_run]
+
+  - name: 017_post_test_ok
+    short_desc: Test with valid post-test command
+    run:
+      - cmd: "{true_cmd}"
+    post_run:
+      - cmd: "{true_cmd}"
+    groups: [passing]
+
+  - name: 018_post_test_fail
+    # Should pass, but post-test fails and should issue a warning
+    short_desc: Test with invalid post-test command
+    run:
+      - cmd: "{true_cmd}"
+    post_run:
+      - cmd: "{false_cmd}"
+    groups: [passing, bad_post]
+
+  - name: 019_fix_post_fail
+    short_desc: Test with fixed invalid post-test command
+    base: 018_post_test_fail
+    post_run:
+      - cmd: "{true_cmd}"
+    groups: [passing, inheritance]
+
+  - name: 020_inherit_abstract_pre_run_good
+    short_desc: Pre-run command
+    base: abstract_pre_run_good
+    groups: [passing, inheritance]
+    run:
+      - cmd: "{true_cmd}"
+
+  - name: 021_inherit_abstract_pre_run_bad
+    short_desc: Bad pre-run command (not run)
+    base: abstract_pre_run_bad
+    groups: [not_run, inheritance]
+    run:
+      - cmd: "{true_cmd}"
+
+  - name: 022_inherit_abstract_pre_run_bad_add_pre_run
+    short_desc: Append to inherited pre-run command (not run)
+    base: abstract_pre_run_bad
+    groups: [not_run, inheritance]
+    # 2nd step of the pre-run should fail, and test is set to not_run
+    pre_run_inheritance: prepend
+    pre_run:
+      - cmd: "{true_cmd}"
+    run:
+      - cmd: "{true_cmd}"
+
+  - name: 023_inherit_abstract_run_good
+    short_desc: Inherit a good run command
+    base: abstract_run_good
+    groups: [passing, inheritance]
+
+  - name: 024_inherit_abstract_run_good_add_run
+    short_desc: Append to inherited run command
+    base: abstract_run_good
+    run_inheritance: append
+    run:
+      - cmd: "{echo_cmd} hey!"
+    groups: [passing, inheritance]
+
+  - name: 025_inherit_abstract_run_bad
+    short_desc: Inherit a bad run command (failing)
+    base: abstract_run_bad
+    groups: [failing, inheritance]
+
+  - name: 026_inherit_abstract_run_bad_add_run
+    short_desc: Append to an inherited bad run command (failing)
+    base: abstract_run_bad
+    run_inheritance: append
+    run:
+      - cmd: "{echo_cmd} hey!"
+    groups: [failing, inheritance]
+
+  - name: 027_inherit_abstract_post_run_good
+    short_desc: Inherit a good post-run command
+    base: abstract_post_run_good
+    run:
+      - cmd: "{true_cmd}"
+    groups: [passing, inheritance]
+
+  - name: 028_inherit_abstract_post_run_bad
+    short_desc: Inherit a bad post-run command (passing, but with warning)
+    base: abstract_post_run_bad
+    run:
+      - cmd: "{true_cmd}"
+    groups: [passing, inheritance, bad_post]
+
+  - name: 029_for_info_abstract
+    abstract: true
+    short_desc: Abstract test for info command testing
+    pre_run:
+      - cmd: "{true_cmd}"
+
+  - name: 030_for_info
+    base: 029_for_info_abstract
+    short_desc: Test for info command testing
+    long_desc: |
+      This test is for testing the info command.
+      Inerits from another test, and has all kinds of test
+      attributes set.
+    run:
+      - cmd: "{pwd_cmd}"
+        expected_stdout: "{XEET_CWD}\n"
+      - env:
+          TEST_ENV_VAR: test value
+        cmd: "{showenv_cmd} TEST_ENV_VAR"
+        expected_stdout: "test value\n"
+    post_run:
+      - cmd: "{echo_cmd} Test output dir: {XEET_TEST_OUT_DIR}"
+        expected_stdout: "Test output dir: {XEET_OUT_DIR}/{XEET_TEST_NAME}\n"
+    groups: [passing]

@@ -1,0 +1,56 @@
+Starting run
+------------
+Included groups: not_run, passing
+Running tests: 001_pass, 002_pass_with_output, 008_bad_desc, 011_bad_cmd, 012_inherit_and_fix_bad_cmd, 009_env_pass, 010_timeout_fail, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 016_not_run_pre_test_fail, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info
+
+001_pass                                  [Passed]
+002_pass_with_output                      [Passed]
+008_bad_desc                              [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+011_bad_cmd                               [Not run] Test error
+Run step #0:  incomplete: [Errno 2] No such file or directory: 'bad_command'
+
+012_inherit_and_fix_bad_cmd               [Passed]
+009_env_pass                              [Passed]
+010_timeout_fail                          [Not run] Test error
+Run step #0:  incomplete: Timeout expired after 0.5s
+
+013_multi_rc_passing                      [Passed]
+014_show_auto_vars_internal               [Passed]
+015_pre_test_ok                           [Passed]
+016_not_run_pre_test_fail                 [Not run] Pre-test error
+Pre-run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+017_post_test_ok                          [Passed]
+018_post_test_fail                        [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+019_fix_post_fail                         [Passed]
+020_inherit_abstract_pre_run_good         [Passed]
+021_inherit_abstract_pre_run_bad          [Not run] Pre-test error
+Pre-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+022_inherit_abstract_pre_run_bad_add_...  [Not run] Pre-test error
+Pre-run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+023_inherit_abstract_run_good             [Passed]
+024_inherit_abstract_run_good_add_run     [Passed]
+027_inherit_abstract_post_run_good        [Passed]
+028_inherit_abstract_post_run_bad         [Passed]
+NOTICE: Post-test failed or didn't complete
+Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+030_for_info                              [Passed]
+
+Initialization error: 008_bad_desc
+Test error: 011_bad_cmd, 010_timeout_fail
+Pre-test error: 016_not_run_pre_test_fail, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run
+Passed: 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info
+

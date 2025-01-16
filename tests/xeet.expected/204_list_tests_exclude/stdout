@@ -1,0 +1,16 @@
+Name                                      Description
+----                                      -----------
+001_pass                                  returns true, always passes
+002_pass_with_output                      echoes 'Hello World!'
+012_inherit_and_fix_bad_cmd               inherits a bad command test, but replaces it with a good one
+009_env_pass                              prints environment variable
+013_multi_rc_passing                      Random RC, shoudld pass
+014_show_auto_vars_internal               Test auto variables
+015_pre_test_ok                           Test with passing pre-run command
+017_post_test_ok                          Test with valid post-test command
+019_fix_post_fail                         Test with fixed invalid post-test command
+020_inherit_abstract_pre_run_good         Pre-run command
+023_inherit_abstract_run_good             Inherit a good run command
+024_inherit_abstract_run_good_add_run     Append to inherited run command
+027_inherit_abstract_post_run_good        Inherit a good post-run command
+030_for_info                              Test for info command testing
