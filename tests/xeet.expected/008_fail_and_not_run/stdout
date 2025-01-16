@@ -1,0 +1,17 @@
+
+Starting xeet run
+=================
+
+004_fail_over_rc                             [Failed]
+Run step #0 failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+008_bad_desc                                 [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+
+Summary:
+========
+Initialization error (1): 008_bad_desc
+Failed (1): 004_fail_over_rc
+

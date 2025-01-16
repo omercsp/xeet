@@ -1,0 +1,25 @@
+Iteration #0
+------------
+Initialization error: 1
+Failed: 1
+Passed: 10
+
+Iteration #1
+------------
+Initialization error: 1
+Failed: 1
+Passed: 10
+
+Iteration #2
+------------
+Initialization error: 1
+Failed: 1
+Passed: 10
+
+
+Accumulated summary:
+--------------------
+Initialization error: 3
+Failed: 3
+Passed: 30
+
