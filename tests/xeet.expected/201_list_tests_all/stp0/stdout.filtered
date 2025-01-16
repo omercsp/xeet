@@ -6,6 +6,8 @@ abstract_run_good
 abstract_run_bad                          
 abstract_post_run_good                    
 abstract_post_run_bad                     
+platform_test                             Test that should only run on POSIX systems
+wrong_platform_test                       Test that should not run on POSIX systems
 001_pass                                  returns true, always passes
 002_pass_with_output                      echoes 'Hello World!'
 003_fail_over_output                      echoes 'Goodbye World!' and fails
@@ -38,3 +40,5 @@ abstract_post_run_bad
 029_inherit_abstract_post_run_bad         Inherit a bad post-run command (passing, but with warning)
 030_for_info_abstract                     Abstract test for info command testing
 031_for_info                              Test for info command testing
+032_platform                              Test for current platform
+033_platform_missmatch                    Test for incorrect platform
