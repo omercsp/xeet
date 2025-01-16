@@ -1,0 +1,14 @@
+Name                                      Description
+----                                      -----------
+003_fail_over_output                      echoes 'Goodbye World!' and fails
+004_fail_over_rc                          returns 0, expects 1 and fails
+005_fail_2nd_step                         runs two steps, fail over the second
+008_bad_desc                              <error: 'bad_setting': Extra inputs are not permitted>
+010_unexpected_pass                       unexpectedly passes
+011_bad_cmd                               test with a bad command (not run)
+010_timeout_fail                          timeout test
+017_not_run_pre_test_fail                 Test with failing pre-run command (not run)
+022_inherit_abstract_pre_run_bad          Bad pre-run command (not run)
+023_inherit_abstract_pre_run_bad_add_...  Append to inherited pre-run command (not run)
+025_inherit_abstract_run_bad              Inherit a bad run command (failing)
+027_inherit_abstract_run_bad_add_run      Append to an inherited bad run command (failing)
