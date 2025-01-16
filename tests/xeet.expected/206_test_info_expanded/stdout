@@ -1,0 +1,28 @@
+Name:                            031_for_info
+Short description:               Test for info command testing
+Description:                     This test is for testing the info command.
+                                 Inerits from another test, and has all kinds
+                                 of test attributes set.
+Groups:                          passing
+Pre-run steps:
+ - [0] Step type:                exec
+       Command:                  python __XEET_ROOT__/testbed/..
+                                 /../scripts/testing/rc.py 0
+Run steps:
+ - [0] Step type:                exec
+       Command:                  python __XEET_ROOT__/testbed/..
+                                 /../scripts/testing/pwd.py
+       Expected stdout:          __XEET_ROOT__
+ - [1] Step type:                exec
+       Command:                  python __XEET_ROOT__/testbed/..
+                                 /../scripts/testing/showenv.py TEST_ENV_VAR
+       Environment variables:    TEST_ENV_VAR='test value'
+       Expected stdout:          test value
+Post-run steps:
+ - [0] Step type:                exec
+       Command:                  python __XEET_ROOT__/testbed/..
+                                 /../scripts/testing/echo.py Test output dir: 
+                                 __XEET_ROOT__/testbed/xeet.out/
+                                 iteration#/031_for_info
+       Expected stdout:          Test output dir: __XEET_ROOT__/
+                                 testbed/xeet.out/iteration#/031_for_info
