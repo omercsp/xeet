@@ -1,5 +1,6 @@
 from ut import *
 from ut.ut_dummy_defs import *
+from xeet.core import TestsCriteria
 from xeet.core.driver import xeet_driver
 from xeet.core.step import Step
 from xeet.core.result import PhaseResult, StepResult, TestResult
@@ -126,7 +127,7 @@ class _Reporter(EventReporter):
         self.tests_acc[step.phase.test.name].steps_ended += 1
 
 
-def test_run_events(xut: XeetUnittest):
+def _run_events(xut: XeetUnittest, threads: int):
     xut.add_var("var0", 10, reset=True)
     xut.add_var("var1", 11)
     step_desc0 = gen_dummy_step_desc(dummy_val0="test")
@@ -149,7 +150,9 @@ def test_run_events(xut: XeetUnittest):
     reporter = _Reporter()
     xut.reporters.append(reporter)
     for i in [1, 2, 3]:
-        run_result = xut.driver().run(XeetRunSettings(iterations=i))
+        run_sttings = XeetRunSettings(criteria=TestsCriteria(), iterations=i,
+                                      jobs=threads)
+        run_result = xut.driver().run(run_sttings)
         if reporter.errors:
             print()
             for e in reporter.errors:
@@ -181,3 +184,8 @@ def test_run_events(xut: XeetUnittest):
         #  Clear the driver cache to avoid reporters duplication in iterations,
         #  as rpoerters are added to the driver in the test run
         xeet_driver.cache_clear()
+
+
+def test_run_events(xut: XeetUnittest):
+    for threads in [1, 2, 4]:
+        _run_events(xut, threads)
