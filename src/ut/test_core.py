@@ -243,20 +243,21 @@ class TestCore(XeetUnittest):
         xeet_root = platform_path(xeet_root)
         out_dir = f"{xeet_root}/xeet.out"
 
-        #  Auto global vars
         step_desc0 = gen_dummy_step_desc(dummy_val0="{XEET_ROOT} {XEET_CWD} {XEET_OUT_DIR}")
-        #  Test sepecific
         step_desc1 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_NAME} {XEET_TEST_OUT_DIR}")
+        step_desc2 = gen_dummy_step_desc(dummy_val0="{XEET_PLATFORM}")
 
-        self.add_test(TEST0, run=[step_desc0, step_desc1], reset=True, save=True)
+        self.add_test(TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True)
 
         cwd = platform_path(os.getcwd())
         expected_step_result0 = gen_dummy_step_result(step_desc0)
         expected_step_result0.dummy_val0 = f"{xeet_root} {cwd} {out_dir}"
         expected_step_result1 = gen_dummy_step_result(step_desc1)
         expected_step_result1.dummy_val0 = f"{TEST0} {out_dir}/{TEST0}"
-        expected_phase_result = PhaseResult(steps_results=[expected_step_result0,
-                                                           expected_step_result1])
+        expected_step_result2 = gen_dummy_step_result(step_desc2)
+        expected_step_result2.dummy_val0 = os.name
+        expected_phase_result = PhaseResult(
+            steps_results=[expected_step_result0, expected_step_result1, expected_step_result2])
         expected = TestResult(PASSED_TEST_STTS, run_res=expected_phase_result)
         self.assertTestResultEqual(self.run_test(TEST0), expected)
 
@@ -375,3 +376,20 @@ class TestCore(XeetUnittest):
         self.assertEqual(step_details["Dummy val0"], "test var")
         self.assertEqual(step_details["Dummy val1"], 10)
         self.assertEqual(step_details["Step type"], "dummy")
+
+    def test_platform_support(self):
+        step_desc = gen_dummy_step_desc(dummy_val0="test", dummy_val1=10)
+        expected_step_res = gen_dummy_step_result(step_desc)
+        this_platform = os.name
+        other_platform = "nt" if this_platform != "nt" else "posix"
+        self.add_test(TEST0, platforms=[this_platform], run=[step_desc], reset=True)
+        self.add_test(TEST1, platforms=[this_platform, other_platform], run=[step_desc])
+        self.add_test(TEST2, platforms=[other_platform], run=[step_desc], save=True)
+
+        expected = TestResult(PASSED_TEST_STTS,
+                              run_res=PhaseResult(steps_results=[expected_step_res]))
+        self.assertTestResultEqual(self.run_test(TEST0), expected=expected)
+        self.assertTestResultEqual(self.run_test(TEST1), expected=expected)
+
+        expected = TestResult(TestStatus(TestPrimaryStatus.Skipped))
+        self.assertTestResultEqual(self.run_test(TEST2), expected)
