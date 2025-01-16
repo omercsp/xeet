@@ -1,0 +1,35 @@
+Starting run
+------------
+Included groups: failing
+Running tests: 003_fail_over_output, 004_fail_over_rc, 005_fail_2nd_step, 010_unexpected_pass, 025_inherit_abstract_run_bad, 026_inherit_abstract_run_bad_add_run
+
+003_fail_over_output                                         ....... [Failed]
+Run step #0:  failed: stdout differs from expected
+--- /home/omer/devel/xeet/tests/testbed/xeet.out/003_fail_over_output/stp0/stdout
++++ expected_stdout
+@@ -1,2 +1,2 @@
+-Hello World!
++Goodbye World!
+ 
+
+004_fail_over_rc                                             ....... [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+005_fail_2nd_step                                            ....... [Failed]
+Run step #1:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+010_unexpected_pass                                          ....... [Failed] Unexpected pass
+025_inherit_abstract_run_bad                                 ....... [Failed]
+Run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+026_inherit_abstract_run_bad_add_run                         ....... [Failed]
+Run step #0:  failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+
+Failed: 003_fail_over_output, 004_fail_over_rc, 005_fail_2nd_step, 025_inherit_abstract_run_bad, 026_inherit_abstract_run_bad_add_run
+Unexpected pass: 010_unexpected_pass
+
