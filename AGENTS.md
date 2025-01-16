@@ -123,8 +123,35 @@ randomization, etc.) — treat it as the feature backlog.
 
 ## Testing
 
-No automated test suite exists yet at this point in the project's history.
+### Unit tests (`src/ut/`)
+
+pytest-based, run via `cd src/ut && ./utxeet` (auto-activates `.venv`, runs
+with `pytest-xdist` at `nproc/2` workers; pass args through, e.g.
+`./utxeet -x test_core.py -k test_step_details`).
+
+Infrastructure lives in `src/ut/__init__.py` and `conftest.py`:
+- `conftest.py`'s `xeet_dir_setup` (session-scoped, autouse) creates one
+  shared temp dir per process; the `xut` fixture hands back a
+  process-cached `XeetUnittest("main.yaml")`, reset before each test.
+- `ConfigTestWrapper` builds an in-memory config via `add_test()`,
+  `add_var()`, `add_setting()`, `add_include()` (each accepts `reset=`,
+  `save=`, `show=` kwargs) and writes it to disk with `.save()`.
+- `XeetUnittest` (extends `ConfigTestWrapper`) drives it: `run_test(name)`,
+  `run_tests(**TestsCriteria kwargs)`, `get_test(name)`, `driver()`. Any
+  time the config is rewritten, `.save()`/`.reset()` call
+  `xeet_driver.cache_clear()` — required because `xeet_driver()` is
+  `@cache`d on the config file path (see Architecture table above).
+- `gen_test_result()` / `assert_test_results_equal()` build and compare
+  expected `TestResult` trees. Adding a new step type requires a sibling
+  `ut_<type>_defs.py` with `gen_*_desc()`/`gen_*_result()` and a call to
+  `register_res_comparison(YourStepResult, fn)` — otherwise result
+  comparison raises `ValueError`.
+- `scripts/testing/*.py` (`echo.py`, `rc.py`, `pwd.py`, `sleep.py`,
+  `showenv.py`, `output.py`, `output_stream.py`) are small dependency-free
+  Python scripts used as deterministic, cross-platform exec-step targets
+  by `ut_exec_defs.py` (and later by the E2E testbed).
 
 ## Verification checklist before finishing a change
 
 1. `pycodestyle --max-line-length=100 <changed files>` — must be clean.
+2. `cd src/ut && ./utxeet` — unit suite must pass.

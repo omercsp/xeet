@@ -48,6 +48,7 @@ class TestModel(BaseModel):
     # Internals
     parent: "TestModel | None" = Field(None, exclude=True)
     error: str = Field(_EMPTY_STR, exclude=True)
+    __test__ = False
 
     @model_validator(mode='after')
     def post_validate(self) -> "TestModel":
@@ -106,6 +107,8 @@ class Phase:
 
 
 class Test:
+    __test__ = False
+
     def __init__(self, model: TestModel, rti: RuntimeInfo, index: int = -1) -> None:
         self.model = model
         self.rti = rti
