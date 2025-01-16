@@ -92,6 +92,7 @@ class TestsCriteria:
     require_groups: set[str] = field(default_factory=set)
     exclude_groups: set[str] = field(default_factory=set)
     hidden_tests: bool = False
+    __test__ = False
 
     def match(self, name: str, groups: list[str], hidden: bool) -> bool:
         if hidden and not self.hidden_tests:
