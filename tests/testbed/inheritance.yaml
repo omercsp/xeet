@@ -1,0 +1,31 @@
+include: [xeet_base.yaml]
+tests:
+  - name: abstract_pre_run_good
+    abstract: true
+    pre_run:
+      - base: "settings.common_steps._true"
+
+  - name: abstract_pre_run_bad
+    abstract: true
+    pre_run:
+      - base: "settings.common_steps._false"
+
+  - name: abstract_run_good
+    abstract: true
+    run:
+      - base: "settings.common_steps._true"
+
+  - name: abstract_run_bad
+    abstract: true
+    run:
+      - base: "settings.common_steps._false"
+
+  - name: abstract_post_run_good
+    abstract: true
+    post_run:
+      - base: "settings.common_steps._true"
+
+  - name: abstract_post_run_bad
+    abstract: true
+    post_run:
+      - base: "settings.common_steps._false"
