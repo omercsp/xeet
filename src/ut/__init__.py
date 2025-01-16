@@ -174,10 +174,10 @@ class XeetUnittest(unittest.TestCase):
         cls.main_config_wrapper.add_settings(name, value, **kwargs)
 
     @classmethod
-    def run_tests(cls, iteraions: int = 1, **kwargs) -> RunResult:
+    def run_tests(cls, iteraions: int = 1, threads: int = 1, **kwargs) -> RunResult:
         criteria = TestsCriteria(**kwargs)
         return run_tests(cls.main_config_wrapper.file_path, criteria, list(),
-                         iterations=iteraions)
+                         iterations=iteraions, threads=threads)
 
     @classmethod
     def run_test(cls, name: str, **kwargs) -> TestResult:
