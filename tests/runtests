@@ -37,21 +37,21 @@ def _run_tests():
     if xeet_pkg_venv_path:
         print(f"Internal XEET virtual environment path is set to {xeet_pkg_venv_path}")
     user_args = []
-    threads = os.environ.get("XEET_THREADS")
-    if threads:
+    jobs = os.environ.get("XEET_JOBS")
+    if jobs:
         try:
-            threads = int(threads)
+            jobs = int(jobs)
         except ValueError:
-            print(f"Invalid value for XEET_THREADS: {threads}")
+            print(f"Invalid value for XEET_JOBS: {jobs}")
             sys.exit(1)
     else:
         #  Get the number of processors
         cpus = os.cpu_count()
         if cpus and cpus > 1:
-            threads = int(cpus / 2)
+            jobs = int(cpus / 2)
         else:
-            threads = 1
-    user_args.append(f"--threads={threads}")
+            jobs = 1
+    user_args.append(f"--jobs={jobs}")
 
     # Run the xeet command
     command = [xeet_bin, "run"] + sys.argv[1:] + user_args
