@@ -48,6 +48,7 @@ empty output
 032_timeout_fail                             [Not run] Test error
 Run step #0 incompleted: Timeout expired after 0.5s
 
+033_platform                                 [Passed]
 
 
 Summary:
@@ -56,6 +57,6 @@ Total iterations: 1
 Initialization error (1): 008_bad_desc
 Test error (2): 011_bad_cmd, 032_timeout_fail
 Pre-test error (3): 017_not_run_pre_test_fail, 022_inherit_abstract_pre_run_bad, 023_inherit_abstract_pre_run_bad_add_pre_run
-Passed (16): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 020_fix_post_fail, 021_inherit_abstract_pre_run_good, 024_inherit_abstract_run_good, 025_inherit_abstract_run_good_add_run, 028_inherit_abstract_post_run_good, 029_inherit_abstract_post_run_bad, 031_for_info
+Passed (17): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 013_env_pass, 014_multi_rc_passing, 015_show_auto_vars_internal, 016_pre_test_ok, 018_post_test_ok, 019_post_test_fail, 020_fix_post_fail, 021_inherit_abstract_pre_run_good, 024_inherit_abstract_run_good, 025_inherit_abstract_run_good_add_run, 028_inherit_abstract_post_run_good, 029_inherit_abstract_post_run_bad, 031_for_info, 033_platform
 Duration: X.XXXs
 

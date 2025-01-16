@@ -1,0 +1,9 @@
+tests:
+  - name: platform_test
+    abstract: true
+    short_desc: Test that should only run on POSIX systems
+    platforms: [posix]
+  - name: wrong_platform_test
+    abstract: true
+    short_desc: Test that should not run on POSIX systems
+    platforms: [nt]

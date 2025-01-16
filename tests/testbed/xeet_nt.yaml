@@ -1,0 +1,9 @@
+tests:
+  - name: platform_test
+    abstract: true
+    short_desc: Test that should only run on Windows systems
+    platforms: [nt]
+  - name: wrong_platform_test
+    abstract: true
+    short_desc: Test that should not run on Windows systems
+    platforms: [posix]

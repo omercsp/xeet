@@ -31,3 +31,5 @@ Name                                      Description
 029_inherit_abstract_post_run_bad         Inherit a bad post-run command (passing, but with warning)
 031_for_info                              Test for info command testing
 032_timeout_fail                          timeout test
+033_platform                              Test for current platform
+034_platform_missmatch                    Test for incorrect platform
