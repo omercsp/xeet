@@ -78,15 +78,19 @@ Post-run step #0:  failed: retrun code 1 not in allowed return codes (0)
 empty output
 
 030_for_info                                 [Passed]
+031_platform                                 [Passed]
+032_platform_missmatch                       [Skipped]
+Platform 'posix' not in test's platform list
+
 
 Summary:
 ========
-Skipped (2): 006_skip, 007_skip_reason
+Skipped (3): 006_skip, 007_skip_reason, 032_platform_missmatch
 Initialization error (1): 008_bad_desc
 Test error (2): 011_bad_cmd, 010_timeout_fail
 Pre-test error (3): 016_not_run_pre_test_fail, 021_inherit_abstract_pre_run_bad, 022_inherit_abstract_pre_run_bad_add_pre_run
 Failed (5): 003_fail_over_output, 004_fail_over_rc, 005_fail_2nd_step, 025_inherit_abstract_run_bad, 026_inherit_abstract_run_bad_add_run
 Unexpected pass (1): 010_unexpected_pass
-Passed (16): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info
+Passed (17): 001_pass, 002_pass_with_output, 012_inherit_and_fix_bad_cmd, 009_env_pass, 013_multi_rc_passing, 014_show_auto_vars_internal, 015_pre_test_ok, 017_post_test_ok, 018_post_test_fail, 019_fix_post_fail, 020_inherit_abstract_pre_run_good, 023_inherit_abstract_run_good, 024_inherit_abstract_run_good_add_run, 027_inherit_abstract_post_run_good, 028_inherit_abstract_post_run_bad, 030_for_info, 031_platform
 Expected failure (1): 009_expected_fail
 
