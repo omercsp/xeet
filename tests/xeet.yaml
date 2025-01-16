@@ -1,0 +1,187 @@
+# yaml-language-server: $schema=../schemas/xeet_schema_v0.7.json
+#
+# include: [inheritance.yaml]
+#
+variables:
+  base_cmd: '{XEET_ROOT}/../xeet --no-colors'
+  run_base_cmd: '{base_cmd} run -O testbed/xeet_out_{XEET_TEST_NAME}'
+  run_cmd: '{run_base_cmd} -c testbed/xeet.yaml --hide=pre_run_summary --show=detailed_summary'
+  list_cmd: '{base_cmd} list -c testbed/xeet.yaml'
+  info_cmd: '{base_cmd} info -c testbed/xeet.yaml'
+  run_output_base_cmd: '{run_base_cmd} -c testbed/xeet.yaml -g passing -X inheritance -z 004 -z 008 -Z 003 -Z 031'
+settings:
+  base_test_step:
+    type: exec
+    cwd: '{XEET_ROOT}'
+    expected_stdout_file: "xeet.expected/{XEET_TEST_NAME}/stdout"
+    output_filters:
+      - from_str: "{XEET_ROOT}"
+        to_str: __XEET_ROOT__
+      - from_str: "[0-9]+\\.[0-9]\\{3}s"
+        to_str: "X.XXXs"
+        regex: true
+  base_test_step_rc3:
+    base: settings.base_test_step
+    allowed_rc: [3]
+tests:
+  - name: 001_all
+    short_desc: Test sanity for development code
+    run:
+      - cmd: '{run_cmd}'
+        base: settings.base_test_step_rc3
+  - name: 002_single_test_pass
+    short_desc: Test single group,passing
+    run:
+      - cmd: '{run_cmd} -t 001_pass'
+        base: settings.base_test_step
+  - name: 003_single_test_fail
+    short_desc: Test single group,passing
+    run:
+      - cmd: '{run_cmd} -t 003_fail_over_output'
+        base: settings.base_test_step
+        allowed_rc: [1]
+  - name: 004_single_group_passing
+    short_desc: Test single group,passing
+    run:
+      - cmd: '{run_cmd} -g passing'
+        base: settings.base_test_step
+  - name: 005_single_group_not_run
+    short_desc: Test single group, not running
+    run:
+      - cmd: '{run_cmd} -g not_run'
+        base: settings.base_test_step
+        allowed_rc: [2]
+  - name: 006_single_group_failing
+    short_desc: Test single group, failing
+    run:
+      - cmd: '{run_cmd} -g failing'
+        base: settings.base_test_step
+        allowed_rc: [1]
+  - name: 007_pass_and_skip
+    short_desc: Two tests, 1st should pass, 2nd should be skipped
+    run:
+      - cmd: '{run_cmd} -t 001_pass -t 006_skip'
+        base: settings.base_test_step
+  - name: 008_fail_and_not_run
+    short_desc: Two tests, 1st should fail, 2nd shouldn't run
+    run:
+      - cmd: '{run_cmd} -t 004_fail_over_rc -t 008_bad_desc'
+        base: settings.base_test_step_rc3
+  - name: 009_pass_and_not_run_groups
+    run:
+      - cmd: '{run_cmd} -g passing -g not_run'
+        base: settings.base_test_step
+        allowed_rc: [2]
+  - name: 200_list_tests
+    short_desc: Test list command
+    run:
+      - cmd: '{list_cmd}'
+        base: settings.base_test_step
+  - name: 201_list_tests_all
+    short_desc: Test list command, including abstract tests
+    run:
+      - cmd: '{list_cmd} -a'
+        base: settings.base_test_step
+  - name: 202_list_tests_group
+    short_desc: Test list command with group
+    run:
+      - cmd: '{list_cmd} -g ''not_run'''
+        base: settings.base_test_step
+  - name: 203_list_tests_2groups
+    run:
+      - cmd: '{list_cmd} -g ''not_run'' -g ''failing'''
+        base: settings.base_test_step
+  - name: 204_list_tests_exclude
+    run:
+      - cmd: '{list_cmd} -g ''passing'' -X ''bad_post'''
+        base: settings.base_test_step
+  - name: 205_test_info
+    run:
+      - cmd: '{info_cmd} -t 031_for_info'
+        base: settings.base_test_step
+  - name: 206_test_info_expanded
+    run:
+      - cmd: '{info_cmd} -xt 031_for_info'
+        base: settings.base_test_step
+  - name: 207_test_info_full_expanded
+    run:
+      - cmd: '{info_cmd} -xft 031_for_info'
+        base: settings.base_test_step
+  - name: 300_default_output
+    run:
+      - cmd: '{run_output_base_cmd}'
+        base: settings.base_test_step_rc3
+  - name: 301_default_output_r3
+    run:
+      - cmd: '{run_output_base_cmd} -r 3'
+        base: settings.base_test_step_rc3
+  - name: 302_default_output_summary_only
+    run:
+      - cmd: '{run_output_base_cmd} --hide=header,tests,pre_run_summary'
+        base: settings.base_test_step_rc3
+  - name: 303_default_output_summary_only_r3
+    run:
+      - cmd: '{run_output_base_cmd} --hide=header,tests,pre_run_summary,detailed_summary --show=iter_summary -r 3'
+        base: settings.base_test_step_rc3
+  - name: 304_concise_output
+    run:
+      - cmd: '{run_output_base_cmd} --concise'
+        base: settings.base_test_step_rc3
+  - name: 305_concise_output_r3
+    run:
+      - cmd: '{run_output_base_cmd} --concise -r 3'
+        base: settings.base_test_step_rc3
+  - name: 306_concise_output_summary_only
+    run:
+      - cmd: '{run_output_base_cmd} --concise --hide=tests'
+        base: settings.base_test_step_rc3
+  - name: 307_concise_output_summary_only_r3
+    run:
+      - cmd: '{run_output_base_cmd} --concise --hide=tests -r 3'
+        base: settings.base_test_step_rc3
+  - name: 308_verbose_output
+    run:
+      - cmd: '{run_output_base_cmd} --verbose'
+        base: settings.base_test_step_rc3
+  - name: 309_verbose_output_r3
+    run:
+      - cmd: '{run_output_base_cmd} --verbose -r 3'
+        base: settings.base_test_step_rc3
+  - name: 310_verbose_output_summary_only
+    run:
+      - cmd: '{run_output_base_cmd} --verbose --hide=tests,pre_run_summary,header,criteria,summary_header'
+        base: settings.base_test_step_rc3
+  - name: 311_verbose_output_summary_only_r3
+    run:
+      - cmd: '{run_output_base_cmd} --verbose -r 3 --hide=tests,pre_run_summary,header,criteria'
+        base: settings.base_test_step_rc3
+  - name: 312_quiet_output
+    run:
+      - cmd: '{run_output_base_cmd} --quiet'
+        base: settings.base_test_step_rc3
+        expected_stdout_file: null
+        expected_stdout: ""
+  - name: 313_quiet_output_r3
+    run:
+      - cmd: '{run_output_base_cmd} --quiet -r 3'
+        base: settings.base_test_step_rc3
+  - name: 314_quiet_output_summary_only
+    run:
+      - cmd: '{run_output_base_cmd} --quiet --show=summary'
+        base: settings.base_test_step_rc3
+  - name: 315_quiet_output_summary_only_r3
+    run:
+      - cmd: '{run_output_base_cmd} --quiet --show=summary -r 3'
+        base: settings.base_test_step_rc3
+  - name: 316_debug_output_passing_simple
+    run:
+      - cmd: '{run_cmd} -z 001 --debug'
+        base: settings.base_test_step
+  - name: 317_debug_output_failing_output
+    run:
+      - cmd: '{run_cmd} -z 003 --debug'
+        output_behavior: split
+        base: settings.base_test_step
+        expected_stderr: "Test failed\n"
+        expected_stdout_file: "xeet.expected/{XEET_TEST_NAME}/stdout"
+        allowed_rc: [1]
