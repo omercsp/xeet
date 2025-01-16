@@ -247,21 +247,23 @@ def test_autovars(xut: XeetUnittest):
     xeet_root = platform_path(xeet_root)
     out_dir = f"{xeet_root}/xeet.out"
 
-    # Auto global vars
     step_desc0 = gen_dummy_step_desc(dummy_val0="{XEET_ROOT} {XEET_CWD} {XEET_OUT_DIR}")
-    # Test specific
     step_desc1 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_NAME} {XEET_TEST_OUT_DIR}")
+    step_desc2 = gen_dummy_step_desc(dummy_val0="{XEET_PLATFORM}")
 
     xut.add_test(TEST0, run=[step_desc0, step_desc1], save=True)
+    xut.add_test(TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True)
 
     cwd = platform_path(os.getcwd())
     expected_step_result0 = gen_dummy_step_result(step_desc0)
     expected_step_result0.dummy_val0 = f"{xeet_root} {cwd} {out_dir}"
     expected_step_result1 = gen_dummy_step_result(step_desc1)
     expected_step_result1.dummy_val0 = f"{TEST0} {out_dir}/{TEST0}"
+    expected_step_result2 = gen_dummy_step_result(step_desc2)
+    expected_step_result2.dummy_val0 = os.name
     expected = gen_test_result(status=PASSED_TEST_STTS,
-                               main_results=[expected_step_result0,
-                                             expected_step_result1])
+                               main_results=[expected_step_result0, expected_step_result1,
+                                             expected_step_result2])
     xut.run_compare_test(TEST0, expected)
 
 
@@ -412,3 +414,19 @@ def test_step_lists_inheritance(xut: XeetUnittest):
     assert_test_model_steps(TEST6, pre_run=[DUMMY_OK_STEP_DESC],
                             run=[DUMMY_FAILING_STEP_DESC],
                             post_run=[DUMMY_OK_STEP_DESC, DUMMY_OK_STEP_DESC])
+
+def test_platform_support(xut: XeetUnittest):
+    step_desc = gen_dummy_step_desc(dummy_val0="test", dummy_val1=10)
+    expected_step_res = gen_dummy_step_result(step_desc)
+    this_platform = os.name
+    other_platform = "nt" if this_platform != "nt" else "posix"
+    xut.add_test(TEST0, platforms=[this_platform], run=[step_desc], reset=True)
+    xut.add_test(TEST1, platforms=[this_platform, other_platform], run=[step_desc])
+    xut.add_test(TEST2, platforms=[other_platform], run=[step_desc], save=True)
+
+    expected = gen_test_result(status=PASSED_TEST_STTS, main_results=[expected_step_res])
+    xut.run_compare_test(TEST0, expected)
+    xut.run_compare_test(TEST1, expected)
+
+    expected = gen_test_result(status=TestStatus(TestPrimaryStatus.Skipped))
+    xut.run_compare_test(TEST2, expected)
