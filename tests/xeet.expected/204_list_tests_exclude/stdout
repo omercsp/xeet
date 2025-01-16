@@ -14,3 +14,4 @@ Name                                      Description
 024_inherit_abstract_run_good_add_run     Append to inherited run command
 027_inherit_abstract_post_run_good        Inherit a good post-run command
 030_for_info                              Test for info command testing
+031_platform                              Test for current platform
