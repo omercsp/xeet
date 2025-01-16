@@ -78,6 +78,12 @@ tests:
       - cmd: '{run_cmd} -g passing,not_run'
         base: settings.base_test_step
         allowed_rc: [2]
+  - name: 010_threads_sanity
+    groups: [sanity, threads, run]
+    run:
+      - cmd: '{run_cmd} --jobs=4 --display=-summary --concise | sort'
+        base: settings.base_test_step
+        use_shell: true
   - name: 200_list_tests
     groups: [sanity, list]
     short_desc: Test list command
