@@ -1,0 +1,15 @@
+Starting run
+------------
+Running tests: 004_fail_over_rc, 008_bad_desc
+
+004_fail_over_rc                                             ....... [Failed]
+Run step #0:  failed: retrun code 0 not in allowed return codes (1)
+empty output
+
+008_bad_desc                                                 ....... [Not run] Initialization error
+'bad_setting': Extra inputs are not permitted
+
+
+Initialization error: 008_bad_desc
+Failed: 004_fail_over_rc
+
