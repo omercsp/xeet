@@ -14,7 +14,7 @@ class DummyStepModel(StepModel):
 
     def inherit(self, parent: "DummyStepModel") -> None:  # type: ignore
         super().inherit(parent)
-        for attr in self.model_fields:
+        for attr in DummyStepModel.model_fields:
             if attr in self.parent_fields or self.has_key(attr):
                 continue
             setattr(self, attr, getattr(parent, attr))
