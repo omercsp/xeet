@@ -1,0 +1,33 @@
+
+Summary:
+========
+Iteration #0
+------------
+Initialization error: 1
+Failed: 1
+Passed: 9
+Duration: X.XXXs
+
+Iteration #1
+------------
+Initialization error: 1
+Failed: 1
+Passed: 9
+Duration: X.XXXs
+
+Iteration #2
+------------
+Initialization error: 1
+Failed: 1
+Passed: 9
+Duration: X.XXXs
+
+
+Accumulated summary:
+--------------------
+Total iterations: 3
+Initialization error: 3
+Failed: 3
+Passed: 27
+Duration: X.XXXs
+
