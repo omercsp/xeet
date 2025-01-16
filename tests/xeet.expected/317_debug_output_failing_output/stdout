@@ -1,0 +1,23 @@
+Initializing main step 0
+Starting run
+>>>>>>> Starting test '003_fail_over_output' <<<<<<<
+Setting up output directory '__XEET_ROOT__/testbed/xeet.out/003_fail_over_output'
+Starting main phase run, 1 step(s)
+Main step #0 (exec) - staring run
+Running command (shell: False):
+python __XEET_ROOT__/testbed/../../scripts/testing/echo.py 'Hello World!'
+---------- output start ---------
+Hello World!
+----------- output end ----------
+Command finished with return code 0
+Return code is valid
+Stdout differs from expected
+--- __XEET_ROOT__/testbed/xeet.out/003_fail_over_output/stp0/stdout
++++ expected_stdout
+@@ -1,2 +1,2 @@
+-Hello World!
++Goodbye World!
+ 
+Main step #0 (exec) - run ended (completed, failed, duration: X.XXXs)
+Main phase ended
+Test '003_fail_over_output' ended. (status: TestPrimaryStatus.Failed, duration: X.XXXs)

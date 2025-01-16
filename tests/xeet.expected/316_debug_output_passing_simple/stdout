@@ -1,0 +1,16 @@
+Initializing main step 0
+Starting run
+>>>>>>> Starting test '001_pass' <<<<<<<
+Setting up output directory '__XEET_ROOT__/testbed/xeet.out/001_pass'
+Starting main phase run, 1 step(s)
+Main step #0 (exec) - staring run
+Running command (shell: False):
+python __XEET_ROOT__/testbed/../../scripts/testing/rc.py 0
+---------- output start ---------
+----------- output end ----------
+Command finished with return code 0
+Return code is valid
+No output verification is required
+Main step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Main phase ended
+Test '001_pass' ended. (status: TestPrimaryStatus.Passed, duration: X.XXXs)
