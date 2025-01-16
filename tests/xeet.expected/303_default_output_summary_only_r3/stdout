@@ -2,21 +2,21 @@ Iteration #0
 ------------
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 Duration: X.XXXs
 
 Iteration #1
 ------------
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 Duration: X.XXXs
 
 Iteration #2
 ------------
 Initialization error: 1
 Failed: 1
-Passed: 9
+Passed: 10
 Duration: X.XXXs
 
 
@@ -24,6 +24,6 @@ Accumulated summary:
 --------------------
 Initialization error: 3
 Failed: 3
-Passed: 27
+Passed: 30
 Duration: X.XXXs
 
