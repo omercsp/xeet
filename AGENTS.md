@@ -151,7 +151,36 @@ Infrastructure lives in `src/ut/__init__.py` and `conftest.py`:
   Python scripts used as deterministic, cross-platform exec-step targets
   by `ut_exec_defs.py` (and later by the E2E testbed).
 
+### End-to-end / self-hosting tests (`tests/`)
+
+xeet testing itself: an **outer** xeet run drives `tests/xeet.yaml`, whose
+steps invoke an **inner** xeet against `tests/testbed/*.yaml`, then diff
+the (filtered) captured output against golden files.
+
+- Run via `cd tests && ./runtests [-z NNN]` — it **refuses to run inside a
+  virtualenv**: the outer xeet must be a stable system install (`xeet` on
+  `PATH`), while the inner xeet is the dev tree, reached through the
+  repo-root `./xeet` launcher, which activates `.venv` (or
+  `$XEET_PKG_VENV_PATH`, set by `tests/run_pkg_tests` when smoke-testing a
+  PyPI build instead of the working tree).
+- `tests/testbed/xeet_base.yaml` — shared variables + a `settings.
+  common_steps.*` step library; `inheritance.yaml` — abstract base tests
+  for exercising `*_inheritance` modes; `xeet.yaml` — the ~31 inner tests
+  covering pass/fail/skip/phases/inheritance; `xeet_debug.yaml` — tests for
+  `--debug` live output tailing.
+- Golden files live in `tests/xeet.expected/` (tracked); actual runs land
+  in `tests/xeet.out/` (gitignored). `output_filters` on the outer steps
+  scrub `{XEET_ROOT}` -> `__XEET_ROOT__` and durations -> `X.XXXs` for
+  hermetic, machine-independent comparison; the filtered actual output is
+  a side effect written as `<file>.filtered` next to the raw output.
+  Baseline workflow: `./diff_test_output.sh NNN`, `./update_test_output.sh
+  NNN` (accept), `./create_new_test.sh NNN` (bootstrap); all fuzzy-match a
+  numeric prefix to a full test directory name.
+- Each outer test also asserts the inner xeet's **exit code** via
+  `allowed_rc`, tying back to the `0/1/2/3` contract above.
+
 ## Verification checklist before finishing a change
 
 1. `pycodestyle --max-line-length=100 <changed files>` — must be clean.
 2. `cd src/ut && ./utxeet` — unit suite must pass.
+3. `cd tests && ./runtests` — E2E suite must pass (run outside a venv).
