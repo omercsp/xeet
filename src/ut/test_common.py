@@ -3,6 +3,7 @@ from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException, XeetI
                          XeetRecursiveVarException, XeetBadVarNameException, filter_str,
                          StrFilterData)
 from xeet.core.resource import ResourcePool, ResourceModel, Resource
+from xeet.core.matrix import Matrix
 from typing import Any
 import tempfile
 import os
@@ -320,3 +321,19 @@ class TestCommon(unittest.TestCase):
         rc = pool.obtain(["r1", "r2", "r4", "r5"])
         assertResource(rc, [1, 2, 4, 5])
         assertResourcePool(pool, 0)
+
+    def test_matrix(self):
+        matrix = Matrix({"a": [1, 2, 3], "b": [4, 5], "c": [6]})
+        self.assertEqual(matrix.lengths, {"a": 3, "b": 2, "c": 1})
+        self.assertEqual(matrix.n, 3)
+        self.assertEqual(matrix.keys, ["a", "b", "c"])
+        self.assertEqual(matrix.prmttns_count, 3*2*1)
+
+        perms = list(matrix.permutations())
+        self.assertEqual(len(perms), 3*2*1)
+        self.assertEqual(perms[0], {"a": 1, "b": 4, "c": 6})
+        self.assertEqual(perms[1], {"a": 1, "b": 5, "c": 6})
+        self.assertEqual(perms[2], {"a": 2, "b": 4, "c": 6})
+        self.assertEqual(perms[3], {"a": 2, "b": 5, "c": 6})
+        self.assertEqual(perms[4], {"a": 3, "b": 4, "c": 6})
+        self.assertEqual(perms[5], {"a": 3, "b": 5, "c": 6})
