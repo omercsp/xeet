@@ -73,8 +73,13 @@ def parse_arguments() -> argparse.Namespace:
                                  help='concise output, results only')
     output_type_grp.add_argument('--quiet', action='store_true', default=False,
                                  help='quiet output, return code only')
-    output_type_grp.add_argument('--iter-summary-only', action='store_true', default=False,
-                                 help='show iterations summary only')
+    output_type_grp.add_argument('--summary-only', action='store_true', default=False,
+                                 help='show summary only')
+
+    summary_choices = [CliPrinter.FULL_SUMMARY, CliPrinter.SHORT_SUMMARY, CliPrinter.NO_SUMMARY,
+                       CliPrinter.DFLT_SUMMARY]
+    run_parser.add_argument('--summary-type', choices=summary_choices,
+                            default=CliPrinter.DFLT_SUMMARY, help='summary type')
 
     info_parser = subparsers.add_parser(_INFO_CMD, help='show test info', parents=[common_parser])
     info_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
@@ -134,7 +139,7 @@ def _printer(args: argparse.Namespace) -> CliPrinter:
     if args.debug:
         return DebugPrinter()
     return CliPrinter(show_test_summary=args.show_summary, concise=args.concise, quiet=args.quiet,
-                      iter_summary_only=args.iter_summary_only)
+                      summary_only=args.iter_summary_only, summary_type=args.summary_type)
 
 
 def xrun() -> int:

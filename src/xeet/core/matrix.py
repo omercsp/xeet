@@ -1,7 +1,9 @@
 from collections.abc import Iterator
 from typing import Any
+from functools import reduce
 
 MatrixType = dict[str, list[Any]]
+MatrixPermutation = dict[str, Any]
 
 
 class Matrix:
@@ -10,6 +12,10 @@ class Matrix:
         self.lengths = {key: len(value) for key, value in self.values.items()}
         self.keys = sorted(list(self.values.keys()))
         self.n = len(self.keys)
+        if self.n == 0:
+            self.prmttns_count = 1
+        else:
+            self.prmttns_count = reduce(lambda x, y: x * y, self.lengths.values())
 
     def permutations(self) -> Iterator[dict[str, Any]]:
         if self.n == 0:

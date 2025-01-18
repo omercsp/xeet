@@ -1,6 +1,6 @@
 from xeet.core.xtest import Xtest, TestStatus
-from xeet.core.xres import (TestResult, XStepResult, IterationResult, RunResult, TestStatus,
-                            TestSubStatus, status_as_str)
+from xeet.core.xres import (TestResult, XStepResult, MtrxResult, IterationResult, RunResult,
+                            TestStatus, TestSubStatus, status_as_str, TestFullStatus)
 from xeet.core.xstep import XStep
 from xeet.core.run_reporter import RunReporter
 from xeet.core import TestCriteria
@@ -125,11 +125,13 @@ class CliPrinter(RunReporter):
     show_test_summary: bool = False
     concise: bool = False
     quiet: bool = False
-    iter_summary_only: bool = False
+    summary_only: bool = False
+    summary_type: str = ""
 
     curr_tests: list[str] = field(default_factory=list)
     live: Live = None  # type: ignore
     console: Console = None  # type: ignore
+    iteration_str: str = ""
 
     _STATUS_COLORS: ClassVar = {
         TestStatus.NotRun: _gen_color_pair("orange1"),
@@ -137,6 +139,13 @@ class CliPrinter(RunReporter):
         TestStatus.Passed: _gen_color_pair("green"),
     }
     _TEST_NAME_COLOR: ClassVar = _gen_color_pair("bold")
+    _ITERATION_COLOR: _Colors = _gen_color_pair("medium_orchid")
+    _MATRIX_COLOR: _Colors = _gen_color_pair("medium_purple")
+
+    FULL_SUMMARY: ClassVar = "full"
+    SHORT_SUMMARY: ClassVar = "short"
+    DFLT_SUMMARY: ClassVar = "default"
+    NO_SUMMARY: ClassVar = "none"
 
     @staticmethod
     def status_colors(status: TestStatus) -> tuple[str, str]:
@@ -147,13 +156,22 @@ class CliPrinter(RunReporter):
         self.console = live.console
 
     def __post_init__(self) -> None:
-        if self.quiet or self.iter_summary_only:
+        if self.quiet or self.summary_only:
             self.on_test_start = self._null_pr
             self.on_test_end = self._null_pr
             self.on_run_start = self._null_pr
 
         if self.quiet:
-            self.on_iteration_end = self._null_pr
+            self.on_matrix_end = self._null_pr
+
+        if self.summary_type not in (self.FULL_SUMMARY, self.SHORT_SUMMARY, self.DFLT_SUMMARY,
+                                     self.NO_SUMMARY):
+            self.summary_type = self.DFLT_SUMMARY
+        if self.summary_type == self.DFLT_SUMMARY:
+            if self.concise or self.mtrx_count > 1 or self.iterations > 1:
+                self.summary_type = self.SHORT_SUMMARY
+            else:
+                self.summary_type = self.FULL_SUMMARY
 
     def _null_pr(*_, **__) -> None:
         ...
@@ -170,8 +188,20 @@ class CliPrinter(RunReporter):
         self.console.print("Starting run\n------------")
         run_res = self.run_res
         assert run_res is not None
+        self.console.print(f"Matrix permutations: {self.mtrx_count}")
         self.console.print(f"Test criteria:\n{run_res.criteria}\n")
         self.console.print("Running tests: {}\n".format(", ".join([x.name for x in tests])))
+
+        if self.mtrx_count == 1 or self.concise:
+            self.on_matrix_start = self._null_pr
+            self.on_matrix_end = self._null_pr
+
+        if self.iterations == 1 or self.concise:
+            self.on_iteration_start = self._null_pr
+            self.on_iteration_end = self._null_pr
+
+        if self.mtrx_count > 1:
+            self.on_iteration_end = self._null_pr
 
     def on_test_start(self, test: Xtest | None = None, **_) -> None:
         assert test is not None
@@ -202,37 +232,80 @@ class CliPrinter(RunReporter):
         self.curr_tests.remove(test.name)
         self.console.print(msg)
 
-    def on_iteration_end(self) -> None:
-        assert isinstance(self.iter_res, IterationResult)
-        assert isinstance(self.run_res, RunResult)
-
-        iter_n = self.iter_res.iter_n
-        if self.concise:
-            if self.run_res.iterations > 1:
-                self.console.print(f"\nIteration #{iter_n} ended\n\n")
-            self.live.update("")
+    def on_iteration_start(self) -> None:
+        self.iteration_str = f"Iteration #{self.iteration}/{self.iterations}"
+        if self.mtrx_count > 1:
             return
+        self.console.print(_colorize_str(self.iteration_str, self._ITERATION_COLOR))
 
-        def summarize_test_list(status: TestStatus, sub_status: TestSubStatus, names: list[str]
+    def on_iteration_end(self) -> None:
+        self.console.print(_colorize_str("Iteration finished", self._ITERATION_COLOR))
+        if self.iteration < self.iterations - 1:
+            self.console.print("---------")
+
+    def on_matrix_start(self) -> None:
+        msg = f"Matrix permutation #{self.mtrx_idx}"
+        msg = _colorize_str(msg, self._MATRIX_COLOR)
+        if self.iterations > 1:
+            iter_msg = _colorize_str(self.iteration_str, self._ITERATION_COLOR)
+            msg += f" ({iter_msg})"
+        self.console.print(msg)
+
+    def on_matrix_end(self) -> None:
+        #  def summarize_test_list(status: TestStatus, sub_status: TestSubStatus, names: list[str]
+        #                          ) -> None:
+        #      if not names:
+        #          return
+        #      title = status_as_str(status, sub_status)
+        #      colors = self.status_colors(status)
+        #      test_list_str = ", ".join(names)
+        #      self.console.print(f"{colors[0]}{title}{colors[1]}: {test_list_str}\n")
+
+        #  assert isinstance(self.iter_res, IterationResult)
+        #  assert isinstance(self.run_res, RunResult)
+        #  self.console.print()
+        self.console.print(_colorize_str(f"Matrix permutation finished", self._MATRIX_COLOR))
+        if self.mtrx_idx < self.mtrx_count - 1 or self.iteration < self.iterations - 1:
+            self.console.print("---------")
+
+        #  if self.concise:
+        #      return
+        #  self.console.print("Summary:")
+
+        #  assert isinstance(self.mtrx_res, MtrxResult)
+        #  keys = sorted(self.mtrx_res.status_results_summary.keys(), key=lambda x: x[0].value)
+        #  for k in keys:
+        #      test_names = self.mtrx_res.status_results_summary[k]
+        #      summarize_test_list(k[0], k[1], test_names)
+        #  self.live.update("")
+        #  if self.mtrx_idx < self.mtrx_count - 1 or self.iteration < self.iterations - 1:
+        #      self.console.print("\n---------")
+
+    def on_run_end(self) -> None:
+        def summarize_test_list(status: TestFullStatus, names: list[str]
                                 ) -> None:
             if not names:
                 return
-            title = status_as_str(status, sub_status)
+            title = status_as_str(status[0], status[1])
             colors = self.status_colors(status)
             test_list_str = ", ".join(names)
-            self.console.print(f"{colors[0]}{title}{colors[1]}: {test_list_str}")
+            self.console.print(f"{colors[0]}{title}{colors[1]}: {test_list_str}\n")
 
-        self.console.print()
-        if self.run_res.iterations > 1:
-            self.console.print(f"\nIteration #{iter_n}/{self.run_res.iterations - 1} summary:")
-
-        assert isinstance(self.iter_res, IterationResult)
-        keys = sorted(self.iter_res.status_results_summary.keys(), key=lambda x: x[0].value)
-        for k in keys:
-            test_names = self.iter_res.status_results_summary[k]
-            summarize_test_list(k[0], k[1], test_names)
         self.live.update("")
-        self.console.print()
+        #  if self.summary_type == self.NO_SUMMARY:
+        #      return
+        #  self.console.print("Run finished")
+        for iter_i, iter_res in enumerate(self.run_res.iter_results):
+            iter_summary: dict[TestFullStatus, int] = {}
+            for mtrx_i, mtrx_res in enumerate(iter_res.mtrx_results):
+                keys = sorted(self.mtrx_res.status_results_summary.keys(), key=lambda x: x[0].value)
+                for k in keys:
+                    test_names = self.mtrx_res.status_results_summary[k]
+                    if k not in iter_summary:
+                        iter_summary[k] = 0
+                    iter_summary[k] += len(test_names)
+                    if self.summary_type == self.FULL_SUMMARY:
+                        summarize_test_list(k[0], k[1], test_names)jj
 
 
 _ORANGE = '\033[38;5;208m'
