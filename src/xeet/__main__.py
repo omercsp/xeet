@@ -1,10 +1,11 @@
+from enum import verify
 from xeet import xeet_version
 from xeet.common import XeetException
 from xeet.log import init_logging, log_error, log_info
 from xeet.pr import pr_header, disable_colors
 from xeet.core.api import SchemaType
 from xeet.core import TestCriteria
-from xeet.cli import CliPrinter, DebugPrinter
+from xeet.cli_printer import CliPrinter, DebugPrinter, CliPrinterVerbosity
 import xeet.cli as actions
 
 import os
@@ -33,7 +34,7 @@ def parse_arguments() -> argparse.Namespace:
     conf_file_parser.add_argument('-c', '--conf', metavar='CONF', help='configuration file to use')
 
     common_parser = argparse.ArgumentParser(add_help=False, parents=[conf_file_parser])
-    common_parser.add_argument('-v', '--verbose', action='count', help='log file verbosity',
+    common_parser.add_argument('-v', '--log-verbosity', action='count', help='log file verbosity',
                                default=0)
     common_parser.add_argument('--log-file', metavar='FILE', help='set log file', default=None)
 
@@ -69,12 +70,21 @@ def parse_arguments() -> argparse.Namespace:
     run_parser.add_argument('--threads', metavar='COUNT', default=1, type=int,
                             help='number of threads to use')
     output_type_grp = run_parser.add_mutually_exclusive_group()
-    output_type_grp.add_argument('--concise', action='store_true', default=False,
-                                 help='concise output, results only')
-    output_type_grp.add_argument('--quiet', action='store_true', default=False,
-                                 help='quiet output, return code only')
-    output_type_grp.add_argument('--iter-summary-only', action='store_true', default=False,
-                                 help='show iterations summary only')
+    output_type_grp.add_argument('--concise', action='store_const',
+                                 const=CliPrinterVerbosity.Concise, help='concise output',
+                                 dest='verbosity')
+    output_type_grp.add_argument('--verbose', action='store_const',
+                                 const=CliPrinterVerbosity.Verbose, help='verbose output',
+                                 dest='verbosity')
+    output_type_grp.add_argument('--quiet', action='store_const',
+                                 const=CliPrinterVerbosity.Quiet, help='quiet output',
+                                 dest='verbosity')
+    run_parser.set_defaults(verbosity=CliPrinterVerbosity.Default)
+    run_parser.add_argument('--summary-only', action='store_true', default=False,
+                            help='show summary only')
+
+    run_parser.add_argument('--verbosity', choices=[s.value for s in CliPrinterVerbosity],
+                            default=CliPrinterVerbosity.Default, help='summary type')
 
     info_parser = subparsers.add_parser(_INFO_CMD, help='show test info', parents=[common_parser])
     info_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
@@ -133,8 +143,7 @@ def _tests_criteria(args: argparse.Namespace, check_hidden: bool) -> TestCriteri
 def _printer(args: argparse.Namespace) -> CliPrinter:
     if args.debug:
         return DebugPrinter()
-    return CliPrinter(show_test_summary=args.show_summary, concise=args.concise, quiet=args.quiet,
-                      iter_summary_only=args.iter_summary_only)
+    return CliPrinter(verbosity=args.verbosity, summary_only=args.summary_only)
 
 
 def xrun() -> int:
@@ -153,19 +162,22 @@ def xrun() -> int:
                 actions.dump_config(args.conf, args.path)
             return 0
         title = f"xeet, v{xeet_version}"
-        if cmd_name != _RUN_CMD or (not args.quiet and not args.concise):
-            if not args.no_splash:
-                pr_header(f"{title}\n{'=' * len(title)}\n")
+        if cmd_name != _RUN_CMD and \
+            (args.verboisty != CliPrinterVerbosity.Quiet or
+             args.verbosity != CliPrinterVerbosity.Concise) \
+                or args.no_splash:
+            pr_header(f"{title}\n{'=' * len(title)}\n")
         if args.log_file:
-            init_logging(title, args.log_file, args.verbose)
+            init_logging(title, args.log_file, args.log_verbosity)
         log_info(f"Running command '{args.subparsers_name}'")
         log_info(f"CWD is '{os.getcwd()}'")
         rc = 0
         if cmd_name == _RUN_CMD:
+            printer = _printer(args)
             run_info = actions.run_tests(args.conf, args.repeat,
                                          args.debug, args.threads,
                                          _tests_criteria(args, False),
-                                         _printer(args))
+                                         printer)
             if run_info.failed_tests:
                 rc += 1
             if run_info.not_run_tests:
