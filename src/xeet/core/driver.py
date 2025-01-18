@@ -70,6 +70,18 @@ class _Driver:
 
         self.xvars.set_vars(model.variables)
 
+        #  Check if any of the matrix names conflict with the existing variables
+        colliding_keys = set(model.matrix.keys()) & set(self.xvars.vars_map.keys())
+        if colliding_keys:
+            keys_str = ', '.join(colliding_keys)
+            raise XeetException(f"Matrix names conflict with the existing variables: {keys_str}")
+
+        #  Add matrix variables to the environment, with temporary values. The actual values will be
+        #  set by the matrix module when the matrix is resolved, but for now we need to have them
+        #  defined for information commands to show something meaningful.
+        matrix_tmp_vars = {m: f"<matrix:{m}>" for m in model.matrix.keys()}
+        self.xvars.set_vars(matrix_tmp_vars)
+
         for name, resources in model.resources.items():
             self.rti.add_resource_pool(name, resources)
 
