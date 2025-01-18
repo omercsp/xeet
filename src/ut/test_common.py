@@ -3,6 +3,7 @@ from xeet.common import (text_file_tail, XeetVars, XeetNoSuchVarException,
                          XeetRecursiveVarException, XeetBadVarNameException, filter_str,
                          StrFilterData, validate_str, validate_types)
 from xeet.core.resource import ResourcePool, ResourceModel, Resource
+from xeet.core.matrix import Matrix
 from typing import Any
 import tempfile
 import os
@@ -366,3 +367,20 @@ def test_resource_pool():
     rc = pool.obtain(["r1", "r2", "r4", "r5"])
     assert_resource(rc, [1, 2, 4, 5])
     assert pool.free_count() == 0
+
+
+def test_matrix():
+    matrix = Matrix({"a": [1, 2, 3], "b": [4, 5], "c": [6]})
+    assert matrix.lengths == {"a": 3, "b": 2, "c": 1}
+    assert matrix.n == 3
+    assert matrix.keys == ["a", "b", "c"]
+    assert matrix.prmttns_count == 3 * 2 * 1
+
+    perms = list(matrix.permutations())
+    assert len(perms) == 3 * 2 * 1
+    assert perms[0] == {"a": 1, "b": 4, "c": 6}
+    assert perms[1] == {"a": 1, "b": 5, "c": 6}
+    assert perms[2] == {"a": 2, "b": 4, "c": 6}
+    assert perms[3] == {"a": 2, "b": 5, "c": 6}
+    assert perms[4] == {"a": 3, "b": 4, "c": 6}
+    assert perms[5] == {"a": 3, "b": 5, "c": 6}
