@@ -37,6 +37,7 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 | `core/events.py` | Observer pattern — `EventNotifier` fans out to `EventReporter`s |
 | `core/__init__.py` | `RuntimeInfo` — holds cwd/dirs/xvars/notifier/iteration state; `TestsCriteria` (test selection filter) |
 | `core/resource.py` | `ResourceModel`, `Resource`, `ResourcePool` — in-memory resource allocation pool (FIFO or by name) |
+| `core/matrix.py` | `Matrix`, `MatrixModel`, `MatrixPermutation` — cartesian product permutation generator |
 | `steps/exec_step.py`, `steps/dummy_step.py` | The two built-in step types |
 | `reporters/` | `ConsolePrinter` (normal run output), `ConsoleDebugPrinter` (`--debug`) |
 
