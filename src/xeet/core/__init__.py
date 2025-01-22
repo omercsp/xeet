@@ -28,6 +28,8 @@ class TestsCriteria:
     require_groups: set[str] = field(default_factory=set)
     exclude_groups: set[str] = field(default_factory=set)
     hidden_tests: bool = False
+    prmttn_idxs_inc: set[int] = field(default_factory=set)
+    prmttn_idxs_exc: set[int] = field(default_factory=set)
     valid_only: bool = False
     __test__ = False
 
@@ -55,6 +57,12 @@ class TestsCriteria:
         lines.insert(0, "Test criteria:")
         if self.hidden_tests:
             lines.append("Hidden tests are included")
+        if self.prmttn_idxs_inc:
+            p_indexes = ", ".join(map(str, sorted(self.prmttn_idxs_exc)))
+            lines.append(f"Permutations indexes included: {p_indexes}")
+        if self.prmttn_idxs_exc:
+            p_indexes = ", ".join(map(str, sorted(self.prmttn_idxs_exc)))
+            lines.append(f"Permutations indexes excluded: {p_indexes}")
         return "\n" + "\n".join(lines)
 
 

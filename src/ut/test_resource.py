@@ -119,7 +119,7 @@ def test_randomized_resource_race(xut: XeetUnittest):
     xut.save()
     expected = gen_test_result(status=PASSED_TEST_STTS, main_results=[GOOD_EXEC_STEP_RES])
     for i in range(2, 12, 2):
-        results = xut.run_tests(threads=i).iter_results[0].results
+        results = xut.run_tests(threads=i).iter_results[0].mtrx_results[0].results
         assert len(list(results)) == N
         for name, res in results.items():
             xut.update_test_res_test(expected, name)
