@@ -75,6 +75,29 @@ def _tokens_list_type_checker(value: str) -> list[str]:
     return tokens
 
 
+def _index_list_type_checker(value: str) -> set[int]:
+    value = value.strip()
+    if not value:
+        raise argparse.ArgumentTypeError("index list cannot be empty.")
+
+    tokens = value.split(',')
+    indices = set()
+    for token in tokens:
+        token = token.strip()
+        if not token.isdigit():
+            raise argparse.ArgumentTypeError(f"'{token}' is not a valid index.")
+        indices.add(int(token))
+    return indices
+
+
+def _non_negative_int_checker(value: str) -> int:
+    ivalue = int(value)
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError(
+            f"{value} is an invalid positive int value. Must be non-negative.")
+    return ivalue
+
+
 def _token_list_complete(all_tokens: set[str], prefix: str) -> list[str]:
     if not prefix:
         return [f"{group}" for group in sorted(list(all_tokens))]
@@ -160,6 +183,12 @@ def parse_arguments() -> Args:
                             help='repeat count')
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
+    run_parser.add_argument('--randomize', action='store_true', default=False)
+    run_parser.add_argument('-p', '--permutations', default=set(), metavar='IDX',
+                            type=_index_list_type_checker, help='matrix permutations to run')
+    run_parser.add_argument('-P', '--no-permutations',  default=set(), metavar='IDX',
+                            type=_index_list_type_checker, help='matrix permutations to exclude')
+
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -186,6 +215,9 @@ def parse_arguments() -> Args:
                              help='expand values')
     info_parser.add_argument('-f', '--full',  action='store_true', default=False,
                              help='full details')
+    info_parser.add_argument('-p', '--permutation', default=-1, metavar='IDX',
+                             type=_non_negative_int_checker,
+                             help='matrix permutation to show info of (default to 0)')
 
     list_parser = subparsers.add_parser(XeetCliCmds.ListTests, help='list tests',
                                         parents=[common_parser, test_filter_parser])

@@ -22,6 +22,7 @@
 - **Platform-Specific Testing**: Target specific OS environments (`posix`, `nt`), inherit platform constraints, and load platform-specific config files dynamically via `{XEET_PLATFORM}`.
 - **Parallel Execution**: Execute tests concurrently across worker threads with `-j/--jobs` (defaults to auto-detecting core count).
 - **Resource Pools & Concurrency Control**: Define shared resource pools (ports, database instances, accounts) and allocate them to tests to prevent contention or serialize specific tests during parallel execution.
+- **Parameter Matrix**: Define global matrix variables (lists of values) to automatically execute test suites across the full cartesian product of permutations.
 - **Fine-Grained Filtering**: Select tests by exact name, fuzzy match, or tag groups with include/exclude rules.
 - **Rich Terminal UI**: Live progress display with customizable output detail, timing breakdowns, and `--debug` live process tailing.
 
@@ -126,6 +127,9 @@ variables:
   - `{XEET_ITERATIONS}` — Total iteration count (`-r` flag).
   - `{XEET_DEBUG}` — Set to `1` when `--debug` is active, otherwise `0`.
   - `{XEET_PLATFORM}` — Operating system platform name (`posix` on Linux/macOS, `nt` on Windows).
+  - `{XEET_MATRIX_INDEX}` — Zero-based index of the current matrix permutation.
+  - `{XEET_MATRIX_COUNT}` — Total number of matrix permutations.
+  - `{XEET_MATRIX_PERMUTATION}` — Current permutation mapping of variable names to values.
 
 ### 3. `settings`
 Define configuration-wide defaults or reusable step templates:
@@ -206,6 +210,17 @@ resources:
     - value: "postgres://localhost:5432/test1"
     - value: "postgres://localhost:5432/test2"
 ```
+
+### 6. `matrix`
+Define global matrix variables to execute tests across parameter combinations. Each variable defines a list of values, and `xeet` runs iterations across the full cartesian product of permutations:
+
+```yaml
+matrix:
+  browser: ["chrome", "firefox"]
+  env_tier: ["staging", "prod"]
+```
+
+Matrix variables are available in test scopes like regular variables (`{browser}`, `{env_tier}`).
 
 ---
 
@@ -418,6 +433,38 @@ Tests declare resource requirements under the `resources` field. A test will onl
 
 ---
 
+## Parameter Matrix
+
+The top-level `matrix` section defines variables with multiple candidate values. `xeet` computes the cartesian product of all matrix variables and executes the test suite across every permutation:
+
+```yaml
+matrix:
+  os_arch: ["x86_64", "arm64"]
+  build_type: ["debug", "release"]
+
+tests:
+  - name: compile_and_test
+    run:
+      - cmd: "build --arch {os_arch} --mode {build_type}"
+```
+
+### Permutation Selection & Filtering
+
+Filter specific permutations directly on the command line:
+
+```bash
+# Run only permutation 0
+xeet run -p 0
+
+# Run permutations 0, 1, and 2
+xeet run -p 0,1,2
+
+# Exclude permutation 3
+xeet run -P 3
+```
+
+---
+
 ## Command-Line Usage
 
 ### Running Tests
@@ -444,6 +491,10 @@ xeet run -r 5
 # Parallel execution across worker threads
 xeet run -j                          # Auto-detects half of CPU cores
 xeet run -j 4                        # Run with 4 concurrent worker threads
+
+# Matrix permutation selection
+xeet run -p 0,1                      # Run only specific matrix permutations
+xeet run -P 2                        # Exclude specific matrix permutations
 
 # Control output verbosity
 xeet run --verbose                   # Detailed per-test output, timings, criteria
