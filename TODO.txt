@@ -4,7 +4,6 @@
 - Add coverage testing (UT + test)
 - Exec step: save diff file
 - Allow a test to be excluded from an 'all' run
-- Add variable matrix support
 - Add colored log support
 - Add test randomization
 - Add server mode
