@@ -1,6 +1,7 @@
 from xeet import XeetException
 from .events import EventNotifier, EventReporter
 from .resource import ResourceModel, ResourcePool, Resource
+from .matrix import Matrix
 from xeet.common import in_windows, platform_path, json_value, cache, XeetVars, XeetVarsModel
 from dataclasses import dataclass, field
 from typing import Any
@@ -28,6 +29,8 @@ class TestsCriteria:
     include_groups: list[str] = field(default_factory=list)
     require_groups: set[str] = field(default_factory=set)
     exclude_groups: set[str] = field(default_factory=set)
+    prmttn_idxs_inc: set[int] = field(default_factory=set)
+    prmttn_idxs_exc: set[int] = field(default_factory=set)
     abstract_tests: bool = False
     __test__ = False
 
@@ -36,7 +39,8 @@ class TestsCriteria:
         return (not self.names and not self.exclude_names and
                 not self.fuzzy_names and not self.fuzzy_exclude_names and
                 not self.include_groups and not self.require_groups and
-                not self.exclude_groups and not self.abstract_tests)
+                not self.exclude_groups and not self.abstract_tests and
+                not self.prmttn_idxs_inc and not self.prmttn_idxs_exc)
 
 
 @dataclass
@@ -80,6 +84,8 @@ class RuntimeInfo:
         self.notifier = EventNotifier()
         self.iterations = 0
         self.iteration = 0
+        self.matrix: Matrix = None  # type: ignore
+        self.prmttn_index = 0
 
     # Set the constant configuration data for the runtime info. This is
     # excuted after the configuration file is loaded and parsed.
@@ -101,6 +107,13 @@ class RuntimeInfo:
             system_var_name("OUT_DIR"): self.output_dir,
         })
         self.xvars.set_vars(variables)
+
+    def set_matrix(self, matrix: Matrix) -> None:
+        self.matrix = matrix
+        #  Add matrix variables to the environment, with temporary values. The actual values will be
+        #  set by the matrix module when the matrix is resolved, but for now we need to have them
+        #  defined for information commands to show something meaningful.
+        self.xvars.set_vars({m: f"<matrix>" for m in matrix.values.keys()})
 
     def add_resource_pool(self, name: str, resources: list[ResourceModel]) -> None:
         self.resources[name] = ResourcePool(name, resources)
@@ -125,7 +138,11 @@ class RuntimeInfo:
             self.cwd = platform_path(self.cwd)
             self.root_dir = platform_path(self.root_dir)
             self.output_dir = platform_path(self.output_dir)
-        self.output_dir = f"{self.base_output_dir}[/iteration#]"
+        self.output_dir = self.base_output_dir
+        if self.iterations > 1:
+            self.output_dir += _ITERATION_ADDENDUM
+
+        self.output_dir = f"{self.base_output_dir}[/i#iteration][/p#permutation]"
         self.xvars.set_vars(XeetVarsModel({
             system_var_name("OUT_DIR"): self.output_dir,
             system_var_name("ITERATIONS"): str(self.iterations),
@@ -138,11 +155,19 @@ class RuntimeInfo:
 
     def set_iteration(self, iteration: int) -> None:
         self.iteration = iteration
+
+    def set_matrix_prmttn(self, index: int, prmttn: dict) -> None:
+        self.prmttn_index = index
+        self.xvars.set_vars(prmttn)
+        self.output_dir = f"{self.base_output_dir}"
         if self.iterations > 1:
-            self.output_dir = f"{self.base_output_dir}/{iteration}"
-        elif iteration == 0:
-            self.output_dir = self.base_output_dir
+            self.output_dir += f"/i{self.iteration}"
+        if not self.matrix.empty:
+            self.output_dir += f"/p{index}"
         self.xvars.set_vars(XeetVarsModel({
+            system_var_name("MATRIX_INDEX"): self.prmttn_index,
+            system_var_name("MATRIX_COUNT"): self.matrix.prmttns_count,
+            system_var_name("MATRIX_PERMUTATION"): prmttn,
             system_var_name("OUT_DIR"): self.output_dir,
         }))
 
