@@ -14,8 +14,10 @@ class Matrix:
         self.n = len(self.keys)
         if self.n == 0:
             self.prmttns_count = 1
+            self.empty = True
         else:
             self.prmttns_count = reduce(lambda x, y: x * y, self.lengths.values())
+            self.empty = False
 
     def permutations(self) -> Iterator[MatrixPermutation]:
         if self.n == 0:
@@ -23,6 +25,9 @@ class Matrix:
             return
         for indices in self._permutation():
             yield {self.keys[i]: self.values[self.keys[i]][indices[i]] for i in range(self.n)}
+
+    def permutations_list(self) -> list[MatrixPermutation]:
+        return list(self.permutations())
 
     def _permutation(self, indices: list[int] = list(), i: int = -1) -> Iterator[list[int]]:
         if i == -1:

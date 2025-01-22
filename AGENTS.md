@@ -33,7 +33,7 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 | `core/driver.py` | `_XeetDriver` — builds all `Test`s, resolves test inheritance, filters by criteria, drives iterations (distributing tests to `_TestRunner` worker threads via `_TestsPool`, synchronizing on shared resource pools). `xeet_driver()` is `@cache`d on `XeetSettings.__hash__` (= config file path) — clear/bypass the cache if a config is rewritten and re-driven within the same process |
 | `core/test.py` | `TestModel` (pydantic) + `Test` runtime + `Phase`; phase status logic |
 | `core/step.py` | `StepModel` + `Step` base class — the step plugin contract |
-| `core/result.py` | Result tree: `RunResult -> IterationResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator) |
+| `core/result.py` | Result tree: `RunResult -> IterationResult -> MtrxResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator) |
 | `core/events.py` | Observer pattern — `EventNotifier` fans out to `EventReporter`s |
 | `core/__init__.py` | `RuntimeInfo` — holds cwd/dirs/xvars/notifier/iteration state; `TestsCriteria` (test selection filter) |
 | `core/resource.py` | `ResourceModel`, `Resource`, `ResourcePool` — in-memory resource allocation pool (FIFO or by name) |
@@ -88,7 +88,8 @@ System variables (prefix `XEET_`; user variables using this prefix are
 rejected at validation time): `XEET_CWD`, `XEET_ROOT`, `XEET_OUT_DIR`,
 `XEET_EXPECTED_DIR`, `XEET_TEST_NAME`, `XEET_TEST_OUT_DIR`,
 `XEET_STEP_OUT_DIR`, `XEET_STEP_INDEX`, `XEET_ITERATIONS`, `XEET_DEBUG`,
-`XEET_PLATFORM`.
+`XEET_PLATFORM`, `XEET_MATRIX_INDEX`, `XEET_MATRIX_COUNT`,
+`XEET_MATRIX_PERMUTATION`.
 
 ## Extension points
 
@@ -117,9 +118,9 @@ rejected at validation time): `XEET_CWD`, `XEET_ROOT`, `XEET_OUT_DIR`,
 This `devel` branch is a ground-up **rehaul** — its root commit
 (`xeet: initial commit (rehaul)`) starts the architecture described above
 from scratch, with no shared history with `master` (`git merge-base` finds
-no common ancestor). The `master` branch contains substantial features not
-yet ported to this architecture: a variable **matrix**/permutation
-facility (`core/matrix.py`), and test randomization.
+no common ancestor). The `master` branch contains features not
+yet fully ported to this architecture: test-level matrix overrides and
+test randomization.
 See `TODO.txt` for the running list of what's still missing on `devel`
 (matrix, test randomization, etc.) — treat it as the feature backlog.
 

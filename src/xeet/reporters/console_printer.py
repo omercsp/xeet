@@ -12,6 +12,7 @@ from functools import cache
 
 
 _ITERATION_COLOR = "medium_orchid"
+_MATRIX_COLOR = "medium_purple"
 
 _STATUS_COLORS = {
     TestPrimaryStatus.NotRun: "orange1",
@@ -39,6 +40,7 @@ class ConsolePrinterOpts(BaseConsoleReporterOpts):
     iteration_summary: bool = False
     detailed_summary: bool = True
     threads_header: bool = False
+    matrix_values: bool = False
 
     @property
     def is_verbose(self) -> bool:
@@ -51,6 +53,7 @@ class ConsolePrinterOpts(BaseConsoleReporterOpts):
         self.iteration_summary = True
         self.test_timing = True
         self.threads_header = True
+        self.matrix_values = True
 
     def set_concise(self):
         super().set_concise()
@@ -112,6 +115,10 @@ class ConsolePrinter(LockableEventReporter):
                 pr_info("No tests to run\n")
         if self.display.threads_header:
             pr_info(f"Threads: {self.threads} per iteration\n")
+        if self.display.matrix_values and self.mtrx.values:
+            pr_info("Matrix values:")
+            for k, v in self.mtrx.values.items():
+                pr_info(f"  {k}: {', '.join(map(str, v))}")
 
     def _print_criteria(self) -> None:
         if not self.display.criteria:
@@ -160,6 +167,12 @@ class ConsolePrinter(LockableEventReporter):
                 else "<none>"
             lines.append(f"Required groups - {filter_str}")
 
+        if criteria.prmttn_idxs_inc:
+            p_indexes = ", ".join(map(str, sorted(criteria.prmttn_idxs_exc)))
+            lines.append(f"Permutations indexes included: {p_indexes}")
+        if criteria.prmttn_idxs_exc:
+            p_indexes = ", ".join(map(str, sorted(criteria.prmttn_idxs_exc)))
+            lines.append(f"Permutations indexes excluded: {p_indexes}")
         pr_info("\n".join(lines) + "\n")
 
     @locked
@@ -201,14 +214,18 @@ class ConsolePrinter(LockableEventReporter):
         self.curr_tests.remove(test.name)
         pr_info(msg)
 
-    def on_iteration_start(self) -> None:
+    def on_matrix_start(self) -> None:
         if not self.display.tests:
             return
         if self.display.header:
             pr_info()
-        if self.iteration_index > 0:
+        if self.iteration_index > 0 and self.mtrx_count > 0:
             pr_info()
-        pr_info(self._iter_header(self.iteration_index))
+
+        if self.mtrx_count == 1:
+            pr_info(self._iter_header(self.iteration_index, -1))
+        else:
+            pr_info(self._iter_header(self.iteration_index, self.mtrx_prmttn_index))
 
     def _summarize_result_names(self, results: StatusTestsDict, show_names: bool, duration: float
                                 ) -> None:
@@ -226,9 +243,21 @@ class ConsolePrinter(LockableEventReporter):
                 pr_info(msg)
         pr_info(f"Duration: {duration:.3f}s\n")
 
-    def _iter_header(self, iter_i: int) -> str:
-        assert self.run_res is not None
-        return colorize_str(f"Iteration #{iter_i}/{self.iterations - 1}", _ITERATION_COLOR)
+    def _iter_header(self, iter_i: int, mtrx_i: int) -> str:
+        ret = ""
+        if self.mtrx_count > 1 and mtrx_i >= 0:
+            msg = f"Matrix permutation #{mtrx_i}"
+            if self.mtrx_prmttn and self.display.matrix_values:
+                prmttn = ", ".join([f"{k}={v}" for k, v in self.mtrx_prmttn.items()])
+                msg += f"\n({prmttn})"
+            ret += colorize_str(msg, _MATRIX_COLOR)
+            if self.iterations == 1:
+                return ret
+        if ret:
+            ret += "@"
+        ret += colorize_str(f"Iteration #{iter_i}/{self.iterations - 1}", _ITERATION_COLOR)
+
+        return ret
 
     def on_run_end(self) -> None:
         assert self.run_res is not None
@@ -249,23 +278,26 @@ class ConsolePrinter(LockableEventReporter):
         total_summary: StatusTestsDict = {}
         for iter_i, iter_res in enumerate(self.run_res.iter_results):
             iter_summary: StatusTestsDict = {}
-            stss = sorted(iter_res.status_results_summary.keys(), key=lambda x: x.primary.value)
-            for s in stss:
-                test_names = iter_res.status_results_summary[s]
-                if s not in iter_summary:
-                    iter_summary[s] = list()
-                iter_summary[s].extend(test_names)
-                if s not in total_summary:
-                    total_summary[s] = list()
-                total_summary[s].extend(test_names)
+            for mtrx_i, mtrx_res in enumerate(iter_res.mtrx_results):
+                stss = sorted(mtrx_res.status_results_summary.keys(), key=lambda x: x.primary.value)
+                for s in stss:
+                    test_names = mtrx_res.status_results_summary[s]
+                    if s not in iter_summary:
+                        iter_summary[s] = list()
+                    iter_summary[s].extend(test_names)
+                    if s not in total_summary:
+                        total_summary[s] = list()
+                    total_summary[s].extend(test_names)
 
         if show_iteration_summary:
             for iter_i, iter_res in enumerate(self.run_res.iter_results):
-                header = self._iter_header(iter_i)
-                header = underline(header, '-')
-                pr_info(header)
-                self._summarize_result_names(iter_res.status_results_summary,
-                                             self.display.detailed_summary, iter_res.duration)
+                for mtrx_i, mtrx_res in enumerate(iter_res.mtrx_results):
+                    header = self._iter_header(iter_i, mtrx_i)
+                    header = underline(header, '-')
+                    pr_info(header)
+                    self._summarize_result_names(mtrx_res.status_results_summary,
+                                                 self.display.detailed_summary, iter_res.duration)
+
             pr_info()
             pr_info(underline(colorize_str("Accumulated summary:", color=XColors.Bold),
                               underline_char='-'))

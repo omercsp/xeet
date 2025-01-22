@@ -57,7 +57,7 @@ def test_var_expansions(xut: XeetUnittest):
     run_res = xut.run_tests(names={TEST0, TEST1, TEST2})
     for test in [TEST0, TEST1, TEST2]:
         expected = xut.gen_test_res(test, status=init_err_status)
-        res = run_res.test_result(test, 0)
+        res = run_res.test_result(test, 0, 0)
         assert_test_results_equal(res, expected)
 
     expected = xut.gen_test_res(TEST3, status=PASSED_TEST_STTS,

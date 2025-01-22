@@ -1,4 +1,5 @@
 from .resource import ResourceModel
+from .matrix import MatrixModel
 from xeet.log import log_info
 from xeet.common import XeetException, pydantic_errmsg, XeetVars, XeetToken
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -26,6 +27,7 @@ class XeetConfModel(BaseModel):
     settings: dict[XeetToken, dict] = Field(default_factory=dict)
     tests_dict: dict[str, dict] = Field(default_factory=dict, exclude=True)
     resources: dict[XeetToken, list[ResourceModel]] = Field(default_factory=dict)
+    matrix: MatrixModel = Field(default_factory=MatrixModel)
 
     @model_validator(mode='after')
     def post_validate(self) -> "XeetConfModel":
@@ -37,11 +39,18 @@ class XeetConfModel(BaseModel):
             if name in self.tests_dict:
                 raise ValueError(f"Duplicate test name '{name}'")
             self.tests_dict[name] = t
+
+        #  Check if any of the matrix names conflict with the existing variables
+        colliding_keys = set(self.matrix.keys()) & set(self.variables.keys())
+        if colliding_keys:
+            keys_str = ', '.join(colliding_keys)
+            raise ValueError(f"Matrix names conflict with the existing variables: {keys_str}")
         return self
 
     def include(self, other: "XeetConfModel") -> None:
         self.variables = {**other.variables, **self.variables}
         self.resources = {**other.resources, **self.resources}
+        self.matrix = {**other.matrix, **self.matrix}
         other_tests = []
         for test in other.tests:
             name = test.get(_NAME)

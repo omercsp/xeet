@@ -172,7 +172,7 @@ def test_run_events(xut: XeetUnittest):
             assert acct.steps_ended == 3 * i
 
         for iter_info in run_result.iter_results:
-            for _, test_res in iter_info.results.items():
+            for _, test_res in iter_info.mtrx_results[0].results.items():
                 xut.update_test_res_test(expected, test_res.test.name)
                 assert_test_results_equal(test_res, expected)
 

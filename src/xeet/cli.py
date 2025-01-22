@@ -71,13 +71,27 @@ def _show_test(test: Test, full_details: bool) -> None:
     print_step_list("Post-run steps", test.post_phase.steps)
 
 
-def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details: bool) -> None:
-    tests = core.fetch_tests(conf, criteria)
+def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details: bool,
+                   permutation: int = -1) -> None:
+    driver = core.xeet_driver(XeetSettings(conf))
+    tests = driver.fetch_tests(criteria)
     if len(tests) == 0:
         raise XeetException("No tests found")
     for t in tests:
         t.build_steps()
-        if setup:
+
+    if not driver.matrix.empty:
+        global_prmttns = driver.matrix.permutations_list()
+        global_prmttn_idx = permutation if permutation >= 0 else (0 if setup else -1)
+        if global_prmttn_idx >= 0:
+            if global_prmttn_idx >= len(global_prmttns):
+                raise XeetException(f"Matrix permutation index {global_prmttn_idx} out of range")
+            driver.rti.set_matrix_prmttn(global_prmttn_idx, global_prmttns[global_prmttn_idx])
+    elif permutation >= 0:
+        raise XeetException("Configuration has no global matrix")
+
+    if setup:
+        for t in tests:
             t.setup(setup_steps=True)
     for i, test in enumerate(tests):
         if i > 0:

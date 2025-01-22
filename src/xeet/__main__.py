@@ -40,8 +40,12 @@ def _display_settings(args: Args) -> BaseConsoleReporterOpts:
 
 
 def _run_settings(args: Args) -> actions.XeetRunSettings:
+    #  We never run abastract and mtrix tests in run mode. We always run permutations
+    criteria = _tests_criteria(args, hidden=False)
+    criteria.prmttn_idxs_inc = args.permutations
+    criteria.prmttn_idxs_exc = args.no_permutations
     return actions.XeetRunSettings(
-        criteria=_tests_criteria(args, False),
+        criteria=criteria,
         iterations=args.repeat,
         output_dir=args.output_dir,
         debug=args.debug,
@@ -74,7 +78,8 @@ def xrun() -> int:
         elif cmd_name == XeetCliCmds.ListGroups:
             actions.list_groups(args.conf)
         elif cmd_name == XeetCliCmds.Info:
-            actions.show_test_info(args.conf, _tests_criteria(args, True), args.expand, args.full)
+            actions.show_test_info(args.conf, _tests_criteria(args, True), args.expand, args.full,
+                                   args.permutation)
         else:
             raise XeetException(f"Unknown command '{cmd_name}'")
         return 0

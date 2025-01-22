@@ -119,7 +119,7 @@ def test_randomized_resource_race(xut: XeetUnittest):
     xut.save()
     expected = gen_test_result(status=PASSED_TEST_STTS, main_results=[GOOD_EXEC_STEP_RES])
     for i in range(2, 12, 2):
-        results = xut.run_tests(jobs=i).iter_results[0].results
+        results = xut.run_tests(jobs=i).iter_results[0].mtrx_results[0].results
         assert len(list(results)) == N
         for name, res in results.items():
             xut.update_test_res_test(expected, name)
@@ -136,7 +136,7 @@ def test_resource_as_var_multi_iteration(xut: XeetUnittest):
                                main_results=[gen_dummy_step_result({"dummy_val0": "hello_res"})])
     run_res = xut.run_tests(iterations=2, jobs=1)
     for iter_res in run_res.iter_results:
-        res = iter_res.results[TEST0]
+        res = iter_res.test_result(TEST0, 0)
         xut.update_test_res_test(expected, TEST0)
         assert_test_results_equal(res, expected)
 
