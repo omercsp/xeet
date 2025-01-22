@@ -1,9 +1,10 @@
 from . import TestsCriteria
 from .test import Test, TestModel
 from .result import (TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult, TestStatus,
-                     EmptyRunResult, IterationResult)
+                     EmptyRunResult, MtrxResult)
 from .driver import XeetModel, xeet_init
 from .events import EventNotifier, EventReporter
+from .matrix import Matrix
 from xeet import XeetException
 from typing import Callable
 from timeit import default_timer as timer
@@ -142,12 +143,12 @@ class _TestRunner(Thread):
         _TestRunner.runner_error.clear()
         _TestRunner.runner_id_count = 0
 
-    def __init__(self, pool: _TestsPool, notifier: EventNotifier, iter_res: IterationResult
+    def __init__(self, pool: _TestsPool, notifier: EventNotifier, mtrx_res: MtrxResult,
                  ) -> None:
         super().__init__()
         self.pool = pool
         self.notifier = notifier
-        self.iter_res = iter_res
+        self.mtrx_res = mtrx_res
         self._stop_event = Event()
         self.runner_id = _TestRunner.runner_id_count
         _TestRunner.runner_id_count += 1
@@ -166,7 +167,7 @@ class _TestRunner(Thread):
             self.notifier.on_test_start(test=test, runner_id=self.runner_id)
             try:
                 test_res = self._run_test(test)
-                self.iter_res.add_test_result(test.name, test_res)
+                self.mtrx_res.add_test_result(test.name, test_res)
                 self.notifier.on_test_end(test=test, test_res=test_res)
             except XeetException as e:
                 _notify(f"runner#{self.runner_id}: error occurred during test '{test.name}': {e}")
@@ -208,27 +209,34 @@ def run_tests(conf: str,
     tests = driver.get_tests(criteria)
     if not tests:
         return EmptyRunResult
-    run_res = RunResult(iterations=iterations, criteria=criteria)
-    notifier.on_run_start(run_res, tests, threads)
+
+    matrix = Matrix(driver.model.matrix)
+    run_res = RunResult(iterations=iterations, criteria=criteria, matrix_count=matrix.prmttns_count)
+    notifier.on_run_start(run_res, tests, matrix, threads)
     tests_pool = _TestsPool(tests, threads)
 
     for iter_n in range(iterations):
         iter_res = run_res.iter_results[iter_n]
         driver.rti.set_iteration(iter_n, iterations)
         notifier.on_iteration_start(iter_res)
-        _TestRunner.reset()
-        runners = [_TestRunner(tests_pool, notifier, iter_res) for _ in range(threads)]
-        for runner in runners:
-            runner.start()
-        for runner in runners:
-            runner.join()
-        if _TestRunner.runner_error.is_set():
-            notifier.on_run_message("error occurred during run")
-            first_error = next((r.error for r in runners if r.error), None)
-            if first_error:
-                raise first_error
+        for mtrx_i, mtrx_prmmtn in enumerate(matrix.permutations()):
+            mtrx_res = iter_res.add_mtrx_res(mtrx_prmmtn, mtrx_i)
+            driver.rti.xvars.set_vars(mtrx_prmmtn)
+            notifier.on_matrix_start(mtrx_prmmtn, mtrx_res)
+            _TestRunner.reset()
+            runners = [_TestRunner(tests_pool, notifier, mtrx_res) for _ in range(threads)]
+            for runner in runners:
+                runner.start()
+            for runner in runners:
+                runner.join()
+            if _TestRunner.runner_error.is_set():
+                _notify("error occurred during run")
+                first_error = next((r.error for r in runners if r.error), None)
+                if first_error:
+                    raise first_error
+            notifier.on_matrix_end()
+            tests_pool.reset()
 
         notifier.on_iteration_end()
-        tests_pool.reset()
     notifier.on_run_end()
     return run_res

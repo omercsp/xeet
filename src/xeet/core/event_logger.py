@@ -54,6 +54,7 @@ class EventLogger(EventReporter):
         self._log_info(f"expected output directory: {self.rti.expected_output_dir}")
         self._log_info("tests run list: {}".format(", ".join([x.name for x in self.tests])))
         self._log_info(f"threads: {self.threads}")
+        self._log_info(f"matrix permutations count: {self.mtrx.prmttns_count}")
 
     def on_iteration_start(self) -> None:
         if self.iter_res is None or self.run_res is None:
@@ -72,12 +73,21 @@ class EventLogger(EventReporter):
         else:
             self._log_info("finished run")
 
-        for status, test_names in self.iter_res.status_results_summary.items():
-            if not test_names:
-                continue
-            test_list_str = ", ".join(test_names)
-            status = str(status).lower()
-            self._log_info(f"{status}: {test_list_str}")
+    def on_matrix_start(self) -> None:
+        if self.mtrx_prmttn:
+            self._log_info(f"Matrix permutation {self.mtrx_prmttn_index}: {self.mtrx_prmttn}")
+
+    def on_matrix_end(self) -> None:
+        msg = ""
+        if self.mtrx_count > 1:
+            msg = "Matrix permutation results"
+            if self.iterations > 1:
+                msg += f" for iteration {self.iteration_index}"
+            msg += ":\n"
+        elif self.iterations > 1:
+            self._log_info(f"Iteration {self.iteration_index} results:\n")
+        msg += ",".join([f"{k}={len(v)}" for k, v in self.mtrx_res.status_results_summary.items()])
+        self._log_info(msg)
         self._step_prefix.cache_clear()
         self._test_prefix.cache_clear()
 

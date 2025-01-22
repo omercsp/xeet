@@ -1,7 +1,7 @@
 from ut import *
 from ut.ut_dummy_defs import *
 from ut.ut_exec_defs import GOOD_EXEC_RES, gen_sleep_cmd, gen_exec_step_desc
-from xeet.core.result import StepsListResult, TestStatus, TestPrimaryStatus, TestSecondaryStatus
+from xeet.core.result import PhaseResult, TestStatus, TestPrimaryStatus, TestSecondaryStatus
 from xeet.core.test import TestResult, TestPrimaryStatus
 from timeit import default_timer as timer
 from typing import Any
@@ -58,8 +58,8 @@ class TestResourcesUsage(XeetUnittest):
                       resources=[gen_resouce_req("res1", names=["r0", "r1", "r2"])],
                       save=True)
 
-        expected_test_steps_results = StepsListResult(results=[DUMMY_OK_STEP_RES])
-        expected = TestResult(PASSED_TEST_STTS, run_res=expected_test_steps_results)
+        expected_phase_result = PhaseResult(steps_results=[DUMMY_OK_STEP_RES])
+        expected = TestResult(PASSED_TEST_STTS, run_res=expected_phase_result)
         results = self.run_tests_list([TEST0, TEST1, TEST2], threads=3)
         for res in results:
             self.assertTestResultEqual(res, expected)
@@ -81,8 +81,8 @@ class TestResourcesUsage(XeetUnittest):
         self.add_test(TEST3, run=[DUMMY_OK_STEP_DESC],
                       resources=[gen_resouce_req("res1", count=2)], save=True, show=False)
 
-        expected_test_steps_results = StepsListResult(results=[DUMMY_OK_STEP_RES])
-        expected = TestResult(PASSED_TEST_STTS, run_res=expected_test_steps_results)
+        expected_phase_result = PhaseResult(steps_results=[DUMMY_OK_STEP_RES])
+        expected = TestResult(PASSED_TEST_STTS, run_res=expected_phase_result)
         results = self.run_tests_list([TEST0, TEST1], threads=3)
         for res in results:
             self.assertTestResultEqual(res, expected)
@@ -111,8 +111,7 @@ class TestResourcesUsage(XeetUnittest):
                 resource.append(gen_resouce_req("res2", count=res_two_usage))
             self.add_test(f"test{i}", run=[sleep_desc], resources=resource)
         self.main_config_wrapper.save()
-        for i in range(2, 8, 2):
-            #  results = self.run_tests_list([f"test{j}" for j in range(i)], threads=3)
+        for i in range(2, 4, 8):
             results = self.run_all_tests(threads=i)
             self.assertEqual(len(list(results)), N)
             for res in results:

@@ -57,7 +57,7 @@ class TestExecStep(XeetUnittest):
         expected = TestResult(status=init_err_status, run_res=PhaseResult())
         run_res = self.run_tests(names={TEST0, TEST1, TEST2})
         for test in [TEST0, TEST1, TEST2]:
-            res = run_res.test_result(test, 0)
+            res = run_res.test_result(test, 0, 0)
             self.assertTestResultEqual(res, expected)
 
         expected = gen_exec_result(PASSED_TEST_STTS, rc=0, rc_ok=True, completed=True)
