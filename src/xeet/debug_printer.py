@@ -29,10 +29,12 @@ class DebugPrinter(LockableEventReporter):
     @locked
     def on_test_start(self, test: Test) -> None:
         title = test.name
-        if self.rti.iterations > 1:
+        if self.rti.iterations > 1 or self.rti.matrix.prmttns_count > 1:
             title += "@"
             if self.rti.iterations > 1:
                 title += f"i{self.rti.iteration}"
+            if self.rti.matrix.prmttns_count > 1:
+                title += f"p{self.rti.prmttn_index}"
         _pr_debug_title(f">>>>>>> Starting test '{title}' <<<<<<<")
 
     @locked

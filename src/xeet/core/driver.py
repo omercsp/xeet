@@ -1,9 +1,10 @@
 from . import RuntimeInfo, XeetSettings, TestsCriteria, XeetRunSettings
 from .result import (IterationResult, TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult,
-                     TestStatus, time_result)
+                     MtrxResult, TestStatus, time_result)
 from .conf import xeet_conf
 from .event_logger import EventLogger
 from .test import TestModel, Test
+from .matrix import Matrix
 from xeet.log import logging_enabled
 from xeet.common import pydantic_errmsg
 from pydantic import ValidationError
@@ -99,11 +100,11 @@ class _TestRunner(Thread):
     stop_event = Event()
 
     def __init__(self, index: int, pool: _TestsPool, notifier: EventNotifier,
-                 iter_res: IterationResult) -> None:
+                 mtrx_result: MtrxResult) -> None:
         super().__init__()
         self.pool = pool
         self.notifier = notifier
-        self.iter_res = iter_res
+        self.mtrx_res = mtrx_result
         self.runner_id = index
         self.error: XeetException | None = None
         self.test: Test | None = None
@@ -131,7 +132,7 @@ class _TestRunner(Thread):
             finally:
                 self.pool.release_test(self.test)
 
-            self.iter_res.add_test_result(self.test.name, test_res)
+            self.mtrx_res.add_test_result(self.test.name, test_res)
             self.notifier.on_test_end(test_res)
 
     def stop(self) -> None:
@@ -169,6 +170,8 @@ class _XeetDriver:
         self.tests: list[Test] = list()
         self.test_by_name: dict[str, Test] = dict()
         self.test_by_group: dict[str, list[Test]] = dict()
+        self.matrix = Matrix(self.conf.model.matrix)
+        self.rti.set_matrix(self.matrix)
 
         self.pool: _TestsPool = None  # type: ignore
         self.stop_event: Event = None  # type: ignore
@@ -193,7 +196,8 @@ class _XeetDriver:
         return list(self.test_by_group.keys())
 
     def run(self, run_settings: XeetRunSettings) -> RunResult:
-        run_res = RunResult(run_settings.iterations, run_settings.criteria)
+        run_res = RunResult(run_settings.iterations,  matrix_count=self.matrix.prmttns_count,
+                            criteria=run_settings.criteria)
         self.rti.set_run_settings(run_settings)
         tests = self.fetch_tests(run_settings.criteria)
         self.pool = _TestsPool(tests, run_settings.jobs)
@@ -201,10 +205,10 @@ class _XeetDriver:
         self.runners: list[_TestRunner] = []
         self.stop_event = Event()
         run_res.set_start_time()
-        self.rti.notifier.on_run_start(run_res, tests, self.threads)
+        self.rti.notifier.on_run_start(run_res, tests, self.matrix, self.threads)
         signal(SIGINT, self._stop_runners)
         for iter_n in range(self.rti.iterations):
-            self._run_iter(run_res.iter_results[iter_n])
+            self._run_iter(run_res.iter_results[iter_n], run_settings)
         run_res.set_end_time()
         self.rti.notifier.on_run_end()
         return run_res
@@ -306,21 +310,35 @@ class _XeetDriver:
         return ret
 
     @time_result
-    def _run_iter(self, iter_res: IterationResult) -> IterationResult:
+    def _run_iter(self, iter_res: IterationResult, run_settings: XeetRunSettings
+                  ) -> IterationResult:
         self.rti.set_iteration(iter_res.iter_n)
         self.rti.notifier.on_iteration_start(iter_res)
-        self.pool.reset()
-        self.runners = [_TestRunner(i, self.pool, self.rti.notifier, iter_res) for i in
-                        range(self.threads)]
-        for runner in self.runners:
-            runner.start()
-        for runner in self.runners:
-            runner.join()
-        first_error = next((runner.error for runner in self.runners if runner.error), None)
-        if first_error:
-            self.rti.notifier.on_run_message(
-                f"Error occurred during iteration {iter_res.iter_n}: {first_error}")
-            raise first_error
+        for mtrx_i, mtrx_prmmtn in enumerate(self.matrix.permutations()):
+            if (run_settings.criteria.prmttn_idxs_inc and mtrx_i not in
+                run_settings.criteria.prmttn_idxs_inc) or \
+                (run_settings.criteria.prmttn_idxs_exc and mtrx_i in
+                 run_settings.criteria.prmttn_idxs_exc):
+                continue
+            self.pool.reset()
+            self.rti.set_matrix_prmttn(mtrx_i, mtrx_prmmtn)
+            mtrx_res = iter_res.add_mtrx_res(mtrx_prmmtn, mtrx_i)
+            self.rti.notifier.on_matrix_start(mtrx_prmmtn, mtrx_res)
+
+            mtrx_res.set_start_time()
+            self.runners = [_TestRunner(i, self.pool, self.rti.notifier, mtrx_res) for i in
+                            range(self.threads)]
+            for runner in self.runners:
+                runner.start()
+            for runner in self.runners:
+                runner.join()
+            mtrx_res.set_end_time()
+            first_error = next((runner.error for runner in self.runners if runner.error), None)
+            if first_error:
+                self.rti.notifier.on_run_message(
+                    f"Error occurred during iteration {iter_res.iter_n}: {first_error}")
+                raise first_error
+            self.rti.notifier.on_matrix_end()
         self.rti.notifier.on_iteration_end()
         return iter_res
 
