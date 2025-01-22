@@ -1,9 +1,10 @@
 from . import TestsCriteria, RuntimeInfo
-from .result import (IterationResult, TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult,
-                     TestStatus, EmptyRunResult, time_result)
+from .result import (IterationResult, TestResult, MtrxResult, TestPrimaryStatus,
+                     TestSecondaryStatus, RunResult, TestStatus, EmptyRunResult, time_result)
 from .driver import xeet_init
 from .events import EventReporter, EventNotifier
 from .test import Test
+from .matrix import Matrix
 from xeet import XeetException
 from xeet.log import log_info
 from threading import Thread, Event, Condition
@@ -97,12 +98,12 @@ class _TestRunner(Thread):
     def reset() -> None:
         _TestRunner.runner_id_count = 0
 
-    def __init__(self, pool: _TestsPool, notifier: EventNotifier, iter_res: IterationResult
+    def __init__(self, pool: _TestsPool, notifier: EventNotifier, mtrx_res: MtrxResult,
                  ) -> None:
         super().__init__()
         self.pool = pool
         self.notifier = notifier
-        self.iter_res = iter_res
+        self.mtrx_res = mtrx_res
         self.runner_id = _TestRunner.runner_id_count
         _TestRunner.runner_id_count += 1
         self.error: XeetException | None = None
@@ -131,7 +132,7 @@ class _TestRunner(Thread):
             finally:
                 self.pool.release_test(self.test)
 
-            self.iter_res.add_test_result(self.test.name, test_res)
+            self.mtrx_res.add_test_result(self.test.name, test_res)
             self.notifier.on_test_end(test_res)
 
     def stop(self) -> None:
@@ -164,7 +165,9 @@ class XeetRunner:
             reporters = [reporters]
         for reporter in reporters:
             self.rti.add_run_reporter(reporter)
-        self.run_res = RunResult(iterations=iterations, criteria=criteria)
+        self.matrix = Matrix(self.driver.model.matrix)
+        self.run_res = RunResult(iterations=iterations, criteria=criteria,
+                                 matrix_count=self.matrix.prmttns_count)
         self.tests = self.driver.get_tests(criteria)
         self.pool = _TestsPool(self.tests, self.threads)
         self.runners: list[_TestRunner] = []
@@ -178,7 +181,7 @@ class XeetRunner:
         if not self.tests:
             return EmptyRunResult
         self.run_res.set_start_time()
-        self.rti.notifier.on_run_start(self.run_res, self.tests, self.threads)
+        self.rti.notifier.on_run_start(self.run_res, self.tests, self.matrix, self.threads)
         signal(SIGINT, self._stop_runners)
         for iter_n in range(self.rti.iterations):
             self._run_iter(iter_n)
@@ -191,19 +194,27 @@ class XeetRunner:
         iter_res = self.run_res.iter_results[iter_n]
         self.rti.set_iteration(iter_n)
         self.rti.notifier.on_iteration_start(iter_res)
-        _TestRunner.reset()
-        self.pool.reset()
-        self.runners = [_TestRunner(self.pool, self.rti.notifier, iter_res) for _ in
-                        range(self.threads)]
-        for runner in self.runners:
-            runner.start()
-        for runner in self.runners:
-            runner.join()
-        first_error = next((runner.error for runner in self.runners if runner.error), None)
-        if first_error:
-            self.rti.notifier.on_run_message(
-                f"Error occurred during iteration {iter_n}: {first_error}")
-            raise first_error
+        for mtrx_i, mtrx_prmmtn in enumerate(self.matrix.permutations()):
+            _TestRunner.reset()
+            self.pool.reset()
+            mtrx_res = iter_res.add_mtrx_res(mtrx_prmmtn, mtrx_i)
+            self.rti.xvars.set_vars(mtrx_prmmtn)
+            self.rti.notifier.on_matrix_start(mtrx_prmmtn, mtrx_res)
+
+            mtrx_res.set_start_time()
+            self.runners = [_TestRunner(self.pool, self.rti.notifier, mtrx_res) for _ in
+                            range(self.threads)]
+            for runner in self.runners:
+                runner.start()
+            for runner in self.runners:
+                runner.join()
+            mtrx_res.set_end_time()
+            first_error = next((runner.error for runner in self.runners if runner.error), None)
+            if first_error:
+                self.rti.notifier.on_run_message(
+                    f"Error occurred during iteration {iter_n}: {first_error}")
+                raise first_error
+            self.rti.notifier.on_matrix_end()
         self.rti.notifier.on_iteration_end()
         return iter_res
 
