@@ -244,7 +244,7 @@ class Test:
             self._log_info(self.error)
             self.release_resources()
             # We return true, as thes test doesn't have any resources at this point
-            # and we don't want to prevent it from running to run error completion
+            # it is marekd as with error, but we want other tests to run.
         return True
 
     def _mkdir_output_dir(self) -> None:
