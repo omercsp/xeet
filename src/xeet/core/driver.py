@@ -1,6 +1,7 @@
 from .xtest import Xtest, XtestModel
 from .run_reporter import RunReporter, RunNotifier
 from .resource import ResourceModel
+from .matrix import MatrixType
 from . import TestCriteria, XeetDefs
 from xeet.log import log_info, log_warn
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars
@@ -28,6 +29,7 @@ class XeetModel(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, dict] = Field(default_factory=dict)
     resources: dict[str, list[ResourceModel]] = Field(default_factory=dict)
+    matrix: MatrixType = Field(default_factory=dict)
 
     root_dir: str = Field(default_factory=str, exclude=True)
     tests_dict: dict[str, dict] = Field(default_factory=dict, alias="test_names", exclude=True)
@@ -47,6 +49,7 @@ class XeetModel(BaseModel):
     def include(self, other: "XeetModel") -> None:
         self.variables = {**other.variables, **self.variables}
         self.resources = {**other.resources, **self.resources}
+        self.matrix = {**other.matrix, **self.matrix}
         other_tests = []
         for test in other.tests:
             name = test.get(_NAME)

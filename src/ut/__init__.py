@@ -193,21 +193,21 @@ class XeetUnittest(unittest.TestCase):
     def run_test(cls, name: str) -> TestResult:
         cls.criteria.names = {name}
         run_result = run_tests(cls.main_config_wrapper.file_path, cls.criteria, list())
-        return run_result.test_result(name, 0)
+        return run_result.test_result(name, 0, 0)
 
     @classmethod
     def run_tests_list(cls, names: Iterable[str], threads: int = 1) -> Iterable[TestResult]:
         cls.criteria.names = set(names)
         run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, list(),
                              threads=threads)
-        return [run_info.test_result(name, 0) for name in names]
+        return [run_info.test_result(name, 0, 0) for name in names]
 
     @classmethod
     def run_all_tests(cls, threads: int = 1) -> Iterable[TestResult]:
         names = [t["name"] for t in cls.main_config_wrapper.tests]
         run_info = run_tests(cls.main_config_wrapper.file_path, TestCriteria(), list(),
                              threads=threads)
-        return [run_info.test_result(name, 0) for name in names]
+        return [run_info.test_result(name, 0, 0) for name in names]
 
     @classmethod
     def get_test(cls, name) -> Xtest:

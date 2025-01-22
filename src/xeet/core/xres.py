@@ -1,8 +1,10 @@
 from xeet import XeetException
 from . import TestCriteria
+from .matrix import MatrixPermutation
 from enum import Enum, auto
 from dataclasses import dataclass, field
 from threading import Lock
+from typing import Any
 
 
 @dataclass
@@ -125,9 +127,10 @@ class TestResult:
 StatusTestsDict = dict[TestStatus, list[str]]
 
 
-class IterationResult:
-    def __init__(self, iter_n: int) -> None:
-        self.iter_n = iter_n
+class MtrxResult:
+    def __init__(self, mp: MatrixPermutation, mpi: int) -> None:
+        self.mp = mp
+        self.mpi = mpi
         #  self.status_results_summary = {s: [] for s in TestStatus}
         self.status_results_summary: StatusTestsDict = {}
         self.results = {}
@@ -150,10 +153,32 @@ class IterationResult:
             self.results[test_name] = result
 
 
+class IterationResult:
+    def __init__(self, iter_n: int) -> None:
+        self.iter_n = iter_n
+        self.mtrx_results: list[MtrxResult] = []
+
+    def add_mtrx_res(self, mp: MatrixPermutation, mpi: int) -> MtrxResult:
+        self.mtrx_results.append(MtrxResult(mp, mpi))
+        return self.mtrx_results[-1]
+
+    @property
+    def failed_tests(self) -> bool:
+        return any([pr.failed_tests for pr in self.mtrx_results])
+
+    @property
+    def not_run_tests(self) -> bool:
+        return any([pr.not_run_tests for pr in self.mtrx_results])
+
+    def test_result(self, test_name: str, permutation: int) -> TestResult:
+        return self.mtrx_results[permutation].results[test_name]
+
+
 class RunResult:
-    def __init__(self, iterations: int, criteria: TestCriteria) -> None:
+    def __init__(self, iterations: int, matrix_count: int, criteria: TestCriteria) -> None:
         self.iterations: int = iterations
         self.iter_results = [IterationResult(i) for i in range(iterations)]
+        self.mtrx_count: int = matrix_count
         self.criteria = criteria
 
     @property
@@ -164,8 +189,9 @@ class RunResult:
     def not_run_tests(self) -> bool:
         return any([ir.not_run_tests for ir in self.iter_results])
 
-    def test_result(self, test_name: str, iteration: int) -> TestResult:
+    def test_result(self, test_name: str, iteration: int, mpi: int) -> TestResult:
         try:
-            return self.iter_results[iteration].results[test_name]
+            return self.iter_results[iteration].mtrx_results[mpi].results[test_name]
         except (KeyError, IndexError) as e:
-            raise XeetException(f"Test '{test_name}' not found in iteration {iteration} - {e}")
+            raise XeetException(f"Test '{test_name}' not found in iteration {iteration}, "
+                                f"permutation {mpi} - {e}")
