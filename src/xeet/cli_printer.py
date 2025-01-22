@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 
 _ITERATION_COLOR = "medium_orchid"
+_MATRIX_COLOR = "medium_purple"
 
 _STATUS_COLORS = {
     TestPrimaryStatus.NotRun: "orange1",
@@ -53,6 +54,7 @@ class CliPrinterShowOpts:
     detailed_summary: bool = True
     summary_header: bool = True
     threads: bool = False
+    matrix_values: bool = False
 
     _verbosity: CliPrinterVerbosity = field(default=CliPrinterVerbosity.Default, init=False)
 
@@ -62,6 +64,7 @@ class CliPrinterShowOpts:
         self.iter_summary = True
         self.test_timing = True
         self.threads = True
+        self.matrix_values = True
         self._verbosity = CliPrinterVerbosity.Verbose
 
     def set_concise(self):
@@ -118,6 +121,10 @@ class CliPrinter(LockableEventReporter):
             pr_info(f"{run_res.criteria}\n")
         if self.show_opts.pre_run_summary:
             pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
+        if self.show_opts.matrix_values and self.mtrx.values:
+            pr_info("Matrix values:")
+            for k, v in self.mtrx.values.items():
+                pr_info(f"  {k}: {', '.join(map(str, v))}")
         if self.show_opts.threads or self.threads > 1:
             pr_info(f"Using {self.threads} threads per iteration")
 
@@ -161,13 +168,18 @@ class CliPrinter(LockableEventReporter):
         self.curr_tests.remove(test.name)
         pr_info(msg)
 
-    def on_iteration_start(self) -> None:
+    def on_matrix_start(self) -> None:
         if not self.show_opts.tests:
             return
+
         pr_info()
-        if self.iterations == 1:
+        if self.mtrx_count == 1 and self.iterations == 1:
             return
-        pr_info(self._iter_header(self.iteration_index))
+
+        if self.mtrx_count == 1:
+            pr_info(self._iter_header(self.iteration_index, -1))
+        else:
+            pr_info(self._iter_header(self.iteration_index, self.mtrx_prmttn_index))
 
     def _summarize_result_names(self, results: StatusTestsDict, show_names: bool, duration: float
                                 ) -> None:
@@ -182,9 +194,22 @@ class CliPrinter(LockableEventReporter):
             pr_info(msg)
         pr_info(f"Duration: {duration:.3f}s\n")
 
-    def _iter_header(self, iter_i: int) -> str:
-        assert self.run_res is not None
-        return colorize_str(f"Iteration #{iter_i}", _ITERATION_COLOR)
+    def _iter_header(self, iter_i: int, mtrx_i: int) -> str:
+        ret = ""
+        if self.mtrx_count > 1 and mtrx_i >= 0:
+            msg = f"Matrix permutation #{mtrx_i}"
+            if self.mtrx_prmttn and self.show_opts.matrix_values:
+                prmttn = ", ".join([f"{k}={v}" for k, v in self.mtrx_prmttn.items()])
+                msg += f"\n({prmttn})"
+            ret += colorize_str(msg, _MATRIX_COLOR)
+            if self.iterations == 1:
+                return ret
+        if self.iterations > 1:
+            if ret:
+                ret += "@"
+            ret += colorize_str(f"Iteration #{iter_i}", _ITERATION_COLOR)
+
+        return ret
 
     def on_run_end(self) -> None:
         assert self.run_res is not None
@@ -195,15 +220,16 @@ class CliPrinter(LockableEventReporter):
         total_summary: StatusTestsDict = {}
         for iter_i, iter_res in enumerate(self.run_res.iter_results):
             iter_summary: StatusTestsDict = {}
-            stss = sorted(iter_res.status_results_summary.keys(), key=lambda x: x.primary.value)
-            for s in stss:
-                test_names = iter_res.status_results_summary[s]
-                if s not in iter_summary:
-                    iter_summary[s] = list()
-                iter_summary[s].extend(test_names)
-                if s not in total_summary:
-                    total_summary[s] = list()
-                total_summary[s].extend(test_names)
+            for mtrx_i, mtrx_res in enumerate(iter_res.mtrx_results):
+                stss = sorted(mtrx_res.status_results_summary.keys(), key=lambda x: x.primary.value)
+                for s in stss:
+                    test_names = mtrx_res.status_results_summary[s]
+                    if s not in iter_summary:
+                        iter_summary[s] = list()
+                    iter_summary[s].extend(test_names)
+                    if s not in total_summary:
+                        total_summary[s] = list()
+                    total_summary[s].extend(test_names)
 
         show_iter_summary = self.show_opts.iter_summary and self.iterations > 1
         if self.show_opts.summary_header:
@@ -214,11 +240,12 @@ class CliPrinter(LockableEventReporter):
 
         if self.show_opts.iter_summary and self.iterations > 1:
             for iter_i, iter_res in enumerate(self.run_res.iter_results):
-                header = self._iter_header(iter_i)
-                header = underline(header, '-')
-                pr_info(header)
-                self._summarize_result_names(iter_res.status_results_summary,
-                                             self.show_opts.detailed_summary, iter_res.duration)
+                for mtrx_i, mtrx_res in enumerate(iter_res.mtrx_results):
+                    header = self._iter_header(iter_i, mtrx_i)
+                    header = underline(header, '-')
+                    pr_info(header)
+                    self._summarize_result_names(mtrx_res.status_results_summary,
+                                                 self.show_opts.detailed_summary, iter_res.duration)
 
         if not self.show_opts.summary:
             return
@@ -230,7 +257,7 @@ class CliPrinter(LockableEventReporter):
 
         if self.iterations > 1 or self.show_opts._verbosity == CliPrinterVerbosity.Verbose:
             pr_info(f"Total iterations: {self.iterations}")
-        detailed = self.show_opts.detailed_summary and self.iterations == 1
+        detailed = self.show_opts.detailed_summary and self.iterations == 1 and self.mtrx_count == 1
         self._summarize_result_names(total_summary, detailed, self.run_res.duration)
 
 
