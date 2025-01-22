@@ -28,6 +28,8 @@ class TestsCriteria:
     include_groups: list[str] = field(default_factory=list)
     require_groups: set[str] = field(default_factory=set)
     exclude_groups: set[str] = field(default_factory=set)
+    prmttn_idxs_inc: set[int] = field(default_factory=set)
+    prmttn_idxs_exc: set[int] = field(default_factory=set)
     abstract_tests: bool = False
     __test__ = False
 
@@ -36,7 +38,8 @@ class TestsCriteria:
         return (not self.names and not self.exclude_names and
                 not self.fuzzy_names and not self.fuzzy_exclude_names and
                 not self.include_groups and not self.require_groups and
-                not self.exclude_groups and not self.abstract_tests)
+                not self.exclude_groups and not self.abstract_tests and
+                not self.prmttn_idxs_inc and not self.prmttn_idxs_exc)
 
 
 @dataclass
