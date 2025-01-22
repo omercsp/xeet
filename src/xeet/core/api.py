@@ -1,9 +1,10 @@
 from . import TestsCriteria, RuntimeInfo
 from .test import Test, TestModel
 from .result import (TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult, TestStatus,
-                     EmptyRunResult, IterationResult, time_result)
+                     EmptyRunResult, IterationResult, MtrxResult, time_result)
 from .driver import XeetModel, xeet_init
 from .events import EventNotifier, EventReporter
+from .matrix import Matrix
 from xeet import XeetException
 from typing import Callable
 from enum import Enum
@@ -142,12 +143,12 @@ class _TestRunner(Thread):
     def reset() -> None:
         _TestRunner.runner_id_count = 0
 
-    def __init__(self, pool: _TestsPool, notifier: EventNotifier, iter_res: IterationResult
+    def __init__(self, pool: _TestsPool, notifier: EventNotifier, mtrx_res: MtrxResult,
                  ) -> None:
         super().__init__()
         self.pool = pool
         self.notifier = notifier
-        self.iter_res = iter_res
+        self.mtrx_res = mtrx_res
         self.runner_id = _TestRunner.runner_id_count
         _TestRunner.runner_id_count += 1
         self.error: XeetException | None = None
@@ -175,7 +176,7 @@ class _TestRunner(Thread):
                 break
             finally:
                 self.pool.release_test(self.test)
-            self.iter_res.add_test_result(self.test.name, test_res)
+            self.mtrx_res.add_test_result(self.test.name, test_res)
             self.notifier.on_test_end(test_res)
 
     def stop(self) -> None:
@@ -207,24 +208,31 @@ def _user_break(*_, **__):
 
 
 @time_result
-def _run_iter(rti: RuntimeInfo, tests_pool: _TestsPool, iter_n: int, run_res: RunResult,
-              threads: int) -> IterationResult:
+def _run_iter(rti: RuntimeInfo, tests_pool: _TestsPool, matrix: Matrix, iter_n: int,
+              run_res: RunResult, threads: int) -> IterationResult:
     iter_res = run_res.iter_results[iter_n]
     rti.set_iteration(iter_n)
     notifier = rti.notifier
     notifier.on_iteration_start(iter_res)
-    _TestRunner.reset()
-    _TestRunner.runners = [_TestRunner(tests_pool, notifier, iter_res) for _ in range(threads)]
-    for runner in _TestRunner.runners:
-        runner.start()
-    for runner in _TestRunner.runners:
-        runner.join()
-    first_error = next((r.error for r in _TestRunner.runners if r.error), None)
-    if first_error:
-        notifier.on_run_message(f"Error occurred during run {first_error}")
-        raise first_error
+    for mtrx_i, mtrx_prmmtn in enumerate(matrix.permutations()):
+        mtrx_res = iter_res.add_mtrx_res(mtrx_prmmtn, mtrx_i)
+        rti.xvars.set_vars(mtrx_prmmtn)
+        notifier.on_matrix_start(mtrx_prmmtn, mtrx_res)
+        _TestRunner.reset()
+        _TestRunner.runners = [_TestRunner(tests_pool, notifier, mtrx_res) for _ in range(threads)]
+        mtrx_res.set_start_time()
+        for runner in _TestRunner.runners:
+            runner.start()
+        for runner in _TestRunner.runners:
+            runner.join()
+        mtrx_res.set_end_time()
+        first_error = next((r.error for r in _TestRunner.runners if r.error), None)
+        if first_error:
+            notifier.on_run_message(f"Error occurred during run {first_error}")
+            raise first_error
+        notifier.on_matrix_end()
+        tests_pool.reset()
     notifier.on_iteration_end()
-    tests_pool.reset()
     return iter_res
 
 
@@ -249,14 +257,16 @@ def run_tests(conf: str,
     tests = driver.get_tests(criteria)
     if not tests:
         return EmptyRunResult
-    run_res = RunResult(iterations=iterations, criteria=criteria)
+    matrix = Matrix(driver.model.matrix)
+    run_res = RunResult(iterations=iterations, criteria=criteria, matrix_count=matrix.prmttns_count)
 
-    notifier.on_run_start(run_res, tests, threads)
+    notifier.on_run_start(run_res, tests, matrix, threads)
     signal.signal(signal.SIGINT, _user_break)
     run_res.set_start_time()
+
     tests_pool = _TestsPool(tests, threads)
     for iter_n in range(iterations):
-        _run_iter(rti, tests_pool, iter_n, run_res, threads)
+        _run_iter(rti, tests_pool, matrix, iter_n, run_res, threads)
         tests_pool.reset()
     run_res.set_end_time()
     notifier.on_run_end()
