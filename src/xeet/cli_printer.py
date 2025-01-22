@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 
 
 _ITERATION_COLOR = "medium_orchid"
+_MATRIX_COLOR = "medium_purple"
 
 _STATUS_COLORS = {
     TestPrimaryStatus.NotRun: "orange1",
@@ -37,6 +38,12 @@ class CliPrinter(RunReporter):
 
     curr_tests: list[str] = field(default_factory=list)
     iteration_str: str = ""
+
+    iteration_str: str = ""
+
+    def set_live(self, live: Live) -> None:
+        self.live = live
+        self.console = live.console
 
     @property
     def concise(self) -> bool:
@@ -112,10 +119,21 @@ class CliPrinter(RunReporter):
         pr_info(msg)
 
     def on_iteration_start(self) -> None:
-        pr_info()
-        if self.iterations == 1:
+        if self.iterations == 1 or self.mtrx_count > 1:
             return
+        pr_info()
         pr_info(colorize_str(self._iter_header(self.iteration), _ITERATION_COLOR))
+
+    def on_matrix_start(self) -> None:
+        pr_info()
+        if self.mtrx_count == 1 and self.iterations == 1:
+            return
+        pr_info(self._iter_header(self.iteration, self.mtrx_idx))
+
+    def on_matrix_end(self) -> None:
+        if self.mtrx_count == 1 and self.iterations == 1:
+            return
+        pr_info("---------")
 
     def _summarize_result_names(self, results: StatusTestsDict, show_names: bool) -> None:
         stss = sorted(results.keys(), key=lambda x: x.primary.value)
@@ -129,42 +147,60 @@ class CliPrinter(RunReporter):
             pr_info(msg)
         pr_info()
 
-    def _iter_header(self, iter_i: int, as_title=False) -> str:
+    def _iter_header(self, iter_i: int, mtrx_i: int = -1, as_title=False) -> str:
+        ret = ""
+        if self.mtrx_count > 1 and mtrx_i >= 0:
+            ret += colorize_str(f"Matrix permutation #{mtrx_i}", _MATRIX_COLOR)
+            if self.iterations == 1:
+                return ret
+        if self.iterations > 1:
+            if ret:
+                ret += "@"
+            ret += colorize_str(f"Iteration #{iter_i}", _ITERATION_COLOR)
         if as_title:
-            return title(f"Iteration #{iter_i}", '-', newline_prefix=False, color=_ITERATION_COLOR)
-        return colorize_str(f"Iteration #{iter_i}", _ITERATION_COLOR)
+            ret = title(ret, "-", color=XColors.NoColor)
+        return ret
 
     def on_run_end(self) -> None:
         self.live.update("")
         if not self.summary_only:
             pr_info(title("Summary:", color=XColors.Bold))
 
-        if self.iterations == 1:
-            result = self.run_res.iter_results[0].status_results_summary
+        single_result = self.iterations == 1 and self.mtrx_count == 1
+        if single_result:
+            result = self.run_res.iter_results[0].mtrx_results[0].status_results_summary
             self._summarize_result_names(result, not self.concise)
+            if self.verbose:
+                self.console.print("\nAccumulated summary:")
+                self._summarize_result_names(result, False)
             return
 
         total_summary: StatusTestsDict = {}
         for iter_i, iter_res in enumerate(self.run_res.iter_results):
             iter_summary: StatusTestsDict = {}
-            stss = sorted(iter_res.status_results_summary.keys(),
-                          key=lambda x: x.primary.value)
-            for s in stss:
-                test_names = iter_res.status_results_summary[s]
-                if s not in iter_summary:
-                    iter_summary[s] = list()
-                iter_summary[s].extend(test_names)
-                if s not in total_summary:
-                    total_summary[s] = list()
-                total_summary[s].extend(test_names)
+            for mtrx_i, mtrx_res in enumerate(iter_res.mtrx_results):
+                stss = sorted(mtrx_res.status_results_summary.keys(), key=lambda x: x.primary.value)
+                for s in stss:
+                    test_names = mtrx_res.status_results_summary[s]
+                    if s not in iter_summary:
+                        iter_summary[s] = list()
+                    iter_summary[s].extend(test_names)
+                    if s not in total_summary:
+                        total_summary[s] = list()
+                    total_summary[s].extend(test_names)
+
                 if self.concise:
                     continue
+                header = self._iter_header(iter_i=iter_i, mtrx_i=mtrx_i, as_title=True)
+                pr_info(header)
+                self._summarize_result_names(mtrx_res.status_results_summary, self.verbose)
 
             if self.concise:
                 continue
+
             header = self._iter_header(iter_i, as_title=True)
             pr_info(header)
-            self._summarize_result_names(iter_res.status_results_summary, self.verbose)
+            self._summarize_result_names(iter_summary, self.verbose)
 
         if not self.concise:
             pr_info(title("Accumulated summary:", '-', color=XColors.Bold))
