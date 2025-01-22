@@ -251,6 +251,14 @@
             },
             "title": "Resources",
             "type": "object"
+        },
+        "matrix": {
+            "additionalProperties": {
+                "items": {},
+                "type": "array"
+            },
+            "title": "Matrix",
+            "type": "object"
         }
     },
     "title": "_XeetFullModel",

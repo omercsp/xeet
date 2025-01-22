@@ -75,6 +75,21 @@ def _tokens_list_type_checker(value: str) -> list[str]:
     return tokens
 
 
+def _index_list_type_checker(value: str) -> set[int]:
+    value = value.strip()
+    if not value:
+        raise argparse.ArgumentTypeError("index list cannot be empty.")
+
+    tokens = value.split(',')
+    indices = set()
+    for token in tokens:
+        token = token.strip()
+        if not token.isdigit():
+            raise argparse.ArgumentTypeError(f"'{token}' is not a valid index.")
+        indices.add(int(token))
+    return indices
+
+
 def _token_list_complete(all_tokens: set[str], prefix: str) -> list[str]:
     if not prefix:
         return [f"{group}" for group in sorted(list(all_tokens))]
@@ -162,6 +177,12 @@ def parse_arguments() -> Args:
                             help='set a variable')
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
+    run_parser.add_argument('--randomize', action='store_true', default=False)
+    run_parser.add_argument('-p', '--permutations', default=set(), metavar='IDX',
+                            type=_index_list_type_checker, help='matrix permutations to run')
+    run_parser.add_argument('-P', '--no-permutations',  default=set(), metavar='IDX',
+                            type=_index_list_type_checker, help='matrix permutations to exclude')
+
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
