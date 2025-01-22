@@ -152,11 +152,11 @@ class XeetUnittest(ConfigTestWrapper):
 
     def run_test(self, name: str, **kwargs) -> TestResult:
         run_result = self.run_tests(names={name}, **kwargs)
-        return run_result.test_result(name, 0)
+        return run_result.test_result(name, 0, 0)
 
     def run_tests_list(self, names: Iterable[str], **kwargs) -> list[TestResult]:
         run_info = self.run_tests(names=set(names), **kwargs)
-        return [run_info.test_result(name, 0) for name in names]
+        return [run_info.test_result(name, 0, 0) for name in names]
 
     def get_test(self, name) -> Test:
         return self.driver().get_test(name)  # type: ignore
