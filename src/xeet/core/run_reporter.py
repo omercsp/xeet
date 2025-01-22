@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .xres import RunResult, IterationResult, TestResult, XStepResult
+    from .xres import RunResult, IterationResult, TestResult, XStepResult, MtrxResult
     from .xtest import Xtest
     from .xstep import XStep
 from dataclasses import dataclass
@@ -13,10 +13,17 @@ class RunReporter:
     run_res: "RunResult" = None  # type: ignore
     iter_res: "IterationResult" = None  # type: ignore
     iteration = 0
+    mtrx: "Matrix" = None  # type: ignore
+    mtrx_res: "MtrxResult" = None  # type: ignore
+    mtrx_idx = 0
 
     @property
     def iterations(self) -> int:
         return self.run_res.iterations
+
+    @property
+    def mtrx_count(self) -> int:
+        return self.run_res.mtrx_count
 
     # Global events
     def on_run_start(self, **_) -> None:
@@ -29,6 +36,12 @@ class RunReporter:
         pass
 
     def on_iteration_end(self) -> None:
+        pass
+
+    def on_matrix_start(self) -> None:
+        pass
+
+    def on_matrix_end(self) -> None:
         pass
 
     # Test events
@@ -80,6 +93,20 @@ class RunNotifier:
             r.on_iteration_end()
             r.iter_res = None  # type: ignore
             r.iteration = -1
+
+    def on_matrix_start(self, matrx, mtrx_idx: int, mtrx_res) -> None:
+        for r in self.reporters:
+            r.mtrx_res = mtrx_res
+            r.mtrx = matrx
+            r.mtrx_idx = mtrx_idx
+            r.on_matrix_start()
+
+    def on_matrix_end(self) -> None:
+        for r in self.reporters:
+            r.on_matrix_end()
+            r.mtrx = None
+            r.mtrx_idx = -1
+            r.mtrx_res = None  # type: ignore
 
     #  Test events
     def on_test_start(self, test: "Xtest") -> None:

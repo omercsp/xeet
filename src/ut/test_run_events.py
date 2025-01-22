@@ -1,8 +1,8 @@
 from ut import *
 from ut.ut_dummy_defs import *
 from xeet.core.xstep import XStep
-from xeet.core.xres import XStepListResult, TestStatus
-from xeet.core.xtest import Xtest, TestResult, TestStatus
+from xeet.core.xres import XStepListResult, TestResult
+from xeet.core.xtest import Xtest
 from xeet.core.api import run_tests
 from xeet.core.driver import TestCriteria
 from xeet.core.run_reporter import RunReporter
@@ -176,7 +176,7 @@ class TestRunEvents(XeetUnittest):
                 self.assertEqual(acct.steps_ended, 2 * i)
 
             for iter_info in run_result.iter_results:
-                for _, test_res in iter_info.results.items():
+                for _, test_res in iter_info.mtrx_results[0].results.items():
                     self.assertTestResultEqual(test_res, expected)
             reporter.reset()
 
