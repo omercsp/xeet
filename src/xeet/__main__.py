@@ -73,6 +73,21 @@ def _tokens_list_type_checker(value: str) -> list[str]:
     return tokens
 
 
+def _index_list_type_checker(value: str) -> set[int]:
+    value = value.strip()
+    if not value:
+        raise argparse.ArgumentTypeError("index list cannot be empty.")
+
+    tokens = value.split(',')
+    indices = set()
+    for token in tokens:
+        token = token.strip()
+        if not token.isdigit():
+            raise argparse.ArgumentTypeError(f"'{token}' is not a valid index.")
+        indices.add(int(token))
+    return indices
+
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog='xeet')
     parser.add_argument('--version', action='version', version=f'v{xeet_version}')
@@ -118,6 +133,11 @@ def parse_arguments() -> argparse.Namespace:
                             help='set a variable')
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
+    run_parser.add_argument('--randomize', action='store_true', default=False)
+    run_parser.add_argument('-p', '--permutations', default=set(), metavar='IDX',
+                            type=_index_list_type_checker, help='matrix permutations to run')
+    run_parser.add_argument('-P', '--no-permutations',  default=set(), metavar='IDX',
+                            type=_index_list_type_checker, help='matrix permutations to exclude')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -215,9 +235,13 @@ def _display_settings(args: argparse.Namespace) -> ConsoleDisplayOpts:
 
 
 def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
+    #  We never run abastract and mtrix tests in run mode. We always run permutations
+    criteria = _tests_criteria(args, hidden=False)
+    criteria.prmttn_idxs_inc = args.permutations
+    criteria.prmttn_idxs_exc = args.no_permutations
     return actions.XeetRunSettings(
         file_path=args.conf,
-        criteria=_tests_criteria(args, False),
+        criteria=criteria,
         output_dir=args.output_dir,
         debug=args.debug,
         iterations=args.repeat,
