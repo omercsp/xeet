@@ -107,6 +107,8 @@ class TestsCriteria:
     require_groups: set[str] = field(default_factory=set)
     exclude_groups: set[str] = field(default_factory=set)
     hidden_tests: bool = False
+    matrix_prmtn_include: set[int] = field(default_factory=set)
+    matrix_prmtn_exclude: set[int] = field(default_factory=set)
     __test__ = False
 
     def __str__(self) -> str:

@@ -103,6 +103,11 @@ def parse_arguments() -> argparse.Namespace:
                             help='set a variable')
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
+    run_parser.add_argument('--randomize', action='store_true', default=False)
+    run_parser.add_argument('--matrix-include', action='append', default=[],
+                            metavar='PRMTN', type=int, help='matrix permutations to run')
+    run_parser.add_argument('--matrix-exclude', action='append', default=[],
+                            metavar='PRMTN', type=int, help='matrix permutations to exclude')
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -199,9 +204,13 @@ def _display_settings(args: argparse.Namespace) -> ConsoleDisplayOpts:
 
 
 def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
+    #  We never run abastract and mtrix tests in run mode. We always run permutations
+    criteria = _tests_criteria(args, hidden=False)
+    criteria.matrix_prmtn_include = set(args.matrix_include)
+    criteria.matrix_prmtn_exclude = set(args.matrix_exclude)
     return actions.XeetRunSettings(
         file_path=args.conf,
-        criteria=_tests_criteria(args, False),
+        criteria=criteria,
         output_dir=args.output_dir,
         debug=args.debug,
         iterations=args.repeat,
