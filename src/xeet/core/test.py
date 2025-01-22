@@ -240,8 +240,8 @@ class Test:
                 self.obtained_resources.extend(obtained)
                 if req.as_var:
                     if self.xvars.has_var(req.as_var):
-                        raise XeetRunException(f"Variable '{req.as_var}' already exists."
-                                               " Can't assign resource to it")
+                        raise XeetException(f"Variable '{req.as_var}' already exists."
+                                            " Can't assign resource to it")
                     if req.names:
                         var_value = {r.name: r.value for r in obtained}
                     else:
@@ -255,7 +255,7 @@ class Test:
             self._log_info(self.error)
             self.release_resources()
             # We return true, as thes test doesn't have any resources at this point
-            # and we don't want to prevent it from running to run error completion
+            # it is marekd as with error, but we want other tests to run.
         return True
 
     def _mkdir_output_dir(self) -> None:
