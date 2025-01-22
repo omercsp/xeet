@@ -1,6 +1,7 @@
 from .test import Test, TestModel
 from . import RuntimeInfo, BaseXeetSettings, TestsCriteria
 from .resource import ResourceModel
+from .matrix import MatrixModel
 from .event_logger import EventLogger
 from xeet.log import log_info, logging_enabled
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars, validate_token
@@ -29,6 +30,7 @@ class XeetModel(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, dict] = Field(default_factory=dict)
     resources: dict[str, list[ResourceModel]] = Field(default_factory=dict)
+    matrix: MatrixModel = Field(default_factory=dict)
 
     root_dir: str = Field(default_factory=str, exclude=True)
     tests_dict: dict[str, dict] = Field(default_factory=dict, exclude=True)
@@ -51,6 +53,7 @@ class XeetModel(BaseModel):
     def include(self, other: "XeetModel") -> None:
         self.variables = {**other.variables, **self.variables}
         self.resources = {**other.resources, **self.resources}
+        self.matrix = {**other.matrix, **self.matrix}
         other_tests = []
         for test in other.tests:
             name = test.get(_NAME)
@@ -75,6 +78,18 @@ class _XeetConf:
         self.rti = rti
         self.rti.xvars.set_vars(model.variables)
         self.tests_cache: dict[str, Test] = {}
+
+        #  Check if any of the matrix names conflict with the existing variables
+        colliding_keys = set(model.matrix.keys()) & set(self.rti.xvars.vars_map.keys())
+        if colliding_keys:
+            keys_str = ', '.join(colliding_keys)
+            raise XeetException(f"Matrix names conflict with the existing variables: {keys_str}")
+
+        #  Add matrix variables to the environment, with temporary values. The actual values will be
+        #  set by the matrix module when the matrix is resolved, but for now we need to have them
+        #  defined for information commands to show something meaningful.
+        matrix_tmp_vars = {m: f"<matrix:{m}>" for m in model.matrix.keys()}
+        self.rti.xvars.set_vars(matrix_tmp_vars)
 
         for name, resources in model.resources.items():
             self.rti.add_resource_pool(name, resources)
