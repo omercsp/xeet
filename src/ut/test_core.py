@@ -418,3 +418,42 @@ class TestCore(XeetUnittest):
         for res in results:
             self.assertEqual(res.status.primary, TestPrimaryStatus.Passed)
             self.assertGreaterEqual(res.duration, 1)
+
+    def test_matrix_support(self):
+        values = ["a", "b", "c"]
+        self.add_matrix("m0", values, reset=True)
+        step_desc = gen_dummy_step_desc(dummy_val0="{m0}")
+        self.add_test(TEST0, run=[step_desc], save=True)
+        run_result = self.run_tests()
+
+        self.assertEqual(len(run_result.iter_results), 1)
+        mtrx_results = run_result.iter_results[0].mtrx_results
+        self.assertEqual(len(mtrx_results), 3)
+
+        expected_step = gen_dummy_step_result(step_desc)
+        expected = gen_test_result(status=PASSED_TEST_STTS, main_results=[expected_step])
+        self.update_test_res_test(expected, TEST0)
+        for i, v in enumerate(values):
+            expected_step.dummy_val0 = v
+            self.assertTrue(TEST0 in mtrx_results[i].results)
+            self.assertTestResultEqual(mtrx_results[i].results[TEST0], expected)
+
+        values0 = ["a", "b", "c"]
+        values1 = [1, 2, 3]
+        self.add_matrix("m0", values0, reset=True)
+        self.add_matrix("m1", values1)
+        step_desc = gen_dummy_step_desc(dummy_val0="{m0} {m1}")
+        self.add_test(TEST0, run=[step_desc], save=True)
+        run_result = self.run_tests()
+
+        self.assertEqual(len(run_result.iter_results), 1)
+        mtrx_results = run_result.iter_results[0].mtrx_results
+        self.assertEqual(len(mtrx_results), 9)
+
+    def test_matrix_var_conflict(self):
+        values = ["a", "b", "c"]
+        self.add_var("m0", "var", reset=True)
+        self.add_matrix("m0", values)
+        step_desc = gen_dummy_step_desc(dummy_val0="{m0}")
+        self.add_test(TEST0, run=[step_desc], save=True)
+        self.assertRaises(XeetException, self.run_tests)
