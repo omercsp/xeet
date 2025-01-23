@@ -38,12 +38,6 @@ class CliPrinter(RunReporter):
 
     curr_tests: list[str] = field(default_factory=list)
 
-    iteration_str: str = ""
-
-    def set_live(self, live: Live) -> None:
-        self.live = live
-        self.console = live.console
-
     @property
     def concise(self) -> bool:
         return self.verbosity == CliPrinterVerbosity.Concise
@@ -73,7 +67,7 @@ class CliPrinter(RunReporter):
         if self.quiet or self.summary_only:
             self.on_test_start = _null_pr
             self.on_test_end = _null_pr
-            self.on_iteration_start = _null_pr
+            self.on_matrix_start = _null_pr
 
         if self.quiet:
             self.on_run_end = _null_pr
@@ -117,22 +111,15 @@ class CliPrinter(RunReporter):
         self.curr_tests.remove(test.name)
         pr_info(msg)
 
-    def on_iteration_start(self) -> None:
-        if self.iterations == 1 or self.mtrx_count > 1:
-            return
-        pr_info()
-        pr_info(colorize_str(self._iter_header(self.iteration), _ITERATION_COLOR))
-
     def on_matrix_start(self) -> None:
         pr_info()
         if self.mtrx_count == 1 and self.iterations == 1:
             return
-        pr_info(self._iter_header(self.iteration, self.mtrx_idx))
 
-    def on_matrix_end(self) -> None:
-        if self.mtrx_count == 1 and self.iterations == 1:
-            return
-        pr_info("---------")
+        if self.mtrx_count == 1:
+            pr_info(self._iter_header(self.iteration))
+        else:
+            pr_info(self._iter_header(self.iteration, self.mtrx_idx))
 
     def _summarize_result_names(self, results: StatusTestsDict, show_names: bool) -> None:
         stss = sorted(results.keys(), key=lambda x: x.primary.value)
@@ -157,7 +144,7 @@ class CliPrinter(RunReporter):
                 ret += "@"
             ret += colorize_str(f"Iteration #{iter_i}", _ITERATION_COLOR)
         if as_title:
-            ret = title(ret, "-", color=XColors.NoColor)
+            ret = title(ret, "-", color=XColors.NoColor, newline_prefix=False)
         return ret
 
     def on_run_end(self) -> None:
@@ -169,9 +156,6 @@ class CliPrinter(RunReporter):
         if single_result:
             result = self.run_res.iter_results[0].mtrx_results[0].status_results_summary
             self._summarize_result_names(result, not self.concise)
-            if self.verbose:
-                self.console.print("\nAccumulated summary:")
-                self._summarize_result_names(result, False)
             return
 
         total_summary: StatusTestsDict = {}
@@ -188,16 +172,11 @@ class CliPrinter(RunReporter):
                         total_summary[s] = list()
                     total_summary[s].extend(test_names)
 
+                if self.concise:
+                    continue
                 header = self._iter_header(iter_i=iter_i, mtrx_i=mtrx_i, as_title=True)
                 pr_info(header)
                 self._summarize_result_names(mtrx_res.status_results_summary, self.verbose)
-
-            if self.concise:
-                continue
-
-            header = self._iter_header(iter_i, as_title=True)
-            pr_info(header)
-            self._summarize_result_names(iter_summary, self.verbose)
 
         if not self.concise:
             pr_info(title("Accumulated summary:", '-', color=XColors.Bold))
