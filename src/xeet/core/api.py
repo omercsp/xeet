@@ -197,7 +197,6 @@ def run_tests(conf: str,
     tests = driver.xtests(criteria)
     if not tests:
         return EmptyRunResult
-    run_res = RunResult(iterations=iterations, criteria=criteria)
 
     log_info("Tests run list: {}".format(", ".join([x.name for x in tests])))
     log_info(f"Using {threads} threads per iteration")
