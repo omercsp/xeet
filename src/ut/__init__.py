@@ -6,7 +6,7 @@ from xeet.core.api import run_tests
 from xeet.core.driver import Driver, xeet_init
 from xeet.core.xtest import TestResult, Xtest, XStepListResult
 from xeet.core.xstep import XStepResult
-from xeet.core.xres import TestResult, XStepListResult, TestStatus, TestPrimaryStatus
+from xeet.core.xres import TestResult, XStepListResult, TestStatus, TestPrimaryStatus, RunResult
 from tempfile import gettempdir
 from dataclasses import dataclass, field
 from typing import ClassVar, Any, Iterable
@@ -147,7 +147,6 @@ class XeetUnittest(unittest.TestCase):
     def setUpClass(cls):
         ConfigTestWrapper.init_xeet_dir()
         cls.main_config_wrapper = ConfigTestWrapper("main.json")
-        cls.criteria = TestCriteria()
 
     @classmethod
     def tearDownClass(cls):
@@ -173,15 +172,19 @@ class XeetUnittest(unittest.TestCase):
         cls.main_config_wrapper.add_settings(name, value, **kwargs)
 
     @classmethod
-    def run_test(cls, name: str) -> TestResult:
-        cls.criteria.names = {name}
-        run_result = run_tests(cls.main_config_wrapper.file_path, cls.criteria, list())
+    def run_tests(cls, iteraions: int = 1, **kwargs) -> RunResult:
+        criteria = TestCriteria(**kwargs)
+        return run_tests(cls.main_config_wrapper.file_path, criteria, list(),
+                         iterations=iteraions)
+
+    @classmethod
+    def run_test(cls, name: str, **kwargs) -> TestResult:
+        run_result = cls.run_tests(**kwargs)
         return run_result.test_result(name, 0)
 
     @classmethod
-    def run_tests_list(cls, names: Iterable[str]) -> Iterable[TestResult]:
-        cls.criteria.names = set(names)
-        run_info = run_tests(cls.main_config_wrapper.file_path, cls.criteria, list())
+    def run_tests_list(cls, names: Iterable[str], **kwargs) -> Iterable[TestResult]:
+        run_info = cls.run_tests(names=set(names), **kwargs)
         return [run_info.test_result(name, 0) for name in names]
 
     @classmethod

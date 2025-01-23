@@ -1,7 +1,8 @@
 from ut import *
 from ut.ut_dummy_defs import *
+from xeet import XeetException
 from xeet.core.xres import XStepListResult, TestStatus, TestPrimaryStatus, TestSecondaryStatus
-from xeet.core.xtest import Xtest, TestResult, TestStatus, XeetRunException
+from xeet.core.xtest import Xtest, TestResult, TestStatus
 from xeet.steps.dummy_step import DummyStepModel
 from xeet.core.api import fetch_xtest, fetch_tests_list
 from xeet.core.driver import TestCriteria
@@ -184,11 +185,10 @@ class TestCore(XeetUnittest):
         self.assertTestResultEqual(self.run_test(TEST4), expected)
 
     def test_abstract_tests(self):
-        self.criteria.hidden_tests = True
         self.add_test(TEST0, run=[DUMMY_OK_STEP_DESC], abstract=True, reset=True)
         self.add_test(TEST1, base=TEST0)
         self.add_test(TEST2, base=TEST0, run=[DUMMY_FAILING_STEP_DESC], save=True)
-        self.assertRaises(XeetRunException, self.run_test, TEST0)
+        self.assertRaises(XeetException, self.run_test, TEST0)
 
         expected_test_steps = XStepListResult(results=[DUMMY_OK_STEP_RES])
         expected = TestResult(PASSED_TEST_STTS, run_res=expected_test_steps)
