@@ -137,7 +137,7 @@ Infrastructure lives in `src/ut/__init__.py` and `conftest.py`:
   shared temp dir per process; the `xut` fixture hands back a
   process-cached `XeetUnittest("main.yaml")`, reset before each test.
 - `ConfigTestWrapper` builds an in-memory config via `add_test()`,
-  `add_var()`, `add_setting()`, `add_resource()`, `add_include()` (each accepts
+  `add_var()`, `add_setting()`, `add_resource()`, `add_matrix()`, `add_include()` (each accepts
   `reset=`, `save=`, `show=` kwargs) and writes it to disk with `.save()`.
 - `XeetUnittest` (extends `ConfigTestWrapper`) drives it: `run_test(name)`,
   `run_tests(**TestsCriteria kwargs)`, `get_test(name)`, `driver()`. Any
