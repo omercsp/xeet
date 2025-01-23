@@ -28,6 +28,8 @@ class _Reporter(EventReporter):
     run_end_count = 0
     iteration_start_count = 0
     iteration_end_count = 0
+    mtrx_start_count = 0
+    mtrx_end_count = 0
     tests_acc: dict[str, _TetsReportAcc] = field(default_factory=dict)
     errors = list()
 
@@ -37,6 +39,8 @@ class _Reporter(EventReporter):
         self.run_end_count = 0
         self.iteration_start_count = 0
         self.iteration_end_count = 0
+        self.mtrx_start_count = 0
+        self.mtrx_end_count = 0
         self.tests_acc = dict()
         self.errors = list()
 
@@ -52,6 +56,12 @@ class _Reporter(EventReporter):
 
     def on_iteration_end(self) -> None:
         self.iteration_end_count += 1
+
+    def on_matrix_start(self) -> None:
+        self.mtrx_start_count += 1
+
+    def on_matrix_end(self) -> None:
+        self.mtrx_end_count += 1
 
     # Test events
     def _std_test_check(self, test: Test | None = None, fname: str = "") -> bool:
@@ -128,14 +138,15 @@ class _Reporter(EventReporter):
 
 def _run_events(xut: XeetUnittest, threads: int):
     xut.add_var("var0", 10, reset=True)
-    xut.add_var("var1", 11)
+    mtrx_vals = [11, 12]
+    xut.add_var("var1", mtrx_vals)
     step_desc0 = gen_dummy_step_desc(dummy_val0="test")
     step_desc1 = gen_dummy_step_desc(dummy_val0="{var0}", dummy_val1=ref_str("var1"))
     expected_step_res0 = gen_dummy_step_result(step_desc0)
     expected_step_res1 = gen_dummy_step_result({"dummy_val0": "10", "dummy_val1": 11})
     expected_post_res0 = gen_dummy_step_result(step_desc0)
 
-    n = 25
+    n = 12
     #  n = 1
     tests = [f"test{i}" for i in range(n)]
     for t in tests:
@@ -162,17 +173,21 @@ def _run_events(xut: XeetUnittest, threads: int):
         assert reporter.run_end_count == 1
         assert reporter.iteration_start_count == i
         assert reporter.iteration_end_count == i
+        expected_mtrx_count = i * len(mtrx_vals)
+        assert reporter.mtrx_start_count == expected_mtrx_count
+        assert reporter.mtrx_end_count == expected_mtrx_count
+
         acc_test = reporter.tests_acc
         assert len(acc_test) == n
         for acct in acc_test.values():
-            assert acct.test_start_count == i
-            assert acct.test_end_count == i
+            assert acct.test_start_count == expected_mtrx_count
+            assert acct.test_end_count == expected_mtrx_count
             #  2 phases. Run and post. Pre is empty so it is not counted
-            assert len(acct.phases_started) == 2 * i
-            assert len(acct.phases_ended) == 2 * i
+            assert len(acct.phases_started) == 2 * expected_mtrx_count
+            assert len(acct.phases_ended) == 2 * expected_mtrx_count
             #  2 steps in run and 1 in post
-            assert acct.steps_started == 3 * i
-            assert acct.steps_ended == 3 * i
+            assert acct.steps_started == 3 * expected_mtrx_count
+            assert acct.steps_ended == 3 * expected_mtrx_count
 
         for iter_info in run_result.iter_results:
             for _, test_res in iter_info.mtrx_results[0].results.items():

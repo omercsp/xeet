@@ -24,7 +24,7 @@ else
     if [[ -d ${tests} ]]; then
         tests="discover ${tests}"
     fi
-	python -m pytest -s -x ${tests}
+	python -m pytest  --show-capture=stdout -x ${tests}
 fi
 
 
