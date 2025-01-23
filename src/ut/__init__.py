@@ -3,6 +3,7 @@ from xeet.common import XeetVars, _REF_PREFIX
 from xeet.core import BaseXeetSettings
 from xeet.core.criteria import TestsCriteria
 from xeet.core.api import run_tests, XeetRunSettings
+from xeet.core.matrix import MatrixModel
 from xeet.core.xeet_conf import _XeetConf, xeet_conf, clear_conf_cache
 from xeet.core.test import Test, Phase
 from xeet.core.result import (TestResult, PhaseResult, TestStatus, TestPrimaryStatus, RunResult,
@@ -54,6 +55,7 @@ class ConfigTestWrapper:
         self.variables: dict[str, Any] = dict()
         self.settings: dict[str, Any] = dict()
         self.resources: dict[str, list[dict]] = dict()
+        self.matrix: MatrixModel = dict()
         if os.path.isabs(self.name):
             self.file_path = self.name
         else:
@@ -69,6 +71,7 @@ class ConfigTestWrapper:
             "variables": self.variables,
             "settings": self.settings,
             "resources": self.resources,
+            "matrix": self.matrix,
         }
 
     def save(self, show: bool = False) -> None:
@@ -129,12 +132,17 @@ class ConfigTestWrapper:
 
         self.resources[pool_name].append(desc)
 
+    @config_set
+    def add_matrix(self, name: str, value: list[Any], **_) -> None:
+        self.matrix[name] = value
+
     def reset(self):
         self.tests.clear()
         self.variables.clear()
         self.includes.clear()
         self.settings.clear()
         self.resources.clear()
+        self.matrix.clear()
         clear_conf_cache()
 
 
