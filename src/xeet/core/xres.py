@@ -169,3 +169,6 @@ class RunResult:
             return self.iter_results[iteration].results[test_name]
         except (KeyError, IndexError) as e:
             raise XeetException(f"Test '{test_name}' not found in iteration {iteration} - {e}")
+
+
+EmptyRunResult = RunResult(iterations=0, criteria=TestCriteria())

@@ -1,6 +1,7 @@
 from . import TestCriteria
 from .xtest import Xtest, XtestModel
-from .xres import TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult, TestStatus
+from .xres import (TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult, TestStatus,
+                   EmptyRunResult)
 from .driver import XeetModel, xeet_init
 from .run_reporter import RunReporter
 from xeet import XeetException
@@ -78,11 +79,10 @@ def run_tests(conf: str,
 
     tests = driver.xtests(criteria)
     if not tests:
-        raise XeetException("No tests to run")
+        return EmptyRunResult
+    run_res = RunResult(iterations=iterations, criteria=criteria)
 
     log_info("Tests run list: {}".format(", ".join([x.name for x in tests])))
-
-    run_res = RunResult(iterations=iterations, criteria=criteria)
     notifier.on_run_start(run_res, tests)
 
     for iter_n in range(iterations):

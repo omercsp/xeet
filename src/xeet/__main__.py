@@ -150,25 +150,19 @@ def xrun() -> int:
             init_logging(title, args.log_file, args.log_verbosity)
         log_info(f"Running command '{args.subparsers_name}'")
         log_info(f"CWD is '{os.getcwd()}'")
-        if cmd_name != _RUN_CMD:
-            if cmd_name == _LIST_CMD:
-                actions.list_tests(args.conf, args.names_only, _tests_criteria(args, True))
-            elif cmd_name == _GROUPS_CMD:
-                actions.list_groups(args.conf)
-            elif cmd_name == _INFO_CMD:
-                actions.show_test_info(args.conf, args.test_name, args.expand, args.full)
-            else:
-                raise XeetException(f"Unknown command '{cmd_name}'")
-            return 0
-        rc = 0
-        run_info = actions.run_tests(args.conf, args.repeat, args.debug,
+        if cmd_name == _RUN_CMD:
+            return actions.run_tests(args.conf, args.repeat, args.debug,
                                      _tests_criteria(args, False), args.run_verbosity,
                                      args.summary_only)
-        if run_info.failed_tests:
-            rc += 1
-        if run_info.not_run_tests:
-            rc += 2
-        return rc
+        if cmd_name == _LIST_CMD:
+            actions.list_tests(args.conf, args.names_only, _tests_criteria(args, True))
+        elif cmd_name == _GROUPS_CMD:
+            actions.list_groups(args.conf)
+        elif cmd_name == _INFO_CMD:
+            actions.show_test_info(args.conf, args.test_name, args.expand, args.full)
+        else:
+            raise XeetException(f"Unknown command '{cmd_name}'")
+        return 0
 
     except XeetException as e:
         # flush the stdout buffer

@@ -1,8 +1,8 @@
 from xeet.core.xtest import Xtest
-from xeet.core.xres import RunResult
 from xeet.core.xstep import XStep
 from xeet.core import TestCriteria
-from xeet.pr import stdout
+from xeet.core.xres import EmptyRunResult
+from xeet.pr import stdout, pr_warn
 from .cli_printer import CliPrinter, DebugPrinter, CliPrinterVerbosity
 import xeet.core.api as core
 from xeet.pr import DictPrintType, pr_obj, pr_info
@@ -105,14 +105,23 @@ RunVerbosity = CliPrinterVerbosity
 
 
 def run_tests(conf: str, repeat: int, debug: bool, criteria: TestCriteria,
-              verbosity: RunVerbosity, summary_only: bool) -> RunResult:
+              verbosity: RunVerbosity, summary_only: bool) -> int:
 
     with Live(console=stdout(), refresh_per_second=4, transient=False) as live:
         if debug:
             reporter = DebugPrinter(live=live)
         else:
             reporter = CliPrinter(live=live, verbosity=verbosity, summary_only=summary_only)
-        return core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+        run_res = core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat)
+        if run_res is EmptyRunResult:
+            pr_warn("No tests to run")
+            return 0
+        rc = 0
+        if run_res.failed_tests:
+            rc += 1
+        if run_res.not_run_tests:
+            rc += 2
+        return rc
 
 
 def dump_test(file_path: str, name: str) -> None:
