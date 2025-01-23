@@ -4,6 +4,7 @@ from xeet.pr import mute_prints, pr_obj, DictPrintType
 from xeet.common import XeetVars, _REF_PREFIX
 from xeet.core import TestsCriteria
 from xeet.core.api import run_tests, XeetRunSettings
+from xeet.core.matrix import MatrixModel
 from xeet.core.driver import _Driver, xeet_init, clear_drivers_cache
 from xeet.core.test import Test, Phase
 from xeet.core.result import (TestResult, PhaseResult, TestStatus, TestPrimaryStatus, RunResult,
@@ -33,6 +34,7 @@ class ConfigTestWrapper:
     variables: dict[str, Any] = field(default_factory=dict)
     settings: dict[str, Any] = field(default_factory=dict)
     resources: dict[str, list[dict]] = field(default_factory=dict)
+    matrix: MatrixModel = field(default_factory=dict)
 
     file_path: str = ""
     _xeet_dir: ClassVar[tempfile.TemporaryDirectory] = None  # type: ignore
@@ -56,6 +58,7 @@ class ConfigTestWrapper:
             "variables": self.variables,
             "settings": self.settings,
             "resources": self.resources,
+            "matrix": self.matrix
         }
 
     def save(self, show: bool = False) -> None:
@@ -116,12 +119,17 @@ class ConfigTestWrapper:
 
         self.resources[pool_name].append(desc)
 
+    @config_set
+    def add_matrix(self, name: str, value: list[Any], **_) -> None:
+        self.matrix[name] = value
+
     def _reset(self):
         self.tests.clear()
         self.variables.clear()
         self.includes.clear()
         self.settings.clear()
         self.resources.clear()
+        self.matrix.clear()
         clear_drivers_cache()
 
     @staticmethod
@@ -190,6 +198,10 @@ class XeetUnittest(unittest.TestCase):
     @classmethod
     def add_resource(cls, pool_name: str, name: str, value: Any, **kwargs) -> None:
         cls.main_config_wrapper.add_resource(pool_name, name, value, **kwargs)
+
+    @classmethod
+    def add_matrix(cls, name: str, value: list[Any], **kwargs) -> None:
+        cls.main_config_wrapper.add_matrix(name, value, **kwargs)
 
     @classmethod
     def run_tests(cls, iteraions: int = 1, threads: int = 1, **kwargs) -> RunResult:
