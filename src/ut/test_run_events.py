@@ -134,7 +134,8 @@ class _Reporter(RunReporter):
 class TestRunEvents(XeetUnittest):
     def _test_run_events(self, threads: int):
         self.add_var("var0", 10, reset=True)
-        self.add_var("var1", 11)
+        self.add_matrix("var1", [11, 12])
+
         step_desc0 = gen_dummy_step_desc(dummy_val0="test")
         step_desc1 = gen_dummy_step_desc(dummy_val0="{var0}", dummy_val1=ref_str("var1"))
         expected_step_res0 = gen_dummy_step_result(step_desc0)
@@ -168,12 +169,12 @@ class TestRunEvents(XeetUnittest):
             acc_test = reporter.tests_acc
             self.assertEqual(len(acc_test), n)
             for acct in acc_test.values():
-                self.assertEqual(acct.test_start_count, i)
-                self.assertEqual(acct.test_end_count, i)
-                self.assertEqual(len(acct.phases_started), 3 * i)
-                self.assertEqual(len(acct.phases_ended), 3 * i)
-                self.assertEqual(acct.steps_started, 2 * i)
-                self.assertEqual(acct.steps_ended, 2 * i)
+                self.assertEqual(acct.test_start_count, i * 2)
+                self.assertEqual(acct.test_end_count, i * 2)
+                self.assertEqual(len(acct.phases_started), 3 * i * 2)
+                self.assertEqual(len(acct.phases_ended), 3 * i * 2)
+                self.assertEqual(acct.steps_started, 2 * i * 2)
+                self.assertEqual(acct.steps_ended, 2 * i * 2)
 
             for iter_info in run_result.iter_results:
                 for _, test_res in iter_info.mtrx_results[0].results.items():
