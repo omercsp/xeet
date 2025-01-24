@@ -81,6 +81,7 @@ def parse_arguments() -> argparse.Namespace:
                             help='set a variable')
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
+    run_parser.add_argument('--randomize', action='store_true', default=False)
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -187,7 +188,8 @@ def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
         criteria=_tests_criteria(args, False),
         debug=args.debug,
         iterations=args.repeat,
-        jobs=args.jobs)
+        jobs=args.jobs,
+        randomize=args.randomize)
 
 
 def xrun() -> int:
