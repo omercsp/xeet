@@ -10,6 +10,7 @@ from timeit import default_timer as timer
 from enum import Enum
 from xeet.log import log_info, log_verbose
 from threading import Condition, Thread, Event
+import random
 
 
 def fetch_test(config_path: str, name: str) -> Test | None:
@@ -53,12 +54,13 @@ def fetch_schema(schema_type: str) -> dict:
 
 
 class _TestsPool:
-    def __init__(self, tests: list[Test], threads: int) -> None:
+    def __init__(self, tests: list[Test], threads: int, randomize: bool) -> None:
         self._base_tests = tests
         self.threads = threads
         self._tests: list[Test] = []
         self.condition = Condition()
         self.abort = Event()
+        self.randomize = randomize
         self.reset()
 
     def stop(self) -> None:
@@ -120,6 +122,8 @@ class _TestsPool:
 
     def reset(self) -> None:
         self._tests = self._base_tests.copy()
+        if self.randomize:
+            random.shuffle(self._tests)
 
 
 class _TestRunner(Thread):
@@ -183,6 +187,7 @@ def run_tests(conf: str,
               reporters: RunReporter | list[RunReporter],
               debug_mode: bool = False,
               threads: int = 1,
+              randomize: bool = False,
               iterations: int = 1) -> RunResult:
     log_info("Starting xeet session", pr_suffix="------------\n")
     if not isinstance(reporters, list):
@@ -202,7 +207,7 @@ def run_tests(conf: str,
     run_res = RunResult(iterations=iterations, criteria=criteria, matrix_count=matrix.prmttns_count)
     log_info(f"Matrix permutations count: {matrix.prmttns_count}")
     notifier.on_run_start(run_res, tests)
-    tests_pool = _TestsPool(tests, threads)
+    tests_pool = _TestsPool(tests, threads, randomize=randomize)
 
     for iter_n in range(iterations):
         iter_res = run_res.iter_results[iter_n]
