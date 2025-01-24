@@ -4,7 +4,6 @@
 - Add coverage testing (UT + test)
 - Exec step: save diff file
 - Allow a test to be excluded from an 'all' run
-- Add test randomization
 - Add server mode
 - Add save results to file option
 -- Add compare with last run time support

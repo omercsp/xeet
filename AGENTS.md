@@ -118,10 +118,11 @@ rejected at validation time): `XEET_CWD`, `XEET_ROOT`, `XEET_OUT_DIR`,
 This `devel` branch is a ground-up **rehaul** — its root commit
 (`xeet: initial commit (rehaul)`) starts the architecture described above
 from scratch, with no shared history with `master` (`git merge-base` finds
-no common ancestor). The `master` branch contains features not
-yet fully ported to this architecture: test randomization.
-See `TODO.txt` for the running list of what's still missing on `devel`
-(test randomization, etc.) — treat it as the feature backlog.
+no common ancestor). All major core features from `master` (matrix,
+parallel execution, resource pools, platform support, test
+randomization) are now ported.
+See `TODO.txt` for the running list of remaining backlog items (server
+mode, save results to file, etc.).
 
 ## Testing
 
