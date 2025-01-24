@@ -64,6 +64,7 @@ def parse_arguments() -> argparse.Namespace:
                             help='set a variable')
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
+    run_parser.add_argument('--randomize', action='store_true', default=False)
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -167,7 +168,7 @@ def xrun() -> int:
         log_info(f"running command '{args.subparsers_name}'")
         log_info(f"CWD is '{os.getcwd()}'")
         if cmd_name == _RUN_CMD:
-            return actions.run_tests(args.conf, args.repeat, args.debug,
+            return actions.run_tests(args.conf, args.repeat, args.debug, args.randomize,
                                      _tests_criteria(args, False), args.jobs, args.run_verbosity,
                                      args.summary_opt, args.test_timing)
         if cmd_name == _LIST_CMD:
