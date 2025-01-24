@@ -59,6 +59,7 @@ class XeetRunSettings:
     debug: bool = False
     output_dir: str = ""
     jobs: int = 1
+    randomize: bool = False
 
 
 _UNINITIALIZED = "#UNINITIALIZED#"

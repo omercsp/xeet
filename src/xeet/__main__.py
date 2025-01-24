@@ -48,7 +48,8 @@ def _run_settings(args: Args) -> actions.XeetRunSettings:
         iterations=args.repeat,
         output_dir=args.output_dir,
         debug=args.debug,
-        jobs=args.jobs)
+        jobs=args.jobs,
+        randomize=args.randomize)
 
 
 def xrun() -> int:
