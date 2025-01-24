@@ -5,7 +5,6 @@
 - Exec step: save diff file
 - Allow a test to be excluded from an 'all' run
 - Add colored log support
-- Add test randomization
 - Add server mode
 - Add time output
 - Add save results to file option
