@@ -23,6 +23,7 @@
 - **Parallel Execution**: Execute tests concurrently across worker threads with `-j/--jobs` (defaults to auto-detecting core count).
 - **Resource Pools & Concurrency Control**: Define shared resource pools (ports, database instances, accounts) and allocate them to tests to prevent contention or serialize specific tests during parallel execution.
 - **Parameter Matrix**: Define global matrix variables (lists of values) to automatically execute test suites across the full cartesian product of permutations.
+- **Test Randomization**: Shuffle test execution order per iteration with `--randomize` to expose hidden inter-test dependencies.
 - **Fine-Grained Filtering**: Select tests by exact name, fuzzy match, or tag groups with include/exclude rules.
 - **Rich Terminal UI**: Live progress display with customizable output detail, timing breakdowns, and `--debug` live process tailing.
 
@@ -517,6 +518,9 @@ xeet run -r 5
 # Parallel execution across worker threads
 xeet run -j                          # Auto-detects half of CPU cores
 xeet run -j 4                        # Run with 4 concurrent worker threads
+
+# Test order randomization
+xeet run --randomize                 # Randomize test execution order per iteration
 
 # Matrix permutation selection
 xeet run -p 0,1                      # Run only specific matrix permutations
