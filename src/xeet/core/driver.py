@@ -16,6 +16,7 @@ from threading import Thread, Event, Condition
 from signal import signal, SIGINT
 from functools import cache, cached_property
 from typing import Callable
+from random import shuffle
 
 
 _INIT_ERR_STTS = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
@@ -28,7 +29,7 @@ class _TestsPool:
         self._tests: list[Test] = []
         self.condition = Condition()
         self.abort = Event()
-        self.reset()
+        self.reset(randomize=False)
         self.runner_id_str = ""
         self.info: Callable = log_info
 
@@ -92,8 +93,10 @@ class _TestsPool:
         else:
             self._tests.insert(self.threads, test)
 
-    def reset(self) -> None:
+    def reset(self, randomize: bool) -> None:
         self._tests = self._base_tests.copy()
+        if randomize:
+            shuffle(self._tests)
 
 
 class _TestRunner(Thread):
@@ -325,7 +328,7 @@ class _XeetDriver:
                 (run_settings.criteria.prmttn_idxs_exc and mtrx_i in
                  run_settings.criteria.prmttn_idxs_exc):
                 continue
-            self.pool.reset()
+            self.pool.reset(run_settings.randomize)
             mtrx_res = iter_res.add_mtrx_res(mtrx_prmmtn, mtrx_i)
             self.rti.xvars.set_vars(mtrx_prmmtn)
             self.rti.notifier.on_matrix_start(mtrx_prmmtn, mtrx_res)
