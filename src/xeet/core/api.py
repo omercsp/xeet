@@ -9,6 +9,7 @@ from xeet import XeetException
 from typing import Callable
 from enum import Enum
 from threading import Condition, Thread, Event
+import random
 
 
 def fetch_test(config_path: str, name: str) -> Test | None:
@@ -61,12 +62,13 @@ def _gen_notify_func(notifier: EventNotifier) -> Callable:
 
 
 class _TestsPool:
-    def __init__(self, tests: list[Test], threads: int) -> None:
+    def __init__(self, tests: list[Test], threads: int, randomize: bool) -> None:
         self._base_tests = tests
         self.threads = threads
         self._tests: list[Test] = []
         self.condition = Condition()
         self.abort = Event()
+        self.randomize = randomize
         self.reset()
 
     def stop(self) -> None:
@@ -131,6 +133,8 @@ class _TestsPool:
 
     def reset(self) -> None:
         self._tests = self._base_tests.copy()
+        if self.randomize:
+            random.shuffle(self._tests)
 
 
 class _TestRunner(Thread):
@@ -219,6 +223,7 @@ def run_tests(conf: str,
               reporters: EventReporter | list[EventReporter],
               debug_mode: bool = False,
               threads: int = 1,
+              randomize: bool = False,
               iterations: int = 1) -> RunResult:
     driver = xeet_init(conf, debug_mode)
     rti = driver.rti
@@ -241,7 +246,7 @@ def run_tests(conf: str,
     notifier.on_run_start(run_res, tests, matrix, threads)
     run_res.set_start_time()
 
-    tests_pool = _TestsPool(tests, threads)
+    tests_pool = _TestsPool(tests, threads, randomize=randomize)
     for iter_n in range(iterations):
         _run_iter(rti, tests_pool, matrix, iter_n, run_res, threads)
         tests_pool.reset()
