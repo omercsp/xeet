@@ -10,15 +10,17 @@ from xeet.log import log_info
 from threading import Thread, Event, Condition
 from signal import signal, SIGINT
 from typing import Callable
+import random
 
 
 _INIT_ERR_STTS = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
 
 
 class _TestsPool:
-    def __init__(self, tests: list[Test], threads: int) -> None:
+    def __init__(self, tests: list[Test], threads: int, randomize: bool) -> None:
         self._base_tests = tests
         self.threads = threads
+        self.randomize = randomize
         self._tests: list[Test] = []
         self.condition = Condition()
         self.abort = Event()
@@ -88,6 +90,8 @@ class _TestsPool:
 
     def reset(self) -> None:
         self._tests = self._base_tests.copy()
+        if self.randomize:
+            random.shuffle(self._tests)
 
 
 class _TestRunner(Thread):
@@ -155,6 +159,7 @@ class XeetRunner:
                  reporters: EventReporter | list[EventReporter],
                  debug_mode: bool = False,
                  threads: int = 1,
+                 randomize: bool = False,
                  iterations: int = 1) -> None:
         self.driver = xeet_init(conf, debug_mode)
         self.rti.iterations = iterations
@@ -169,7 +174,7 @@ class XeetRunner:
         self.run_res = RunResult(iterations=iterations, criteria=criteria,
                                  matrix_count=self.matrix.prmttns_count)
         self.tests = self.driver.get_tests(criteria)
-        self.pool = _TestsPool(self.tests, self.threads)
+        self.pool = _TestsPool(self.tests, self.threads, randomize)
         self.runners: list[_TestRunner] = []
         self.stop_event = Event()
 
