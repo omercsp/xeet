@@ -52,5 +52,6 @@ def run_tests(conf: str,
               reporters: EventReporter | list[EventReporter],
               debug_mode: bool = False,
               threads: int = 1,
+              randomize: bool = False,
               iterations: int = 1) -> RunResult:
-    return XeetRunner(conf, criteria, reporters, debug_mode, threads, iterations).run()
+    return XeetRunner(conf, criteria, reporters, debug_mode, threads, randomize, iterations).run()
