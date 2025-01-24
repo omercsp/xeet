@@ -215,7 +215,8 @@ def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
         output_dir=args.output_dir,
         debug=args.debug,
         iterations=args.repeat,
-        jobs=args.jobs)
+        jobs=args.jobs,
+        randomize=args.randomize)
 
 
 def xrun() -> int:
