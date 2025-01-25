@@ -2,7 +2,7 @@ from .test import Test, TestModel
 from .run_reporter import RunReporter, RunNotifier
 from .resource import ResourceModel
 from . import TestsCriteria, RuntimeInfo
-from xeet.log import log_info, log_warn
+from xeet.log import log_info
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from typing import Any
@@ -68,10 +68,6 @@ class _Driver:
         self.rti = rti
         self.xvars = rti.xvars
 
-        for v in model.variables:
-            if v in self.xvars.vars_map:
-                log_warn(f"Variable '{v}' is already defined in the environment")
-                model.variables.pop(v)
         self.xvars.set_vars(model.variables)
 
         for name, resources in model.resources.items():

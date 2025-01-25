@@ -2,6 +2,7 @@ from xeet.common import (text_file_tail, in_windows, FileTailer, yes_no_str, Str
                          filter_str)
 from xeet.pr import pr_info
 from xeet.core.step import Step, StepModel, StepResult
+from xeet import XeetException
 from pydantic import field_validator, ValidationInfo, model_validator, Field
 from enum import Enum
 from io import TextIOWrapper
@@ -102,18 +103,22 @@ class ExecStep(Step):
 
     def setup(self, **kwargs) -> None:  # type: ignore
         super().setup(**kwargs)
+        NoneType = type(None)
         self.shell_path = self.xvars.expand(self.exec_model.shell_path)
         if not self.shell_path:
             self.shell_path, _ = self.rti.config_ref("settings.exec_step.default_shell_path")
 
-        self.cmd = self.xvars.expand(self.exec_model.cmd)
+        self.cmd = self.xvars.expand(self.exec_model.cmd, [str])
+        if not self.cmd:
+            raise XeetException("Command is empty")
+
         self.use_shell = (not in_windows()) and self.exec_model.use_shell
         self.cwd = self.xvars.expand(self.exec_model.cwd)
         if self.cwd:
             self.log_info(f"Working directory will be set to '{self.cwd}'")
         else:
             self.log_info(f"Using current working directory '{os.getcwd()}'")
-        self.env = self.xvars.expand(self.exec_model.env)
+        self.env = self.xvars.expand(self.exec_model.env, [dict, NoneType])
         self.env_file = self.xvars.expand(self.exec_model.env_file)
 
         if self.exec_model.env_file:

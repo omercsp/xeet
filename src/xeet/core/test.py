@@ -15,10 +15,6 @@ from dataclasses import dataclass, field
 import os
 
 
-class XeetRunException(XeetException):
-    ...
-
-
 _EMPTY_STR = ""
 
 
@@ -239,8 +235,8 @@ class Test:
                 self.obtained_resources.extend(obtained)
                 if req.as_var:
                     if self.xvars.has_var(req.as_var):
-                        raise XeetRunException(f"Variable '{req.as_var}' already exists."
-                                               " Can't assign resource to it")
+                        raise XeetException(f"Variable '{req.as_var}' already exists."
+                                            " Can't assign resource to it")
                     if req.names:
                         var_value = {r.name: r.value for r in obtained}
                     else:
@@ -263,11 +259,11 @@ class Test:
             log_verbose("Creating output directory if it doesn't exist: '{}'", self.output_dir)
             os.makedirs(self.output_dir, exist_ok=True)
         except OSError as e:
-            raise XeetRunException(f"Error creating output directory - {e.strerror}")
+            raise XeetException(f"Error creating output directory - {e.strerror}")
 
     def run(self, **steup_args) -> TestResult:
         if self.model.abstract:
-            raise XeetRunException("Can't run abstract tasks")
+            raise XeetException("Can't run abstract tasks")
 
         self.setup(**steup_args)
         if self.error:
