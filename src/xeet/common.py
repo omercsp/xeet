@@ -405,3 +405,24 @@ def underline(title: str, underline_char='=') -> str:
     underline = underline_char * len(text.plain)
     text = f"{title}\n{underline}"
     return text
+
+
+class LockableInterface:
+    def lock(self) -> threading.Lock:
+        raise NotImplementedError
+
+
+class Lockable(LockableInterface):
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+
+    def lock(self) -> threading.Lock:
+        return self._lock
+
+
+def locked(func: Callable) -> Callable:
+    @wraps(func)
+    def _inner(lockable: LockableInterface, *args, **kwargs):
+        with lockable.lock():
+            return func(lockable, *args, **kwargs)
+    return _inner
