@@ -10,6 +10,7 @@ from functools import cache, wraps
 from pathlib import PureWindowsPath
 from dataclasses import dataclass
 from rich.text import Text
+from threading import Lock
 import re
 import time
 import threading
@@ -410,3 +411,23 @@ def underline(title: str, underline_char='=') -> str:
     underline = underline_char * len(text.plain)
     text = f"{title}\n{underline}"
     return text
+
+
+class LockableInterface:
+    def lock(self) -> Lock:
+        raise NotImplementedError
+
+
+class Lockable(LockableInterface):
+    _lock = Lock()
+
+    def lock(self) -> Lock:
+        return self._lock
+
+
+def locked(func: Callable) -> Callable:
+    @wraps(func)
+    def _inner(lockable: LockableInterface, *args, **kwargs):
+        with lockable.lock():
+            return func(lockable, *args, **kwargs)
+    return _inner
