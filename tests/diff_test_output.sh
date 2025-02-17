@@ -15,17 +15,27 @@ if [ -z "$test_name" ]; then
 	exit 1
 fi
 
+test_expected_dir=$(_get_test_dir ${EXPECTED_BASE_DIR} ${test_name}) || abort ${test_expected_dir}
+test_out_dir=$(_get_test_dir ${OUT_BASE_DIR} ${test_name}) || abort ${test_out_dir}
+test_out_dir=${test_out_dir:?}/stp0
+
 _diff_file()
 {
-	local src_file=$1
-	local dst_file=$2
+	local src_file=${test_expected_dir}/$1
+	local dst_file=${test_out_dir}/$1.filtered
+
+	if [[ ! -f ${src_file} && ! -f ${dst_file} ]]; then
+		echo "Files ${src_file} and ${dst_file} do not exist, nothing to compare"
+		return 0
+	fi
 
 	if [[ ! -f ${src_file} ]]; then
-		warn "File ${src_file} does not exist"
+		warn "'${dst_file}' found, but '${src_file}' does not exist"
 		return 1
 	fi
+
 	if [[ ! -f ${dst_file} ]]; then
-		warn "File ${dst_file} does not exist"
+		warn "'${src_file}'' found but, '${dst_file}'' does not exist"
 		return 1
 	fi
 
@@ -38,7 +48,5 @@ _diff_file()
 	${DIFF_TOOL} ${src_file} ${dst_file}
 }
 
-test_expected_dir=$(_get_test_dir ${EXPECTED_BASE_DIR} ${test_name}) || abort ${test_expected_dir}
-test_out_dir=$(_get_test_dir ${OUT_BASE_DIR} ${test_name}) || abort ${test_out_dir}
-_diff_file ${test_expected_dir}/stdout ${test_out_dir}/stdout
-_diff_file ${test_expected_dir}/stderr ${test_out_dir}/stderr
+_diff_file stdout
+_diff_file stderr

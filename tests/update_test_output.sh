@@ -14,6 +14,7 @@ if [ -z "$test_name" ]; then
 fi
 
 test_out_dir=$(_get_test_dir ${OUT_BASE_DIR} ${test_name}) || abort ${test_out_dir}
+test_out_dir=${test_out_dir:?}/stp0
 expected_dir=${test_out_dir/${OUT_BASE_DIR}/${EXPECTED_BASE_DIR}}
 
 if [[ -d ${expected_dir} ]]; then

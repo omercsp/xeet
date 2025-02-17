@@ -14,5 +14,11 @@ if [ -z "$test_name" ]; then
 fi
 
 out_dir=$(_get_test_dir ${OUT_BASE_DIR} ${test_name}) || abort ${out_dir}
-${SHOW_TOOL} ${out_dir}/stdout ${out_dir}/stderr
+cmd="${SHOW_TOOL} ${out_dir}/stp0/stdout.filtered"
+std_err=${out_dir}/stp0/stderr_filtered
+if [ -f ${std_err} ]; then
+	cmd="${cmd} ${std_err}"
+fi
+
+${cmd}
 

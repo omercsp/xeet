@@ -36,10 +36,25 @@ def _run_tests():
     xeet_pkg_venv_path = os.environ.get("XEET_PKG_VENV_PATH")
     if xeet_pkg_venv_path:
         print(f"Internal XEET virtual environment path is set to {xeet_pkg_venv_path}")
+    user_args = []
+    threads = os.environ.get("XEET_THREADS")
+    if threads:
+        try:
+            threads = int(threads)
+        except ValueError:
+            print(f"Invalid value for XEET_THREADS: {threads}")
+            sys.exit(1)
+    else:
+        #  Get the number of processors
+        cpus = os.cpu_count()
+        if cpus and cpus > 1:
+            threads = int(cpus / 2)
+        else:
+            threads = 1
+    user_args.append(f"--threads={threads}")
 
     # Run the xeet command
-    xeet_json_path = os.path.join(here, "xeet.json")
-    command = [xeet_bin, "run", "-c", xeet_json_path] + sys.argv[1:]
+    command = [xeet_bin, "run"] + sys.argv[1:] + user_args
     subprocess.run(command)
 
 
