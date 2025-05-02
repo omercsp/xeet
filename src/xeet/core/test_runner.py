@@ -30,13 +30,14 @@ class TestRunner:
     def rti(self) -> RuntimeInfo:
         return self.driver.rti
 
-    @time_result
     def run(self) -> RunResult:
         if not self.tests:
             return EmptyRunResult
+        self.run_res.set_start_time()
         self.rti.notifier.on_run_start(self.run_res, self.tests)
         for iter_n in range(self.rti.iterations):
             self._run_iter(iter_n)
+        self.run_res.set_end_time()
         self.rti.notifier.on_run_end()
         return self.run_res
 

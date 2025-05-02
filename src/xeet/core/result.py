@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from timeit import default_timer as timer
 from functools import wraps
 from typing import TYPE_CHECKING
+from functools import cached_property
 if TYPE_CHECKING:
     from .test import Test, Phase
     from .step import Step
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
 class MeasuredResult:
     start_time: float = 0.0
     end_time: float = 0.0
-    duration: float = 0.0
 
     @property
     def duration_str(self) -> str:
@@ -25,7 +25,10 @@ class MeasuredResult:
 
     def set_end_time(self) -> None:
         self.end_time = timer()
-        self.duration = self.end_time - self.start_time
+
+    @cached_property
+    def duration(self) -> float:
+        return self.end_time - self.start_time
 
 
 def time_result(func):
