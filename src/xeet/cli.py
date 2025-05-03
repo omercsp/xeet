@@ -60,13 +60,16 @@ def _show_test(test: Test, full_details: bool, setup: bool) -> None:
     print_step_list("Post-run steps", test.post_phase.steps)
 
 
-def show_test_info(conf: str, test_name: str, setup: bool, full_details: bool) -> None:
-    test = core.fetch_test(conf, test_name)
-    if test is None:
-        raise XeetException(f"No such test: {test_name}")
-    if setup:
-        test.setup()
-    _show_test(test, full_details=full_details, setup=setup)
+def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details: bool) -> None:
+    tests = core.fetch_tests_list(conf, criteria)
+    if len(tests) == 0:
+        raise XeetException("No tests found")
+    for i, test in enumerate(tests):
+        if setup:
+            test.setup()
+        if i > 0:
+            pr_info("-" * 80)
+        _show_test(test, full_details=full_details, setup=setup)
 
 
 def list_groups(conf: str) -> None:

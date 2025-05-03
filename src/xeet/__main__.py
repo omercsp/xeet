@@ -86,9 +86,8 @@ def parse_arguments() -> argparse.Namespace:
     run_parser.add_argument('--test-timing', choices=time_choices,
                             default=CliPrinterTestTimingOpts.NoTime.value, help='test timing')
 
-    info_parser = subparsers.add_parser(_INFO_CMD, help='show test info', parents=[common_parser])
-    info_parser.add_argument('-t', '--test-name', metavar='TEST', default=None,
-                             help='set test name', required=True)
+    info_parser = subparsers.add_parser(_INFO_CMD, help='show test info',
+                                        parents=[common_parser, test_filter_parser])
     info_parser.add_argument('-x', '--expand', help='expand values', action='store_true',
                              default=False)
     info_parser.add_argument('-f', '--full', help='full details', action='store_true',
@@ -132,6 +131,8 @@ def parse_arguments() -> argparse.Namespace:
                 args.jobs = 1
         elif args.jobs <= 0:
             parser.error("number of jobs must be a positive integer")
+    elif args.subparsers_name == _INFO_CMD:
+        args.all = True
     return args
 
 
@@ -175,7 +176,7 @@ def xrun() -> int:
         elif cmd_name == _GROUPS_CMD:
             actions.list_groups(args.conf)
         elif cmd_name == _INFO_CMD:
-            actions.show_test_info(args.conf, args.test_name, args.expand, args.full)
+            actions.show_test_info(args.conf, _tests_criteria(args, True), args.expand, args.full)
         else:
             raise XeetException(f"Unknown command '{cmd_name}'")
         return 0
