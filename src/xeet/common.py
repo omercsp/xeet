@@ -426,3 +426,91 @@ def locked(func: Callable) -> Callable:
         with lockable.lock():
             return func(lockable, *args, **kwargs)
     return _inner
+
+
+@dataclass
+class FunctionCall:
+    func_name: str
+    args: list[str]
+
+
+@cache
+def _func_call_regex() -> re.Pattern:
+    # Regular expression to match the function call pattern:
+    # ^                  - Start of the string
+    # ([a-zA-Z_][a-zA-Z0-9_]*) - Capture group 1: Function name (starts with letter/underscore,
+    #                             followed by letters, numbers, or underscores)
+    # \(                 - Literal opening parenthesis
+    # (.*)               - Capture group 2: Arguments string (any characters)
+    # \)                 - Literal closing parenthesis
+    # $                  - End of the string
+    return re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)\((.*)\)$')
+
+
+def is_function_call(input_string: str) -> bool:
+    # Check if the input string matches the function call pattern
+    match = _func_call_regex().match(input_string)
+    return match is not None
+
+
+def parse_function_call(input_string: str) -> FunctionCall:
+    match = _func_call_regex().match(input_string)
+
+    if not match:
+        raise XeetException(f"Invalid function call format: {input_string}")
+    func_name = match.group(1)
+    args_string = match.group(2)
+
+    # Split arguments by comma and strip whitespace from each argument
+    # Handle the case where there are no arguments (args_string is empty)
+    if args_string:
+        args = [arg.strip() for arg in args_string.split(',')]
+    else:
+        args = []  # No arguments
+
+    return FunctionCall(func_name=func_name, args=args)
+
+#  def _xeet_func_files_of(args: list[str]) -> list[str]:
+#      if len(args) < 1 or len(args) > 2:
+#          raise XeetException(f"Invalid number of arguments for 'files_of': {args}")
+#      dir_path = args[0]
+#      if len(args) == 2:
+#          if not validate_str(args[1], regex=r"^[a-zA-Z0-9_]+$"):
+#              raise XeetException(f"Invalid file name pattern: {args[1]}")
+#          dir_path = os.path.join(dir_path, args[1])
+#      if not os.path.isdir(args[0]):
+#      path = args[0]
+#      if not os.path.isdir(path):
+#          raise XeetException(f"Invalid directory: {path}")
+#      return [os.path.join(path, f) for f in os.listdir(path)]
+
+
+def _xeet_func_shell(args: list[str]) -> str:
+    if len(args) != 1:
+        raise XeetException(f"Invalid number of arguments for 'shell': {args}")
+    cmd = args[0]
+    if not validate_str(cmd, strip=True, min_len=1):
+        raise XeetException(f"Invalid shell command: {cmd}")
+    try:
+        return os.popen(cmd).read()
+    except OSError as e:
+        raise XeetException(f"Error executing shell command '{cmd}': {e}")
+
+
+_XEET_FUNC = Callable[[list[str]], list[str]]
+_xeet_functions: dict[str, _XEET_FUNC] = {
+    "all": lambda args: list[str]: args,
+    "shell": _xeet_func_shell,
+}
+
+
+def xeet_eval(s: str) -> list[str] | str:
+    if not is_function_call(s):
+        return s
+    func_call = parse_function_call(s)
+    func_name = func_call.func_name
+    args = func_call.args
+    if func_name not in _xeet_functions:
+        raise XeetException(f"Unknown function '{func_name}'")
+    func = _xeet_functions[func_name]
+    return func(args)

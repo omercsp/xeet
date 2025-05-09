@@ -43,6 +43,20 @@ class XeetModel(BaseModel):
             t[_NAME] = name  # Remove leading/trailing spaces
             if not name:
                 continue
+
+            if name.startswith("$directories_of "):
+                directory_name = name[len("$directories_of "):]
+                if not directory_name or not os.path.isdir(directory_name):
+                    continue
+                # Find all directories in the given director"
+                directories = [d for d in os.listdir(directory_name) if
+                               os.path.isdir(os.path.join(directory_name, d))]
+                for d in directories:
+                    new_test = t.copy()
+                    new_test[_NAME] = f"{name}_{d}"
+                    self.tests.append(new_test)
+                continue
+
             if name in self.tests_dict:
                 raise ValueError(f"Duplicate test name '{name}'")
             self.tests_dict[name] = t
