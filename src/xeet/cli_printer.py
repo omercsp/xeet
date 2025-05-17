@@ -34,83 +34,102 @@ class CliPrinterVerbosity(str, Enum):
     Verbose = "verbose"
 
 
-class CliPrinterSummaryOpts(str, Enum):
-    Default = "default"
-    SummaryOnly = "summary_only"
-    NoSummary = "no_summary"
-
-
 class CliPrinterTestTimingOpts(str, Enum):
     NoTime = "none"
     Full = "full"
     RunTime = "run"
 
 
+class CliPrinterShowThreadCountOpts(str, Enum):
+    Always = "always"
+    Never = "never"
+    Default = "default"
+
+
+@dataclass
+class CliPrinterShowOpts:
+    xeet_header: bool = True
+    criteria: bool = False
+    pre_run_summary: bool = True
+    tests: bool = True
+    test_run_details: bool = True
+    jobs: int = 1
+    thread_count: CliPrinterShowThreadCountOpts = CliPrinterShowThreadCountOpts.Default
+    test_timing_opt: CliPrinterTestTimingOpts = CliPrinterTestTimingOpts.NoTime
+    ongoing: bool = True
+    summary: bool = True
+    iter_summary: bool = False
+    detailed_summary: bool = False
+
+    def set_verbose(self):
+        self.criteria = True
+        self.iter_summary = True
+        self.detailed_summary = True
+        self.thread_count = CliPrinterShowThreadCountOpts.Always
+        self.test_timing_opt = CliPrinterTestTimingOpts.Full
+
+    def set_concise(self):
+        self.xeet_header = False
+        self.pre_run_summary = False
+        self.test_run_details = False
+        self.thread_count = CliPrinterShowThreadCountOpts.Never
+        self.test_timing_opt = CliPrinterTestTimingOpts.NoTime
+
+    def set_quiet(self):
+        self.xeet_header = False
+        self.pre_run_summary = False
+        self.summary = False
+        self.tests = False
+        self.test_run_details = False
+        self.thread_count = CliPrinterShowThreadCountOpts.Never
+        self.ongoing = False
+
+    def __post_init__(self) -> None:
+        if self.thread_count != CliPrinterShowThreadCountOpts.Default:
+            return
+        if self.jobs == 1:
+            self.thread_count = CliPrinterShowThreadCountOpts.Never
+        else:
+            self.thread_count = CliPrinterShowThreadCountOpts.Always
+
+
 @dataclass
 class CliPrinter(LockableEventReporter):
     live: Live = None  # type: ignore
-    verbosity: CliPrinterVerbosity = CliPrinterVerbosity.Default
-    summary_opt: CliPrinterSummaryOpts = CliPrinterSummaryOpts.Default
-    test_timing_opt: CliPrinterTestTimingOpts = CliPrinterTestTimingOpts.NoTime
+    show_opts: CliPrinterShowOpts = field(default_factory=CliPrinterShowOpts)
 
     curr_tests: list[str] = field(default_factory=list)
 
-    @property
-    def concise(self) -> bool:
-        return self.verbosity == CliPrinterVerbosity.Concise
-
-    @property
-    def quiet(self) -> bool:
-        return self.verbosity == CliPrinterVerbosity.Quiet
-
-    @property
-    def verbose(self) -> bool:
-        return self.verbosity == CliPrinterVerbosity.Verbose
-
-    @property
-    def dflt_output(self) -> bool:
-        return self.verbosity == CliPrinterVerbosity.Default
-
     def _print_curr_tests(self) -> None:
+        if not self.show_opts.ongoing:
+            return
         if self.curr_tests:
             self.live.update(f"Running: {', '.join(self.curr_tests)}")
         else:
             self.live.update("")
 
     def on_run_start(self, **_) -> None:
-        def _null_pr(*_, **__) -> None:
-            ...
-
-        if self.quiet or self.summary_opt == CliPrinterSummaryOpts.SummaryOnly:
-            self.on_test_start = _null_pr
-            self.on_test_end = _null_pr
-            self.on_matrix_start = _null_pr
-
-        if self.quiet:
-            self.on_run_end = _null_pr
-            return
-
-        if self.concise or self.summary_opt == CliPrinterSummaryOpts.SummaryOnly:
-            return
-
-        title = colorize_str("Starting xeet run", XColors.Bold)
-        pr_info(f"\n{underline(title)}")
+        if self.show_opts.xeet_header:
+            title = colorize_str("Starting xeet run", XColors.Bold)
+            pr_info(f"\n{underline(title)}")
         run_res = self.run_res
         assert run_res is not None
-        if self.verbose:
+        if self.show_opts.criteria:
             pr_info(f"{run_res.criteria}\n")
+        if self.show_opts.pre_run_summary:
             pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
-        if self.verbose or self.threads > 1:
+        if self.show_opts.thread_count == CliPrinterShowThreadCountOpts.Always:
             pr_info(f"Using {self.threads} threads per iteration")
 
     @locked
     def on_test_start(self, test: Test) -> None:
-
         self.curr_tests.append(test.name)
         self._print_curr_tests()
 
     @locked
     def on_test_end(self, test_res: TestResult) -> None:
+        if not self.show_opts.tests:
+            return
         test = test_res.test
         msg = short_str(test.name, 40)
         msg = colorize_str(f"{msg:<45}", XColors.Bold)
@@ -122,14 +141,14 @@ class CliPrinter(LockableEventReporter):
 
         stts_str = colorize_str(status_text, _status_color(test_res.status.primary))
         msg += f"[{stts_str}]"
-        if self.test_timing_opt != CliPrinterTestTimingOpts.NoTime or self.verbose:
-            if self.test_timing_opt == CliPrinterTestTimingOpts.Full:
+        if self.show_opts.test_timing_opt != CliPrinterTestTimingOpts.NoTime:
+            if self.show_opts.test_timing_opt == CliPrinterTestTimingOpts.Full:
                 msg += f" ({test_res.duration_str}s)"
             else:
                 msg += f" ({test_res.main_res.duration_str})"
         if status_suffix:
             msg += f" {short_str(status_suffix, 30)}"
-        if not self.concise:
+        if self.show_opts.test_run_details:
             details = test_res.error_summary()
             if details:
                 #  Escape special characters (e.g. Saure brackets) so rich won't get confused
@@ -139,8 +158,9 @@ class CliPrinter(LockableEventReporter):
         pr_info(msg)
 
     def on_matrix_start(self) -> None:
-        pr_info()
-        if self.mtrx_count == 1 and self.iterations == 1:
+        if self.show_opts.tests:
+            pr_info()
+        if (self.mtrx_count == 1 and self.iterations == 1) or not self.show_opts.tests:
             return
 
         if self.mtrx_count == 1:
@@ -181,19 +201,16 @@ class CliPrinter(LockableEventReporter):
     def on_run_end(self) -> None:
         assert self.run_res is not None
         self.live.update("")
-        if self.summary_opt == CliPrinterSummaryOpts.NoSummary:
+        if not self.show_opts.summary:
             return
-        if self.summary_opt != CliPrinterSummaryOpts.SummaryOnly:
-            pr_info()
-            msg = "Summary"
-            msg += ":"
-            pr_info(underline(colorize_str(msg, color=XColors.Bold)))
 
-        single_result = self.iterations == 1 and self.mtrx_count == 1
-        if single_result:
+        single_iter = self.iterations == 1 and self.mtrx_count == 1
+        if single_iter:
+            pr_info()
+            pr_info(underline(colorize_str("Summary:", color=XColors.Bold)))
             mtrx_res = self.run_res.iter_results[0].mtrx_results[0]
             result = mtrx_res.status_results_summary
-            self._summarize_result_names(result, not self.concise, mtrx_res.duration)
+            self._summarize_result_names(result, self.show_opts.detailed_summary, mtrx_res.duration)
             return
 
         total_summary: StatusTestsDict = {}
@@ -210,17 +227,19 @@ class CliPrinter(LockableEventReporter):
                         total_summary[s] = list()
                     total_summary[s].extend(test_names)
 
-                if self.concise:
+                if not self.show_opts.iter_summary:
                     continue
                 header = self._iter_header(iter_i, mtrx_i)
                 header = underline(header, '-')
                 pr_info(header)
-                self._summarize_result_names(mtrx_res.status_results_summary, self.verbose,
-                                             mtrx_res.duration)
+                self._summarize_result_names(mtrx_res.status_results_summary,
+                                             self.show_opts.detailed_summary, mtrx_res.duration)
 
-        if not self.concise:
-            pr_info()
+        pr_info()
+        if self.show_opts.iter_summary:
             pr_info(underline(colorize_str("Accumulated summary:", color=XColors.Bold), '-'))
+        else:
+            pr_info(underline(colorize_str("Summary:", color=XColors.Bold), '-'))
         self._summarize_result_names(total_summary, False, self.run_res.duration)
 
 
