@@ -4,7 +4,8 @@ from xeet.log import init_logging, log_error, log_info
 from xeet.pr import *
 from xeet.core.api import SchemaType
 from xeet.core import TestsCriteria
-from xeet.cli_printer import CliPrinterSummaryOpts, CliPrinterTestTimingOpts
+from xeet.cli_printer import (CliPrinterTestTimingOpts, CliPrinterShowThreadCountOpts,
+                              CliPrinterShowOpts, CliSummaryTypeOpts)
 import xeet.cli as actions
 
 import os
@@ -65,6 +66,7 @@ def parse_arguments() -> argparse.Namespace:
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
     run_parser.add_argument('--randomize', action='store_true', default=False)
+
     output_type_grp = run_parser.add_mutually_exclusive_group()
     output_type_grp.add_argument('--concise', action='store_const',
                                  const=actions.RunVerbosity.Concise, help='concise output',
@@ -76,14 +78,30 @@ def parse_arguments() -> argparse.Namespace:
                                  const=actions.RunVerbosity.Quiet, help='quiet output',
                                  dest='run_verbosity')
     run_parser.set_defaults(verbosity=actions.RunVerbosity.Default)
-    summary_grp = run_parser.add_mutually_exclusive_group()
-    summary_grp.add_argument('--summary-only', action='store_const', dest='summary_opt',
-                             const=CliPrinterSummaryOpts.SummaryOnly, help='show summary only')
-    summary_grp.add_argument('--no-summary', action='store_const', dest='summary_opt',
-                             const=CliPrinterSummaryOpts.NoSummary, help='no summary')
-    run_parser.set_defaults(summary_opt=CliPrinterSummaryOpts.Default)
-    time_choices = [s.value for s in CliPrinterTestTimingOpts]
-    run_parser.add_argument('--test-timing', choices=time_choices,
+
+    run_parser.add_argument('--show-header', action=argparse.BooleanOptionalAction, default=True,
+                            help='show xeet header')
+    run_parser.add_argument('--show-criteria', action=argparse.BooleanOptionalAction, default=False,
+                            help='show criteria')
+    run_parser.add_argument('--show-pre-run-summary', action=argparse.BooleanOptionalAction,
+                            default=False, help='show pre-run summary')
+    run_parser.add_argument('--show-tests', action=argparse.BooleanOptionalAction, default=True,
+                            help='show tests')
+    run_parser.add_argument('--show-test-run-details', action=argparse.BooleanOptionalAction,
+                            default=True, help='show test run details if such exist')
+    run_parser.add_argument('--show-thread-count',
+                            choices=[s.value for s in CliPrinterShowThreadCountOpts],
+                            default=CliPrinterShowThreadCountOpts.Default,
+                            help='show thread count at the start of the run',
+                            dest='show_thread_count')
+    summary_choices = [s.value for s in CliSummaryTypeOpts]
+    run_parser.add_argument('--show-summary', choices=summary_choices, help='summary type',
+                            default=CliSummaryTypeOpts.Default.value)
+    run_parser.add_argument('--show-iter-summary', choices=summary_choices,
+                            help='summary type for each iteration',
+                            default=CliSummaryTypeOpts.NoSummary.value)
+
+    run_parser.add_argument('--test-timing', choices=[s.value for s in CliPrinterTestTimingOpts],
                             default=CliPrinterTestTimingOpts.NoTime.value, help='test timing')
 
     info_parser = subparsers.add_parser(_INFO_CMD, help='show test info',
@@ -148,6 +166,20 @@ def _tests_criteria(args: argparse.Namespace, check_hidden: bool) -> TestsCriter
         hidden_tests=args.all if check_hidden else False)
 
 
+def _show_setting(args: argparse.Namespace) -> CliPrinterShowOpts:
+    return CliPrinterShowOpts(
+        xeet_header=args.show_header,
+        criteria=args.show_criteria,
+        pre_run_summary=args.show_pre_run_summary,
+        summary=args.show_summary,
+        iter_summary=args.show_iter_summary,
+        tests=args.show_tests,
+        test_run_details=args.show_test_run_details,
+        thread_count=args.show_thread_count,
+        test_timing_opt=CliPrinterTestTimingOpts(args.test_timing)
+    )
+
+
 def xrun() -> int:
     args = parse_arguments()
     if args.no_colors:
@@ -169,8 +201,8 @@ def xrun() -> int:
         log_info(f"CWD is '{os.getcwd()}'")
         if cmd_name == _RUN_CMD:
             return actions.run_tests(args.conf, args.repeat, args.debug, args.randomize,
-                                     _tests_criteria(args, False), args.jobs, args.run_verbosity,
-                                     args.summary_opt, args.test_timing)
+                                     _tests_criteria(args, False), args.jobs,
+                                     _show_setting(args))
         if cmd_name == _LIST_CMD:
             actions.list_tests(args.conf, args.names_only, _tests_criteria(args, True))
         elif cmd_name == _GROUPS_CMD:

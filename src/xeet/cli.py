@@ -4,8 +4,7 @@ from xeet.core import TestsCriteria
 from xeet.core.result import EmptyRunResult
 from xeet.pr import stdout, pr_warn
 from xeet.log import log_verbose
-from .cli_printer import (CliPrinter, CliPrinterSummaryOpts, CliPrinterTestTimingOpts, DebugPrinter,
-                          CliPrinterVerbosity)
+from .cli_printer import CliPrinter, CliPrinterShowOpts, DebugPrinter, CliPrinterVerbosity
 import xeet.core.api as core
 from xeet.pr import DictPrintType, pr_obj, pr_info
 from xeet.common import XeetException, json_values, short_str, yes_no_str
@@ -111,15 +110,13 @@ RunVerbosity = CliPrinterVerbosity
 
 
 def run_tests(conf: str, repeat: int, debug: bool, randomize: bool, criteria: TestsCriteria,
-              threads: int, verbosity: RunVerbosity, summary_opt: CliPrinterSummaryOpts,
-              test_timing: CliPrinterTestTimingOpts) -> int:
+              threads: int, show_settings: CliPrinterShowOpts) -> int:
 
     with Live(console=stdout(), refresh_per_second=4, transient=False) as live:
         if debug:
             reporter = DebugPrinter()
         else:
-            reporter = CliPrinter(live=live, verbosity=verbosity, summary_opt=summary_opt,
-                                  test_timing_opt=test_timing)
+            reporter = CliPrinter(live=live, show_opts=show_settings)
         run_res = core.run_tests(conf, criteria, reporter, debug_mode=debug, iterations=repeat,
                                  randomize=randomize, threads=threads)
         if run_res is EmptyRunResult:
