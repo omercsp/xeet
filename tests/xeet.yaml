@@ -84,6 +84,31 @@ tests:
       - cmd: '{run_cmd} --jobs=4 --display=-summary --concise | sort'
         base: settings.base_test_step
         use_shell: true
+  - name: 020_matrix
+    variables:
+      mtrx_run_cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --display=+matrix_values'
+    run:
+      - cmd: '{mtrx_run_cmd}'
+        base: settings.base_test_step
+    groups: [matrix, sanity, run]
+  - name: 021_matrix_permutation_selection
+    base: 020_matrix
+    run:
+      - cmd: '{mtrx_run_cmd} --permutations=1'
+        base: settings.base_test_step
+    groups: [matrix, run]
+  - name: 022_matrix_permutation_selection_multiple
+    base: 020_matrix
+    run:
+      - cmd: '{mtrx_run_cmd} --permutations=2,5'
+        base: settings.base_test_step
+    groups: [matrix, run]
+  - name: 023_matrix_permutation_remove_selection
+    base: 020_matrix
+    run:
+      - cmd: '{mtrx_run_cmd} --no-permutations=1,2,3,6'
+        base: settings.base_test_step
+    groups: [matrix, run]
   - name: 200_list_tests
     groups: [sanity, list]
     short_desc: Test list command
