@@ -1,7 +1,7 @@
 from .test import Test, TestModel
 from . import RuntimeInfo, BaseXeetSettings, TestsCriteria
 from .resource import ResourceModel
-from .matrix import MatrixModel
+from .matrix import Matrix, MatrixModel
 from .event_logger import EventLogger
 from xeet.log import log_info, logging_enabled
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars, validate_token
@@ -12,6 +12,7 @@ from yaml.parser import ParserError as YamlParserError
 from yaml.constructor import ConstructorError
 from yaml.composer import ComposerError
 from yaml.scanner import ScannerError
+from copy import deepcopy
 import re
 import json
 import os
@@ -20,6 +21,8 @@ import os
 _NAME = "name"
 _GROUPS = "groups"
 _ABSTRACT = "abstract"
+_MATRIX = "matrix"
+_PRMTTN = "prmttn"
 
 
 class XeetModel(BaseModel):
@@ -37,17 +40,35 @@ class XeetModel(BaseModel):
 
     @model_validator(mode='after')
     def post_validate(self) -> "XeetModel":
-        for t in self.tests:
-            name = t.get(_NAME, "").strip()
-            t[_NAME] = name  # Remove leading/trailing spaces
-            if not name:
-                continue
+        revised_tests: list[dict] = []
+        for d in self.tests:
+            name = d.get(_NAME, "").strip()
+            d[_NAME] = name
             if name in self.tests_dict:
                 raise ValueError(f"Duplicate test name '{name}'")
-            self.tests_dict[name] = t
+            revised_tests.append(d)
+            self.tests_dict[name] = d
+            if not name:
+                continue
+            mtrx = d.get(_MATRIX)
+            if not mtrx:
+                continue  # Do nothing. Use original test.
+            mtrx = Matrix(mtrx)
+            prmmtns = mtrx.permutations()
+            for i, p in enumerate(prmmtns):
+                prmttn_name = f"{name}:{i}"
+                new_test = deepcopy(d)
+                new_test[_NAME] = prmttn_name
+                new_test[_PRMTTN] = p
+                new_test.pop(_MATRIX, None)  # Remove matrix from the test
+                revised_tests.append(new_test)
+                self.tests_dict[prmttn_name] = new_test
+        self.tests = revised_tests
+
         for s in self.settings.keys():
             if not validate_token(s):
                 raise ValueError(f"Invalid setting name '{s}'")
+
         return self
 
     def include(self, other: "XeetModel") -> None:
@@ -70,6 +91,7 @@ class XeetModel(BaseModel):
 
 
 _TEST_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]*$")
+_MTRX_PRMMTN_TEST_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_]+:[0-9]+$")
 
 
 class _XeetConf:
@@ -101,7 +123,10 @@ class _XeetConf:
         if not name:
             desc = {"name": "<Unknown>", "error": "Test has no name"}
             return TestModel(**desc)
-        if not _TEST_NAME_PATTERN.match(name):
+        if _MTRX_PRMMTN_TEST_NAME_PATTERN.match(name):
+            assert desc.get(_PRMTTN) is not None
+            assert desc.get(_MATRIX) is None
+        elif not _TEST_NAME_PATTERN.match(name):
             desc = {"name": name, "error": f"Invalid test name '{name}'"}
             return TestModel(**desc)
         try:
@@ -156,14 +181,24 @@ class _XeetConf:
     def _filter_test_desc(self, criteria: TestsCriteria, desc: dict) -> bool:
         if desc.get(_ABSTRACT, False) and not criteria.hidden_tests:
             return False
+        if desc.get(_MATRIX) and not criteria.matrix_tests:
+            return False
+        if desc.get(_PRMTTN) and not criteria.prmttn_tests:
+            return False
 
         name = desc.get(_NAME, "")
+        prmttn_name = ""
         included = not criteria.names and not criteria.fuzzy_names and not criteria.include_groups
         if not included and name:
-            if criteria.names and name in criteria.names:
-                included = True
-            elif criteria.fuzzy_names and any(fuzzy in name for fuzzy in criteria.fuzzy_names):
-                included = True
+            if _MTRX_PRMMTN_TEST_NAME_PATTERN.match(name):
+                prmttn_name = name
+                name = name.split(':')[0]  # Strip permutation index for filtering
+
+            if criteria.names:
+                included = name in criteria.names or \
+                    (prmttn_name and prmttn_name in criteria.names)
+            elif criteria.fuzzy_names:
+                included = any(fuzzy in name for fuzzy in criteria.fuzzy_names)
 
         groups = set(desc.get(_GROUPS, []))
         if not included and criteria.include_groups and \
@@ -174,6 +209,9 @@ class _XeetConf:
             return False
 
         if criteria.exclude_names and name in criteria.exclude_names:
+            return False
+
+        if prmttn_name and prmttn_name in criteria.exclude_names:
             return False
 
         if criteria.fuzzy_exclude_names and \
