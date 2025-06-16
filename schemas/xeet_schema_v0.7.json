@@ -165,6 +165,14 @@
                         "title": "Var Map",
                         "type": "object"
                     },
+                    "matrix": {
+                        "additionalProperties": {
+                            "items": {},
+                            "type": "array"
+                        },
+                        "title": "Matrix",
+                        "type": "object"
+                    },
                     "platforms": {
                         "items": {
                             "type": "string"

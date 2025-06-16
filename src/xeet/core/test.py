@@ -6,6 +6,7 @@ from .step import Step, StepModel, XeetStepInitException
 from xeet.common import (XeetException, XeetVars, pydantic_errmsg, KeysBaseModel, XeetToken,
                          XeetVarsModel)
 from xeet.steps import get_xstep_class
+from xeet.core.matrix import Matrix, MatrixModel
 from typing import Any, Callable
 from pydantic import Field, ValidationError, ConfigDict, AliasChoices, model_validator
 from enum import Enum
@@ -55,6 +56,7 @@ class TestModel(KeysBaseModel):
     skip_reason: str = _EMPTY_STR
     var_map: XeetVarsModel = Field(default_factory=XeetVarsModel,
                                    validation_alias=AliasChoices("var_map", "variables", "vars"))
+    matrix: MatrixModel = Field(default_factory=dict)
 
     platforms: list[str] = Field(default_factory=list)
 
@@ -63,12 +65,14 @@ class TestModel(KeysBaseModel):
 
     # Inheritance behavior
     inherit_variables: bool = True
+    inherit_matrix: bool = True
     pre_run_inheritance: StepsInheritType = StepsInheritType.Replace
     run_inheritance: StepsInheritType = StepsInheritType.Replace
     post_run_inheritance: StepsInheritType = StepsInheritType.Replace
 
     # Internals
     error: str = Field(_EMPTY_STR, exclude=True)
+    prmttn: XeetVarsModel = Field(default_factory=XeetVarsModel, exclude=True)
     __test__ = False
 
     @model_validator(mode='after')
@@ -80,11 +84,33 @@ class TestModel(KeysBaseModel):
         for var in user_vars:
             if is_system_var_name(var):
                 raise ValueError(f"Invalid user variable name '{var}'.")
+
+        intersection = set(user_vars).intersection(set(self.matrix.keys()))
+        if intersection:
+            raise ValueError(f"User variables {intersection} are also used in matrix. "
+                             "This is not allowed, as it may lead to unexpected results.")
+
+        groups = []
+        for g in self.groups:
+            g = g.strip()
+            if not g:
+                continue
+            groups.append(g)
+        self.groups = groups
         return self
 
     def inherit(self, other: "TestModel") -> None:
         if self.inherit_variables:
             self.var_map = XeetVarsModel(**{**other.var_map, **self.var_map})
+        if self.inherit_matrix:
+            self.matrix = {**other.matrix, **self.matrix}
+        if self.inherit_matrix or self.inherit_variables:
+            intersection = set(self.var_map.keys()).intersection(set(self.matrix.keys()))
+            if intersection:
+                self.error = (f"after inherting {other.name}, the following tokens are used for"
+                              "both variables and matrix: {intersection}. This is not allowed, as"
+                              "it may lead to unexpected results.")
+                return
 
         def _inherit_steps(steps_key: str, inherit_method: str) -> list:
             self_steps = getattr(self, steps_key)
@@ -115,6 +141,20 @@ class TestModel(KeysBaseModel):
         if not self.has_key("resources") and other.has_key("resources"):
             self.resources = other.resources
 
+    def matrix_permutations(self) -> list["TestModel"]:
+        models = []
+        if not self.matrix:
+            return models
+        matrix = Matrix(self.matrix)
+        for i, prmttn in enumerate(matrix.permutations()):
+            desc = self.model_dump()
+            desc["name"] = f"{self.name}:{i}"
+            desc["matrix"] = dict()
+            test = TestModel(**desc)
+            test.prmttn = prmttn
+            models.append(test)
+        return models
+
 
 @dataclass
 class Phase:
@@ -143,6 +183,7 @@ class Test:
         self.post_phase = Phase(name="post", test=self, short_name="pst", stop_on_err=False)
         self.index = index
         self.obtained_resources: list[Resource] = []
+        self.prmmtn_tests: list[Test] = list()
 
         self.base = self.model.base
         self.error = _EMPTY_STR
@@ -153,13 +194,15 @@ class Test:
             return
 
         try:
-            self.xvars = XeetVars(model.var_map, rti.xvars)
+            variables = {**model.var_map, **model.prmttn}
+            self.xvars = XeetVars(variables, rti.xvars)
         except XeetException as e:
             self.error = str(e)
             return
         self.xvars.set_vars({system_var_name("TEST_NAME"): self.name})
         self.output_dir = _EMPTY_STR
         self.stop_requested = False
+        self.prmttn_values: dict[str, Any] = dict()
 
     def _init_phase_steps(self, phase: Phase, steps: list[dict]) -> None:
         for index, step_desc in enumerate(steps):
@@ -269,6 +312,8 @@ class Test:
     def run(self) -> TestResult:
         if self.model.abstract:
             raise XeetException("Can't run abstract tasks")
+        if self.model.matrix:
+            raise XeetException("Can't run tests with matrix")
 
         self.setup()
         res = TestResult(test=self)
