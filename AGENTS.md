@@ -86,10 +86,10 @@ Two syntaxes, resolved through a scoped parent chain (`RuntimeInfo.xvars`
 
 System variables (prefix `XEET_`; user variables using this prefix are
 rejected at validation time): `XEET_CWD`, `XEET_ROOT`, `XEET_OUT_DIR`,
-`XEET_EXPECTED_DIR`, `XEET_TEST_NAME`, `XEET_TEST_OUT_DIR`,
-`XEET_STEP_OUT_DIR`, `XEET_STEP_INDEX`, `XEET_ITERATIONS`, `XEET_DEBUG`,
-`XEET_PLATFORM`, `XEET_MATRIX_INDEX`, `XEET_MATRIX_COUNT`,
-`XEET_MATRIX_PERMUTATION`.
+`XEET_EXPECTED_DIR`, `XEET_TEST_NAME`, `XEET_TEST_BASE_NAME`,
+`XEET_TEST_OUT_DIR`, `XEET_STEP_OUT_DIR`, `XEET_STEP_INDEX`,
+`XEET_ITERATIONS`, `XEET_DEBUG`, `XEET_PLATFORM`, `XEET_MATRIX_INDEX`,
+`XEET_MATRIX_COUNT`, `XEET_MATRIX_PERMUTATION`.
 
 ## Extension points
 
@@ -119,10 +119,9 @@ This `devel` branch is a ground-up **rehaul** — its root commit
 (`xeet: initial commit (rehaul)`) starts the architecture described above
 from scratch, with no shared history with `master` (`git merge-base` finds
 no common ancestor). The `master` branch contains features not
-yet fully ported to this architecture: test-level matrix overrides and
-test randomization.
+yet fully ported to this architecture: test randomization.
 See `TODO.txt` for the running list of what's still missing on `devel`
-(matrix, test randomization, etc.) — treat it as the feature backlog.
+(test randomization, etc.) — treat it as the feature backlog.
 
 ## Testing
 

@@ -2,6 +2,7 @@ from xeet.core.test import Test
 from xeet.core.step import Step
 from xeet.core import TestsCriteria
 from xeet.core.driver import XeetSettings
+from xeet.core.matrix import Matrix
 from xeet.pr import stdout
 from xeet.log import log_verbose
 from xeet.reporters import (ConsolePrinter, ConsoleDebugPrinter, ConsoleReporterVerbosity,
@@ -65,6 +66,14 @@ def _show_test(test: Test, full_details: bool) -> None:
         print_val("Abstract", yes_no_str(test.model.abstract))
     if test.model.groups:
         print_val("Groups", ", ".join(test.model.groups))
+    if test.model.matrix:
+        print("Matrix:")
+        for k, v in test.model.matrix.items():
+            print_val(f" - {k}", v)
+    if test.model.prmttn:
+        print("Matrix Premutation:")
+        for k, v in test.model.prmttn.items():
+            print_val(f" - {k}", v)
 
     print_step_list("Pre-run steps", test.pre_phase.steps)
     print_step_list("Run steps", test.main_phase.steps)
@@ -89,6 +98,12 @@ def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details
             driver.rti.set_matrix_prmttn(global_prmttn_idx, global_prmttns[global_prmttn_idx])
     elif permutation >= 0:
         raise XeetException("Configuration has no global matrix")
+
+    for t in tests:
+        if t.model.matrix and not t.model.prmttn:
+            matrix = Matrix(t.model.matrix)
+            if matrix.prmttns_count:
+                t.set_matrix_prmttn(0, matrix.permutations_list()[0], matrix.prmttns_count)
 
     if setup:
         for t in tests:

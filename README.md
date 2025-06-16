@@ -159,6 +159,7 @@ A list of test descriptors.
 | `long_desc` | `string` | Detailed multi-line description (displayed in `info`). |
 | `groups` | `list[string]` | Categorical tags used for filtering (`-g`, `-G`, `-X`). |
 | `variables` | `dict` | Test-scoped variables overriding global variables. |
+| `matrix` | `dict` | Test-scoped parameter matrix generating permutation variants. |
 | `platforms` | `list[string]` | List of supported platforms (`posix`, `nt`). If set, test only runs on matching OS. |
 | `resources` | `list[resource_req]` | Shared resources required by this test before execution. |
 | `pre_run` | `list[step]` | Setup steps executed before the main phase. |
@@ -167,6 +168,7 @@ A list of test descriptors.
 | `skip` | `boolean` | If `true`, marks the test to be skipped. |
 | `skip_reason` | `string` | Reason displayed when skipped. |
 | `expected_failure` | `boolean` | Inverts result (passes if execution fails, fails if it passes). |
+| `inherit_matrix` | `boolean` | `true` | If `false`, do not inherit matrix from base test. |
 | `pre_run_inheritance` | `prepend \| append \| replace` | How inherited `pre_run` steps are combined (default: `replace`). |
 | `run_inheritance` | `prepend \| append \| replace` | How inherited `run` steps are combined (default: `replace`). |
 | `post_run_inheritance` | `prepend \| append \| replace` | How inherited `post_run` steps are combined (default: `replace`). |
@@ -233,6 +235,7 @@ Matrix variables are available in test scopes like regular variables (`{browser}
 A test can inherit from another test by specifying `base: <parent_test_name>`.
 
 - **Variables**: Inherited by default (`inherit_variables: true`). A child test's `variables` override the parent's.
+- **Matrix**: Inherited by default (`inherit_matrix: true`). A child test's `matrix` merges with the parent's, with child entries overriding parent entries.
 - **Platforms**: Inherited as a whole list if unset on the child. A child test can override its base's platforms list, or explicitly set `platforms: []` to clear an inherited restriction.
 - **Resources**: Inherited as a whole list if unset on the child. A child test can override its base's resource requirements, or explicitly set `resources: []` to clear an inherited restriction.
 - **Phase Steps (`pre_run`, `run`, `post_run`)**: Combined according to the phase inheritance policy:
@@ -461,6 +464,29 @@ xeet run -p 0,1,2
 
 # Exclude permutation 3
 xeet run -P 3
+```
+
+### Test-Level Matrix
+
+Individual tests can also define their own `matrix`. When a test defines a matrix, it becomes an abstract template, and `xeet` automatically generates permutation variants using `:` notation (e.g. `my_test:0`, `my_test:1`):
+
+```yaml
+tests:
+  - name: db_stress_test
+    matrix:
+      connections: [10, 50, 100]
+    run:
+      - cmd: "stress_tool --conns {connections}"
+```
+
+Specific permutations can be queried or executed directly:
+
+```bash
+# Inspect a specific permutation
+xeet info -t db_stress_test:0
+
+# Run a specific permutation directly
+xeet run -t db_stress_test:0
 ```
 
 ---
