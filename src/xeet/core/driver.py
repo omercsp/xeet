@@ -180,15 +180,36 @@ class _XeetDriver:
         self.stop_event: Event = None  # type: ignore
         self.runners: list[_TestRunner] = []
 
-        for index, d in enumerate(self.conf.descs()):
+        index = 0
+        for d in self.conf.descs():
             model = self._test_model(d)
             test = Test(model, self.rti, index)
-            self.tests.append(test)
-            self.test_by_name[test.name] = test
-            for group in model.groups:
-                if group not in self.test_by_group:
-                    self.test_by_group[group] = list()
-                self.test_by_group[group].append(test)
+            self._add_test(test)
+            index += 1
+            if not model.matrix or test.error:
+                continue
+            matrix = Matrix(model.matrix)
+            if not matrix.prmttns_count:
+                self.rti.notifier.on_run_message(
+                    f"Test '{model.name}' has no permutations, skipping")
+                continue
+            for prmttn_index, prmttn in enumerate(matrix.permutations()):
+                test_prmmtn_model = model.model_copy(deep=True)
+                test_prmmtn_model.name = f"{model.name}:{prmttn_index}"
+                test_prmmtn_model.prmttn = prmttn
+                test_prmmtn_model.matrix = {}
+                prmttn_test = Test(test_prmmtn_model, self.rti, index)
+                test.prmmtn_tests.append(prmttn_test)
+                self._add_test(prmttn_test)
+                index += 1
+
+    def _add_test(self, test: Test) -> None:
+        self.tests.append(test)
+        self.test_by_name[test.name] = test
+        for group in test.model.groups:
+            if group not in self.test_by_group:
+                self.test_by_group[group] = list()
+            self.test_by_group[group].append(test)
 
     @cached_property
     def all_named(self) -> list[str]:
@@ -216,6 +237,17 @@ class _XeetDriver:
         self.rti.notifier.on_run_end()
         return run_res
 
+    #  Retuns a tuple of (is apremutaion, parent test, permutation index)
+    def _prmttn_info(self, name: str) -> tuple[bool, str, int]:
+        parts = name.split(":")
+        if len(parts) != 2:
+            return False, name, -1
+        try:
+            prmttn_index = int(parts[1])
+        except ValueError:
+            return False, name, -1
+        return True, parts[0], prmttn_index
+
     def fetch_tests(self, criteria: TestsCriteria, setup: bool = False,
                     init_phases: bool = False) -> list[Test]:
         tests: dict[str, Test] = dict()  # Use dict to avoid duplicates. Dict also preserves order.
@@ -223,7 +255,15 @@ class _XeetDriver:
             tests = {test.name: test for test in self.tests}
         else:
             for name in criteria.names:
-                if name in self.test_by_name:
+                prmmt_name, prmttn_base, prmttn_index = self._prmttn_info(name)
+                if prmmt_name:
+                    if prmttn_base not in self.test_by_name:
+                        continue
+                    mtrix_test = self.test_by_name[prmttn_base]
+                    if not mtrix_test.prmmtn_tests or prmttn_index > len(mtrix_test.prmmtn_tests):
+                        continue
+                    tests[name] = mtrix_test.prmmtn_tests[prmttn_index]
+                elif name in self.test_by_name:
                     tests[name] = self.test_by_name[name]
             for fuzzy in criteria.fuzzy_names:
                 for test in self.tests:
@@ -231,6 +271,13 @@ class _XeetDriver:
                         tests[test.name] = test
         for group in criteria.include_groups:
             tests.update({test.name: test for test in self.test_by_group.get(group, [])})
+
+        if criteria.implicit_prmttn_tests:
+            mtrx_tests = [test for test in tests.values()
+                          if test.model.matrix and not test.model.abstract]
+            for mtrx_test in mtrx_tests:
+                for prmttn_test in mtrx_test.prmmtn_tests:
+                    tests[prmttn_test.name] = tests.get(prmttn_test.name, prmttn_test)
 
         #  Handle exclusions
         for name in criteria.exclude_names:
@@ -254,8 +301,11 @@ class _XeetDriver:
             for name, test in tests.items():
                 if test.model.abstract:
                     remove.add(name)
-            for name in remove:
-                tests.pop(name, None)
+
+        if not criteria.matrix_tests:
+            for name, test in tests.items():
+                if test.model.matrix:
+                    remove.add(name)
 
         for name in remove:
             tests.pop(name, None)
