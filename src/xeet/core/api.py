@@ -50,4 +50,6 @@ def fetch_schema(schema_type: str) -> dict:
 
 def run_tests(settings: XeetSettings, run_settings: XeetRunSettings) -> RunResult:
     run_settings.criteria.abstract_tests = False
+    run_settings.criteria.implicit_prmttn_tests = True
+    run_settings.criteria.matrix_tests = False
     return xeet_driver(settings).run(run_settings)
