@@ -1,5 +1,5 @@
 from .resource import ResourceModel
-from .matrix import MatrixModel
+from .matrix import MatrixModel, Matrix
 from xeet.log import log_info
 from xeet.common import XeetException, NonEmptyStr, pydantic_errmsg, XeetVars, XeetToken
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -9,11 +9,14 @@ from yaml.parser import ParserError as YamlParserError
 from yaml.constructor import ConstructorError
 from yaml.composer import ComposerError
 from yaml.scanner import ScannerError
+from copy import deepcopy
 import json
 import os
 
 
 _NAME = "name"
+_MATRIX = "matrix"
+_PRMTTN = "prmttn"
 
 
 class XeetConfModel(BaseModel):

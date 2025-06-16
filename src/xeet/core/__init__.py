@@ -31,6 +31,9 @@ class TestsCriteria:
     prmttn_idxs_inc: set[int] = field(default_factory=set)
     prmttn_idxs_exc: set[int] = field(default_factory=set)
     valid_only: bool = False
+    #  Setting for tests with matrix
+    matrix_tests: bool = False  # If True, include tests with matrix (unrunabble)
+    prmttn_tests: bool = True  # If True, include matrix permutations tests (runnable)
     __test__ = False
 
     def __str__(self) -> str:

@@ -185,15 +185,33 @@ class _XeetDriver:
         self.stop_event: Event = None  # type: ignore
         self.runners: list[_TestRunner] = []
 
-        for index, d in enumerate(self.conf.descs()):
+        index = 0
+        for d in self.conf.descs():
             model = self._test_model(d)
-            test = Test(model, self.rti, index)
-            self.tests.append(test)
-            self.test_by_name[test.name] = test
-            for group in model.groups:
-                if group not in self.test_by_group:
-                    self.test_by_group[group] = list()
-                self.test_by_group[group].append(test)
+            if not model.matrix:
+                self._add_test(Test(model, self.rti, index))
+                index += 1
+                continue
+            matrix = Matrix(model.matrix)
+            if not matrix.prmttns_count:
+                self.rti.notifier.on_run_message(
+                    f"Test '{model.name}' has no permutations, skipping")
+                continue
+            for prmttn_index, prmttn in enumerate(matrix.permutations()):
+                test_prmmtn_model = model.model_copy(deep=True)
+                test_prmmtn_model.name = f"{model.name}:{prmttn_index}"
+                test_prmmtn_model.prmttn = prmttn
+                test_prmmtn_model.matrix = {}
+                self._add_test(Test(test_prmmtn_model, self.rti, index))
+                index += 1
+
+    def _add_test(self, test: Test) -> None:
+        self.tests.append(test)
+        self.test_by_name[test.name] = test
+        for group in test.model.groups:
+            if group not in self.test_by_group:
+                self.test_by_group[group] = list()
+            self.test_by_group[group].append(test)
 
     @cached_property
     def all_named(self) -> list[str]:
