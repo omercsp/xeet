@@ -109,6 +109,9 @@ class TestsCriteria:
     hidden_tests: bool = False
     matrix_prmtn_include: set[int] = field(default_factory=set)
     matrix_prmtn_exclude: set[int] = field(default_factory=set)
+    #  Setting for tests with matrix
+    matrix_tests: bool = False  # If True, include tests with matrix (unrunabble)
+    prmttn_tests: bool = True  # If True, include matrix permutations tests (runnable)
     __test__ = False
 
     def __str__(self) -> str:

@@ -55,6 +55,14 @@ def _show_test(test: Test, full_details: bool, setup: bool) -> None:
         return
     if test.model.groups:
         print_val("Groups", ", ".join(test.model.groups))
+    if test.model.matrix:
+        print("Matrix:")
+        for k, v in test.model.matrix.items():
+            print_val(f" - {k}", v)
+    if test.model.prmttn:
+        print("Matrix Premutation:")
+        for k, v in test.model.prmttn.items():
+            print_val(f" - {k}", v)
 
     print_step_list("Pre-run steps", test.pre_phase.steps)
     print_step_list("Run steps", test.main_phase.steps)

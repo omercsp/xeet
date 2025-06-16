@@ -129,17 +129,24 @@ def parse_arguments() -> argparse.Namespace:
     run_parser.add_argument('-O', '--output-dir', metavar='DIR', default=None,
                             help='output directory for test results')
 
+    mtrx_args_parser = argparse.ArgumentParser(add_help=False)
+    mtrx_args_parser.add_argument('--no-matrix-tests', action='store_true', default=False,
+                                  help="do not include matrix tests")
+    mtrx_args_parser.add_argument('--show-permutations-tests', action='store_true', default=False,
+                                  help="include matrix permutations tests")
     info_parser = subparsers.add_parser(_INFO_CMD, help='show test info',
-                                        parents=[common_parser, test_filter_parser])
+                                        parents=[common_parser, test_filter_parser,
+                                                 mtrx_args_parser])
     info_parser.add_argument('-x', '--expand', action='store_true',
                              default=False, help='expand values')
     info_parser.add_argument('-f', '--full',  action='store_true', default=False,
                              help='full details')
 
     list_parser = subparsers.add_parser(_LIST_CMD, help='list tests',
-                                        parents=[common_parser, test_filter_parser])
+                                        parents=[common_parser, test_filter_parser,
+                                                 mtrx_args_parser])
     list_parser.add_argument('-a', '--all', action='store_true', default=False,
-                             help='show hidden tests')
+                             help='show hidden and matrix tests')
     list_parser.add_argument('--names-only', action='store_true', default=False,
                              help=argparse.SUPPRESS)
 
@@ -180,7 +187,8 @@ def parse_arguments() -> argparse.Namespace:
     return args
 
 
-def _tests_criteria(args: argparse.Namespace, hidden: bool) -> TestsCriteria:
+def _tests_criteria(args: argparse.Namespace, hidden: bool, mtrx: bool, prmttn: bool
+                    ) -> TestsCriteria:
     return TestsCriteria(
         names=set(args.test),
         exclude_names=set(args.exclude_test),
@@ -189,7 +197,9 @@ def _tests_criteria(args: argparse.Namespace, hidden: bool) -> TestsCriteria:
         include_groups=set(args.group),
         require_groups=set(args.require_group),
         exclude_groups=set(args.exclude_group),
-        hidden_tests=hidden)
+        hidden_tests=hidden,
+        matrix_tests=mtrx,
+        prmttn_tests=prmttn)
 
 
 def _display_settings(args: argparse.Namespace) -> ConsoleDisplayOpts:
@@ -206,7 +216,7 @@ def _display_settings(args: argparse.Namespace) -> ConsoleDisplayOpts:
 
 def _run_settings(args: argparse.Namespace) -> actions.XeetRunSettings:
     #  We never run abastract and mtrix tests in run mode. We always run permutations
-    criteria = _tests_criteria(args, hidden=False)
+    criteria = _tests_criteria(args, hidden=False, mtrx=False, prmttn=True)
     criteria.matrix_prmtn_include = set(args.matrix_include)
     criteria.matrix_prmtn_exclude = set(args.matrix_exclude)
     return actions.XeetRunSettings(
@@ -241,11 +251,15 @@ def xrun() -> int:
         if cmd_name == _RUN_CMD:
             return actions.run_tests(_run_settings(args), _display_settings(args))
         if cmd_name == _LIST_CMD:
-            actions.list_tests(args.conf, args.names_only, _tests_criteria(args, args.all))
+            criteria = _tests_criteria(args, args.all, not args.no_matrix_tests,
+                                       args.show_permutations_tests)
+            actions.list_tests(args.conf, args.names_only, criteria)
         elif cmd_name == _GROUPS_CMD:
             actions.list_groups(args.conf)
         elif cmd_name == _INFO_CMD:
-            actions.show_test_info(args.conf, _tests_criteria(args, True), args.expand, args.full)
+            criteria = _tests_criteria(args, args.all, not args.no_matrix_tests,
+                                       args.show_permutations_tests)
+            actions.show_test_info(args.conf, criteria, args.expand, args.full)
         else:
             raise XeetException(f"Unknown command '{cmd_name}'")
         return 0

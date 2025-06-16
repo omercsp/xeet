@@ -186,6 +186,7 @@ class XeetRunner:
         self.run_res = RunResult(iterations=settings.iterations, criteria=settings.criteria,
                                  matrix_count=self.matrix.prmttns_count)
         self.tests = self.xeet.get_tests(settings.criteria)
+
         self.pool = _TestsPool(self.tests, settings.jobs, settings.randomize)
         self.threads = settings.jobs
         self.runners: list[_TestRunner] = []
