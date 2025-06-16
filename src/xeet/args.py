@@ -209,8 +209,15 @@ def parse_arguments() -> Args:
     run_parser.add_argument('-O', '--output-dir', metavar='DIR', default=None,
                             help='output directory for test results')
 
+    mtrx_args_parser = argparse.ArgumentParser(add_help=False)
+    mtrx_args_parser.add_argument('--no-matrix-tests', action='store_true', default=False,
+                                  help="do not include matrix tests")
+    mtrx_args_parser.add_argument('--show-permutations-tests', action='store_true', default=False,
+                                  help="include matrix permutations tests")
+
     info_parser = subparsers.add_parser(XeetCliCmds.Info, help='show test info',
-                                        parents=[common_parser, test_filter_parser])
+                                        parents=[common_parser, test_filter_parser,
+                                                 mtrx_args_parser])
     info_parser.add_argument('-x', '--expand', action='store_true', default=False,
                              help='expand values')
     info_parser.add_argument('-f', '--full',  action='store_true', default=False,
@@ -220,9 +227,10 @@ def parse_arguments() -> Args:
                              help='matrix permutation to show info of (default to 0)')
 
     list_parser = subparsers.add_parser(XeetCliCmds.ListTests, help='list tests',
-                                        parents=[common_parser, test_filter_parser])
+                                        parents=[common_parser, test_filter_parser,
+                                                 mtrx_args_parser])
     list_parser.add_argument('-a', '--all', action='store_true', default=False,
-                             help='show hidden tests')
+                             help='show hidden tests and matrix tests')
     list_parser.add_argument('--names-only', action='store_true', default=False,
                              help=argparse.SUPPRESS)
 

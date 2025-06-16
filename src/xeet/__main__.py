@@ -8,7 +8,8 @@ import xeet.cli as actions
 import os
 
 
-def _tests_criteria(args: Args, hidden: bool) -> TestsCriteria:
+def _tests_criteria(args: Args, hidden: bool, mtrx: bool, prmttn: bool
+                    ) -> TestsCriteria:
     return TestsCriteria(
         names=args.tests,
         exclude_names=set(args.exclude_tests),
@@ -17,7 +18,9 @@ def _tests_criteria(args: Args, hidden: bool) -> TestsCriteria:
         include_groups=args.groups,
         require_groups=set(args.require_groups),
         exclude_groups=set(args.exclude_groups),
-        abstract_tests=hidden)
+        abstract_tests=hidden,
+        matrix_tests=mtrx,
+        implicit_prmttn_tests=prmttn)
 
 
 def _display_settings(args: Args) -> BaseConsoleReporterOpts:
@@ -41,7 +44,7 @@ def _display_settings(args: Args) -> BaseConsoleReporterOpts:
 
 def _run_settings(args: Args) -> actions.XeetRunSettings:
     #  We never run abastract and mtrix tests in run mode. We always run permutations
-    criteria = _tests_criteria(args, hidden=False)
+    criteria = _tests_criteria(args, hidden=False, mtrx=False, prmttn=True)
     criteria.prmttn_idxs_inc = args.permutations
     criteria.prmttn_idxs_exc = args.no_permutations
     return actions.XeetRunSettings(
@@ -74,11 +77,16 @@ def xrun() -> int:
         if cmd_name == XeetCliCmds.Run:
             return actions.run_tests(args.conf, _run_settings(args), _display_settings(args))
         if cmd_name == XeetCliCmds.ListTests:
-            actions.list_tests(args.conf, args.names_only, _tests_criteria(args, args.all))
+            criteria = _tests_criteria(args, args.all, not args.no_matrix_tests,
+                                       args.show_permutations_tests)
+            actions.list_tests(args.conf, args.names_only, criteria)
+
         elif cmd_name == XeetCliCmds.ListGroups:
             actions.list_groups(args.conf)
         elif cmd_name == XeetCliCmds.Info:
-            actions.show_test_info(args.conf, _tests_criteria(args, True), args.expand, args.full,
+            criteria = _tests_criteria(args, args.all, not args.no_matrix_tests,
+                                       args.show_permutations_tests)
+            actions.show_test_info(args.conf, criteria, args.expand, args.full,
                                    args.permutation)
         else:
             raise XeetException(f"Unknown command '{cmd_name}'")

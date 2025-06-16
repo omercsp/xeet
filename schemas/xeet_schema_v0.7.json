@@ -119,6 +119,14 @@
                     "title": "Var Map",
                     "type": "object"
                 },
+                "matrix": {
+                    "additionalProperties": {
+                        "items": {},
+                        "type": "array"
+                    },
+                    "title": "Matrix",
+                    "type": "object"
+                },
                 "platforms": {
                     "items": {
                         "$ref": "#/$defs/Platform"
@@ -136,6 +144,11 @@
                 "inherit_variables": {
                     "default": true,
                     "title": "Inherit Variables",
+                    "type": "boolean"
+                },
+                "inherit_matrix": {
+                    "default": true,
+                    "title": "Inherit Matrix",
                     "type": "boolean"
                 },
                 "pre_run_inheritance": {
