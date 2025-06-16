@@ -183,9 +183,8 @@ StatusTestsDict = dict[TestStatus, list[str]]
 class IterationResult(MeasuredResult):
     def __init__(self, iter_n: int) -> None:
         self.iter_n = iter_n
-        #  self.status_results_summary = {s: [] for s in TestStatus}
-        self.status_results_summary: StatusTestsDict = {}
-        self.results = {}
+        self.status_results_summary: StatusTestsDict = dict()
+        self.results: dict[str, TestResult] = dict()
 
         self.not_run_tests: bool = False
         self.failed_tests: bool = False
