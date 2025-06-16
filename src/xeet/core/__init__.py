@@ -31,6 +31,8 @@ class TestsCriteria:
     exclude_groups: set[str] = field(default_factory=set)
     prmttn_idxs_inc: set[int] = field(default_factory=set)
     prmttn_idxs_exc: set[int] = field(default_factory=set)
+    matrix_tests: bool = True  # If True, include tests with matrix (unrunabble)
+    implicit_prmttn_tests: bool = True  # If True, implicitly include permutations tests (runabble)
     abstract_tests: bool = False
     __test__ = False
 
