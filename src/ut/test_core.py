@@ -2,6 +2,7 @@ from ut import *
 from ut.ut_dummy_defs import *
 from ut.ut_exec_defs import gen_exec_step_desc, gen_sleep_cmd
 from xeet import XeetException
+from xeet.cli import show_test_info
 from xeet.core.result import (StepResult, TestResult, PhaseResult, TestStatus, TestPrimaryStatus,
                               TestSecondaryStatus)
 from xeet.core.test import StepsInheritType, TestModel
@@ -252,8 +253,10 @@ def test_autovars(xut: XeetUnittest):
     step_desc0 = gen_dummy_step_desc(dummy_val0="{XEET_ROOT} {XEET_CWD} {XEET_OUT_DIR}")
     step_desc1 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_NAME} {XEET_TEST_OUT_DIR}")
     step_desc2 = gen_dummy_step_desc(dummy_val0="{XEET_PLATFORM}")
+    step_desc3 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_BASE_NAME}")
 
-    xut.add_test(TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True)
+    xut.add_test(TEST0, run=[step_desc0, step_desc1, step_desc2, step_desc3], reset=True,
+                 save=True)
 
     cwd = platform_path(os.getcwd())
     expected_step_result0 = gen_dummy_step_result(step_desc0)
@@ -262,9 +265,11 @@ def test_autovars(xut: XeetUnittest):
     expected_step_result1.dummy_val0 = f"{TEST0} {out_dir}/{TEST0}"
     expected_step_result2 = gen_dummy_step_result(step_desc2)
     expected_step_result2.dummy_val0 = os.name
+    expected_step_result3 = gen_dummy_step_result(step_desc3)
+    expected_step_result3.dummy_val0 = TEST0
     expected = gen_test_result(status=PASSED_TEST_STTS,
                                main_results=[expected_step_result0, expected_step_result1,
-                                             expected_step_result2])
+                                             expected_step_result2, expected_step_result3])
     xut.run_compare_test(TEST0, expected)
 
 
@@ -497,3 +502,25 @@ def test_thread_support(xut: XeetUnittest):
     for res in results:
         assert res.status.primary == TestPrimaryStatus.Passed
         assert res.duration >= 1
+
+
+def test_matrix_info_expansion(xut: XeetUnittest):
+    xut.add_test(TEST0, matrix={"param": ["val0", "val1"]},
+                 run=[{"cmd": "echo {param}", "type": "exec"}], save=True, reset=True)
+    crit = TestsCriteria(names=[TEST0], implicit_prmttn_tests=False)
+
+    # Without colon syntax, Test.setup() binds permutation 0
+    test = xut.driver().test_by_name[TEST0]
+    test.build_steps()
+    assert test.model.prmttn == {}
+    test.setup(setup_steps=True)
+    assert test.model.prmttn == {"param": "val0"}
+    assert getattr(test.main_phase.steps[0], "cmd") == "echo val0"
+
+    xut.save()
+    # Without colon syntax, show_test_info uses permutation 0
+    show_test_info(xut.file_path, crit, setup=True, full_details=False, permutation=-1)
+
+    # With colon syntax, specified permutation is used
+    crit_prmttn = TestsCriteria(names=[f"{TEST0}:1"])
+    show_test_info(xut.file_path, crit_prmttn, setup=True, full_details=False, permutation=-1)

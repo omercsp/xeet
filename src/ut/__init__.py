@@ -180,8 +180,12 @@ class XeetUnittest(ConfigTestWrapper):
         test.setup(setup_steps=True)
         return gen_test_result(test, **kwargs)
 
-    def update_test_res_test(self, test_res: TestResult, test_name: str) -> None:
-        test = self.get_test(test_name)
+    def update_test_res_test(self, test_res: TestResult, arg: Test | str) -> None:
+        if isinstance(arg, str):
+            test = self.get_test(arg)
+        else:
+            test = arg
+        assert isinstance(test, Test)
         test_res.test = test
         _update_phase_result(test_res.pre_run_res, test_res.pre_run_res.steps_results,
                              test.pre_phase)
