@@ -252,8 +252,10 @@ def test_autovars(xut: XeetUnittest):
     step_desc0 = gen_dummy_step_desc(dummy_val0="{XEET_ROOT} {XEET_CWD} {XEET_OUT_DIR}")
     step_desc1 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_NAME} {XEET_TEST_OUT_DIR}")
     step_desc2 = gen_dummy_step_desc(dummy_val0="{XEET_PLATFORM}")
+    step_desc3 = gen_dummy_step_desc(dummy_val0="{XEET_TEST_BASE_NAME}")
 
-    xut.add_test(TEST0, run=[step_desc0, step_desc1, step_desc2], reset=True, save=True)
+    xut.add_test(TEST0, run=[step_desc0, step_desc1, step_desc2, step_desc3], reset=True,
+                 save=True)
 
     cwd = platform_path(os.getcwd())
     expected_step_result0 = gen_dummy_step_result(step_desc0)
@@ -262,9 +264,11 @@ def test_autovars(xut: XeetUnittest):
     expected_step_result1.dummy_val0 = f"{TEST0} {out_dir}/{TEST0}"
     expected_step_result2 = gen_dummy_step_result(step_desc2)
     expected_step_result2.dummy_val0 = os.name
+    expected_step_result3 = gen_dummy_step_result(step_desc3)
+    expected_step_result3.dummy_val0 = TEST0
     expected = gen_test_result(status=PASSED_TEST_STTS,
                                main_results=[expected_step_result0, expected_step_result1,
-                                             expected_step_result2])
+                                             expected_step_result2, expected_step_result3])
     xut.run_compare_test(TEST0, expected)
 
 
