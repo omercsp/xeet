@@ -401,7 +401,7 @@ def test_thread_support(xut: XeetUnittest):
         assert res.duration >= 1
 
 
-def test_matrix_support(xut: XeetUnittest):
+def test_global_matrix_support(xut: XeetUnittest):
     values = ["a", "b", "c"]
     xut.add_matrix("m0", values, reset=True)
     step_desc = gen_dummy_step_desc(dummy_val0="{m0}")
@@ -432,7 +432,7 @@ def test_matrix_support(xut: XeetUnittest):
     assert len(run_result.iter_results[0].mtrx_results) == 9
 
 
-def test_matrix_var_conflict(xut: XeetUnittest):
+def test_global_matrix_var_conflict(xut: XeetUnittest):
     values = ["a", "b", "c"]
     xut.add_var("m0", "var", reset=True)
     xut.add_matrix("m0", values)
@@ -440,3 +440,42 @@ def test_matrix_var_conflict(xut: XeetUnittest):
     xut.add_test(TEST0, run=[step_desc], save=True)
     with pytest.raises(XeetException):
         xut.run_tests()
+
+
+def test_test_matrix_support(xut: XeetUnittest):
+    step_desc = gen_dummy_step_desc(dummy_val0="{m0}")
+    values = [0, 1, 2]
+    xut.add_test(TEST0, run=[step_desc], matrix={"m0": values}, save=True)
+
+    run_result = xut.run_tests()
+    assert len(run_result.iter_results) == 1
+    mtrx_results = run_result.iter_results[0].mtrx_results
+    assert len(mtrx_results) == 1
+
+    test_results = mtrx_results[0].results
+    assert len(test_results) == len(values)
+
+    expected_step = gen_dummy_step_result(step_desc)
+    expected = gen_test_result(status=PASSED_TEST_STTS, main_results=[expected_step])
+    for i in values:
+        name = f"{TEST0}:{i}"
+        expected_step.dummy_val0 = str(i)
+        test_res = test_results.get(name)
+        assert test_res is not None
+        test = test_res.test
+        xut.update_test_res_test(expected, test)
+        assert_test_results_equal(test_res, expected)
+
+
+def test_test_matrix_support_direct(xut: XeetUnittest):
+    step_desc = gen_dummy_step_desc(dummy_val0="{m0}")
+    values = [4, 5, 6]
+    xut.add_test(TEST0, run=[step_desc], matrix={"m0": values}, save=True)
+
+    name = f"{TEST0}:1"
+    test_res = xut.run_test(name)
+    expected_step = gen_dummy_step_result(step_desc)
+    expected = gen_test_result(test=xut.get_test(name), status=PASSED_TEST_STTS,
+                               main_results=[expected_step])
+    expected_step.dummy_val0 = str(values[1])
+    assert_test_results_equal(test_res, expected)
