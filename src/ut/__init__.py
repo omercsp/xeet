@@ -1,7 +1,6 @@
 from xeet.pr import mute_prints, pr_obj, DictPrintType
 from xeet.common import XeetVars, _REF_PREFIX
-from xeet.core import BaseXeetSettings
-from xeet.core.criteria import TestsCriteria
+from xeet.core import BaseXeetSettings, TestsCriteria
 from xeet.core.api import run_tests, XeetRunSettings
 from xeet.core.xeet_conf import _XeetConf, xeet_conf, clear_conf_cache
 from xeet.core.test import Test, Phase

@@ -6,7 +6,7 @@ from xeet.core.result import (StepResult, TestResult, PhaseResult, TestStatus, T
 from xeet.core.test import Test
 from xeet.steps.dummy_step import DummyStepModel
 from xeet.core.api import fetch_tests_list
-from xeet.core.xeet_conf import TestsCriteria
+from xeet.core import TestsCriteria
 from xeet.common import platform_path
 import os
 

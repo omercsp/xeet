@@ -1,10 +1,11 @@
 from ut import *
 from ut.ut_dummy_defs import *
+from xeet.core import TestsCriteria
 from xeet.core.step import Step
 from xeet.core.result import PhaseResult, StepResult, TestResult
 from xeet.core.test import Test, Phase
 from xeet.core.api import run_tests, XeetRunSettings
-from xeet.core.xeet_conf import TestsCriteria, clear_conf_cache
+from xeet.core.xeet_conf import clear_conf_cache
 from xeet.core.events import EventReporter
 from dataclasses import dataclass, field
 import inspect
