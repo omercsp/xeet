@@ -8,9 +8,17 @@ tests:
     run:
       - cmd: "{echo_cmd} {m0} {m1.y}"
         expected_stdout: "{m0} {m1.y}\n"
+    groups: [global_matrix_only]
   - name: mtrx_test1
     variables:
       t_var: $ref://m1.x
     run:
       - cmd: "{echo_cmd} {t_var}"
         expected_stdout: "{t_var}\n"
+    groups: [global_matrix_only]
+  - name: mtrx_test2
+    matrix:
+      m2: [10, 20, 30]
+    run:
+      - cmd: "{echo_cmd} {m0} {m2}"
+        expected_stdout: "{m0} {m2}\n"
