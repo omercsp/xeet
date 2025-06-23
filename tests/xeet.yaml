@@ -74,10 +74,14 @@ tests:
       - cmd: '{run_cmd} --jobs=4 --display=-summary --concise | sort'
         base: settings.base_test_step
         use_shell: true
-  - name: 020_matrix_sanity
+  - name: 020_matrix
     run:
       - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --display=+matrix_values'
         base: settings.base_test_step
+  # - name: 021_matrix_sanity
+  #   run:
+  #     - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --show=matrix_values -g global_matrix_only'
+  #       base: settings.base_test_step
   - name: 200_list_tests
     short_desc: Test list command
     run:
