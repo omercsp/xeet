@@ -1,7 +1,7 @@
 
 Starting xeet run
 =================
-Running tests: mtrx_test0, mtrx_test1
+Running tests: mtrx_test0, mtrx_test1, mtrx_test2:0, mtrx_test2:2
 
 Matrix values:
   m0: 1, 2, 3
@@ -11,9 +11,11 @@ Matrix permutation #1
 (m0=1, m1={'x': 3, 'y': 4})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Summary:
 ========
-Passed: 2
+Passed: 4
 Duration: X.XXXs
 

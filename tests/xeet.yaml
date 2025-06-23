@@ -94,13 +94,13 @@ tests:
   - name: 021_matrix_permutation_selection
     base: 020_matrix
     run:
-      - cmd: '{mtrx_run_cmd} --permutations=1'
+      - cmd: '{mtrx_run_cmd} --permutations=1 -T mtrx_test2:1'
         base: settings.base_test_step
     groups: [matrix, run]
   - name: 022_matrix_permutation_selection_multiple
     base: 020_matrix
     run:
-      - cmd: '{mtrx_run_cmd} --permutations=2,5'
+      - cmd: '{mtrx_run_cmd} --permutations=2,5 -t mtrx_test1,mtrx_test2:1,mtrx_test2:2'
         base: settings.base_test_step
     groups: [matrix, run]
   - name: 023_matrix_permutation_remove_selection

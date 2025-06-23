@@ -1,7 +1,7 @@
 
 Starting xeet run
 =================
-Running tests: mtrx_test0, mtrx_test1
+Running tests: mtrx_test0, mtrx_test1, mtrx_test2:0, mtrx_test2:1, mtrx_test2:2
 
 Matrix values:
   m0: 1, 2, 3
@@ -11,49 +11,76 @@ Matrix permutation #0
 (m0=1, m1={'x': 1, 'y': 2})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #1
 (m0=1, m1={'x': 3, 'y': 4})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #2
 (m0=1, m1={'x': 5, 'y': 6})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #3
 (m0=2, m1={'x': 1, 'y': 2})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #4
 (m0=2, m1={'x': 3, 'y': 4})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #5
 (m0=2, m1={'x': 5, 'y': 6})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #6
 (m0=3, m1={'x': 1, 'y': 2})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #7
 (m0=3, m1={'x': 3, 'y': 4})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Matrix permutation #8
 (m0=3, m1={'x': 5, 'y': 6})
 mtrx_test0                                   [Passed]
 mtrx_test1                                   [Passed]
+mtrx_test2:0                                 [Passed]
+mtrx_test2:1                                 [Passed]
+mtrx_test2:2                                 [Passed]
 
 Summary:
 ========
-Passed: 18
+Passed: 45
 Duration: X.XXXs
 
