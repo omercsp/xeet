@@ -25,18 +25,40 @@ _DUMP_CONFIG_CMD = "config"
 _DISPLAY_COMPONENTS = ConsoleDisplayOpts.components()
 
 
-def _validated_display_component_list(s: str) -> list[str]:
-    # Split the string by comma and strip whitespace from each token
-    tokens = [token.strip() for token in s.split(',')]
+def _display_type_checker(value: str) -> tuple[list[str], list[str]]:
+    value = value.strip()
+    if not value:
+        raise argparse.ArgumentTypeError("display argument cannot be empty.")
 
-    # Filter out empty strings that might result from "val1,,val2" or trailing commas
-    illegal_tokens = [token for token in tokens if token not in _DISPLAY_COMPONENTS]
-    if illegal_tokens:
-        raise argparse.ArgumentTypeError(
-            f"Invalid tokens found: {', '.join(illegal_tokens)}. "
-            f"Allowed tokens are: {', '.join(ConsoleDisplayOpts.components())}"
-        )
-    return tokens
+    tokens = value.split(',')
+    added = []
+    removed = []
+
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+
+        if not token.startswith(('+', '-')):
+            raise argparse.ArgumentTypeError(
+                f"argument component '{token}' is missing a '+' or '-' prefix. "
+                "Allowed formats are: +word, -word.")
+
+        operator = token[0]
+        word = token[1:]
+
+        # 3. Check if the word is in the allowed list
+        if word not in _DISPLAY_COMPONENTS:
+            raise argparse.ArgumentTypeError(
+                f"word '{word}' is not a valid choice. "
+                f"Allowed words are: {', '.join(_DISPLAY_COMPONENTS)}"
+            )
+
+        if operator == '+':
+            added.append(word)
+        else:
+            removed.append(word)
+    return added, removed
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -91,11 +113,9 @@ def parse_arguments() -> argparse.Namespace:
                                  dest='run_verbosity')
     run_parser.set_defaults(run_verbosity=actions.RunVerbosity.Default)
 
-    output_fields = ", ".join(_DISPLAY_COMPONENTS)
-    run_parser.add_argument('--show', metavar='FIELDS', type=_validated_display_component_list,
-                            default=[], help=f'show fields (available: {output_fields})')
-    run_parser.add_argument('--hide', metavar='FIELDS', type=_validated_display_component_list,
-                            default=[], help=f'hide fields (available: {output_fields})')
+    display_fields = ", ".join(_DISPLAY_COMPONENTS)
+    run_parser.add_argument('--display', metavar='FIELDS', type=_display_type_checker,
+                            default=([], []), help=f'display fields (available: {display_fields})')
     run_parser.add_argument('--test-timing-type',
                             choices=[s.value for s in ConsolePrinterTestTimingOpts],
                             default=None, help='test timing verbosity')
@@ -163,12 +183,7 @@ def _display_settings(args: argparse.Namespace) -> ConsoleDisplayOpts:
         opts.set_verbose()
     elif args.run_verbosity == actions.RunVerbosity.Quiet:
         opts.set_quiet()
-    if args.show:
-        opts.set(args.show, True)
-    if args.hide:
-        opts.set(args.hide, False)
-    if args.test_timing_type is not None:
-        opts.test_timing_type = ConsolePrinterTestTimingOpts(args.test_timing_type)
+    opts.set(args.display[0], args.display[1])
     return opts
 
 

@@ -84,10 +84,13 @@ class ConsoleDisplayOpts:
         return set(k for k in cls.__dataclass_fields__.keys() if not k.startswith("_") and k !=
                    "test_timing_type")
 
-    def set(self, comp_list: set[str], value: bool) -> None:
-        for c in comp_list:
+    def set(self, show: list[str], hide: list[str]) -> None:
+        for c in show:
             if c in self.components():
-                setattr(self, c, value)
+                setattr(self, c, True)
+        for c in hide:
+            if c in self.components():
+                setattr(self, c, False)
 
 
 @dataclass
