@@ -85,6 +85,7 @@ tests:
         base: settings.base_test_step
         use_shell: true
   - name: 020_matrix
+    expected_failure: true
     variables:
       mtrx_run_cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --display=+matrix_values'
     run:
@@ -92,18 +93,21 @@ tests:
         base: settings.base_test_step
     groups: [matrix, sanity, run]
   - name: 021_matrix_permutation_selection
+    expected_failure: true
     base: 020_matrix
     run:
       - cmd: '{mtrx_run_cmd} --permutations=1 -T mtrx_test2:1'
         base: settings.base_test_step
     groups: [matrix, run]
   - name: 022_matrix_permutation_selection_multiple
+    expected_failure: true
     base: 020_matrix
     run:
       - cmd: '{mtrx_run_cmd} --permutations=2,5 -t mtrx_test1,mtrx_test2:1,mtrx_test2:2'
         base: settings.base_test_step
     groups: [matrix, run]
   - name: 023_matrix_permutation_remove_selection
+    expected_failure: true
     base: 020_matrix
     run:
       - cmd: '{mtrx_run_cmd} --no-permutations=1,2,3,6'

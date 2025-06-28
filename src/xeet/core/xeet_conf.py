@@ -41,30 +41,31 @@ class XeetModel(BaseModel):
 
     @model_validator(mode='after')
     def post_validate(self) -> "XeetModel":
-        revised_tests: list[dict] = []
-        for d in self.tests:
-            name = d.get(_NAME, "").strip()
-            d[_NAME] = name
+        #  revised_tests: list[dict] = []
+        for t in self.tests:
+            name = t.get(_NAME, "").strip()
+            t[_NAME] = name
             if name in self.tests_dict:
                 raise ValueError(f"Duplicate test name '{name}'")
-            revised_tests.append(d)
-            self.tests_dict[name] = d
-            if not name:
-                continue
-            mtrx = d.get(_MATRIX)
-            if not mtrx:
-                continue  # Do nothing. Use original test.
-            mtrx = Matrix(mtrx)
-            prmmtns = mtrx.permutations()
-            for i, p in enumerate(prmmtns):
-                prmttn_name = f"{name}:{i}"
-                new_test = deepcopy(d)
-                new_test[_NAME] = prmttn_name
-                new_test[_PRMTTN] = p
-                new_test.pop(_MATRIX, None)  # Remove matrix from the test
-                revised_tests.append(new_test)
-                self.tests_dict[prmttn_name] = new_test
-        self.tests = revised_tests
+            self.tests_dict[name] = t
+        #      revised_tests.append(d)
+        #      self.tests_dict[name] = d
+        #      if not name:
+        #          continue
+        #      mtrx = d.get(_MATRIX)
+        #      if not mtrx:
+        #          continue  # Do nothing. Use original test.
+        #      mtrx = Matrix(mtrx)
+        #      prmmtns = mtrx.permutations()
+        #      for i, p in enumerate(prmmtns):
+        #          prmttn_name = f"{name}:{i}"
+        #          new_test = deepcopy(d)
+        #          new_test[_NAME] = prmttn_name
+        #          new_test[_PRMTTN] = p
+        #          new_test.pop(_MATRIX, None)  # Remove matrix from the test
+        #          revised_tests.append(new_test)
+        #          self.tests_dict[prmttn_name] = new_test
+        #  self.tests = revised_tests
 
         for s in self.settings.keys():
             if not validate_token(s):
@@ -100,6 +101,7 @@ class _XeetConf:
         self.model = model
         self.rti = rti
         self.rti.xvars.set_vars(model.variables)
+        self.test_prmmtn_desc_dict: dict[str, dict] = {}
         self.tests_cache: dict[str, Test] = {}
 
         #  Check if any of the matrix names conflict with the existing variables
