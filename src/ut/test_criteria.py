@@ -1,6 +1,8 @@
 from ut import *
 from ut.ut_dummy_defs import *
+from xeet.core.api import fetch_tests
 from xeet.core import TestsCriteria
+from xeet.core.matrix import Matrix
 
 
 def assert_dummy_descs_equal(res: dict, expected: dict) -> None:
@@ -115,11 +117,11 @@ def test_get_hidden_tests():
     xut.add_test(TEST1, abstract=True)
     xut.add_test(TEST2, save=True)
 
-    crit = TestsCriteria(hidden_tests=True)
+    crit = TestsCriteria(abstract_tests=True)
     tests = xut.driver().fetch_tests(criteria=crit)
     assert set([t.name for t in tests]) == {TEST0, TEST1, TEST2}
 
-    crit.hidden_tests = False
+    crit.abstract_tests = False
     tests = xut.driver().fetch_tests(criteria=crit)
     assert set([t.name for t in tests]) == set([TEST0, TEST2])
 
@@ -173,6 +175,65 @@ def test_misc_test_filtering(xut: XeetUnittest):
     tests = xut.driver().fetch_tests(
         TestsCriteria(require_groups={GROUP0, GROUP1}, exclude_names={TEST3}))
     assert len(tests) == 0
+
+
+def test_matrix_filtering(xut: XeetUnittest):
+    m0_dict = {"param1": [1, 2], "param2": [3, 4]}
+    m1_dict = {"param1": [1, 2, 3] }
+    xut.add_test(TEST0, matrix=m0_dict)
+    xut.add_test(TEST1, matrix=m1_dict)
+    xut.add_test(TEST2, save=True)
+
+    mtrx0 = Matrix(m0_dict)
+    mtrx1 = Matrix(m1_dict)
+
+    assert mtrx0.prmttns_count == 4
+    assert mtrx1.prmttns_count == 3
+
+    test0_prmmtn_names = { f"{TEST0}:{i}" for i in range(mtrx0.prmttns_count)}
+    test1_prmmtn_names = { f"{TEST1}:{i}" for i in range(mtrx1.prmttns_count)}
+
+    #  Default criteria should return both matrix tests and permutations
+    crit = TestsCriteria()
+    tests = xut.driver().fetch_tests(criteria=crit)
+
+    assert {t.name for t in tests} == {TEST0, TEST1, TEST2} | test0_prmmtn_names \
+        | test1_prmmtn_names
+
+    crit.matrix_tests = False
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == {TEST2} | test0_prmmtn_names | test1_prmmtn_names
+
+    crit.implicit_prmttn_tests = False
+    tests = xut.driver().fetch_tests(criteria=crit)
+    tests = fetch_tests(xut.file_path, criteria=crit)
+    assert {t.name for t in tests} == {TEST2}
+
+    crit.implicit_prmttn_tests = True
+    crit.names = [TEST0]
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == test0_prmmtn_names
+
+    crit.names = [f"{TEST0}:1"]
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == {f"{TEST0}:1"}
+
+    crit.names.append(TEST1)
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == {f"{TEST0}:1"} | test1_prmmtn_names
+
+    crit.fuzzy_exclude_names = {"t1"}
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == {f"{TEST0}:1"}
+
+    crit.fuzzy_exclude_names.clear()
+    crit.fuzzy_names = ["t1"]
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == {f"{TEST0}:1"} | test1_prmmtn_names
+
+    crit.exclude_names = {f"{TEST1}:1"}
+    tests = xut.driver().fetch_tests(criteria=crit)
+    assert {t.name for t in tests} == {f"{TEST0}:1"} | test1_prmmtn_names - {f"{TEST1}:1"}
 
 
 def test_get_groups(xut: XeetUnittest):

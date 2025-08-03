@@ -1,7 +1,7 @@
 from xeet.pr import mute_prints, pr_obj, DictPrintType
 from xeet.common import XeetVars, _REF_PREFIX
 from xeet.core import XeetSettings, TestsCriteria
-from xeet.core.api import XeetRunSettings
+from xeet.core.api import XeetRunSettings, run_tests
 from xeet.core.matrix import MatrixModel
 from xeet.core.conf import _XeetConf
 from xeet.core.test import Test, Phase
@@ -156,8 +156,9 @@ class XeetUnittest(ConfigTestWrapper):
 
     def run_tests(self, iteraions: int = 1, threads: int = 1, **kwargs) -> RunResult:
         criteria = TestsCriteria(**kwargs)
+        xeet_settings = XeetSettings(file_path=self.file_path)
         run_sttings = XeetRunSettings(criteria, iteraions, jobs=threads)
-        return self.driver().run(run_sttings)
+        return run_tests(xeet_settings, run_sttings)
 
     def run_test(self, name: str, **kwargs) -> TestResult:
         run_result = self.run_tests(names={name}, **kwargs)
@@ -179,7 +180,7 @@ class XeetUnittest(ConfigTestWrapper):
 
     def update_test_res_test(self, test_res: TestResult, arg: Test | str) -> None:
         if isinstance(arg, str):
-            test = self.get_test(arg)
+            test = self.get_test(arg, init_phases=True)
         else:
             test = arg
         assert isinstance(test, Test)

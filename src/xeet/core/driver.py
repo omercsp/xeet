@@ -188,9 +188,10 @@ class _XeetDriver:
         index = 0
         for d in self.conf.descs():
             model = self._test_model(d)
+            test = Test(model, self.rti, index)
+            self._add_test(test)
+            index += 1
             if not model.matrix:
-                self._add_test(Test(model, self.rti, index))
-                index += 1
                 continue
             matrix = Matrix(model.matrix)
             if not matrix.prmttns_count:
@@ -202,7 +203,8 @@ class _XeetDriver:
                 test_prmmtn_model.name = f"{model.name}:{prmttn_index}"
                 test_prmmtn_model.prmttn = prmttn
                 test_prmmtn_model.matrix = {}
-                self._add_test(Test(test_prmmtn_model, self.rti, index))
+                prmttn_test = Test(test_prmmtn_model, self.rti, index)
+                test.prmmtn_tests.append(prmttn_test)
                 index += 1
 
     def _add_test(self, test: Test) -> None:
@@ -239,21 +241,49 @@ class _XeetDriver:
         self.rti.notifier.on_run_end()
         return run_res
 
+    #  Retuns a tuple of (is apremutaion, parent test, permutation index)
+    def _prmttn_info(self, name: str) -> tuple[bool, str, int]:
+        parts = name.split(":")
+        if len(parts) != 2:
+            return False, name, -1
+        try:
+            prmttn_index = int(parts[1])
+        except ValueError:
+            return False, name, -1
+        return True, parts[0], prmttn_index
+
     def fetch_tests(self, criteria: TestsCriteria, setup: bool = False,
                     init_phases: bool = False) -> list[Test]:
+
         tests: dict[str, Test] = dict()  # Use dict to avoid duplicates. Dict also preserves order.
         if not criteria.names and not criteria.fuzzy_names and not criteria.include_groups:
             tests = {test.name: test for test in self.tests}
         else:
             for name in criteria.names:
-                if name in self.test_by_name:
+                prmmt_name, prmttn_base, prmttn_index = self._prmttn_info(name)
+                if prmmt_name:
+                    if not prmttn_base in self.test_by_name:
+                        continue
+                    mtrix_test = self.test_by_name[prmttn_base]
+                    if not mtrix_test.prmmtn_tests or prmttn_index > len(mtrix_test.prmmtn_tests):
+                        continue
+                    tests[name] = mtrix_test.prmmtn_tests[prmttn_index]
+                elif name in self.test_by_name:
                     tests[name] = self.test_by_name[name]
             for fuzzy in criteria.fuzzy_names:
                 for test in self.tests:
                     if fuzzy in test.name:
                         tests[test.name] = test
+
         for group in criteria.include_groups:
             tests.update({test.name: test for test in self.test_by_group.get(group, [])})
+
+        if criteria.implicit_prmttn_tests:
+            mtrx_tests = [test for test in tests.values()
+                          if test.model.matrix and not test.model.abstract]
+            for mtrx_test in mtrx_tests:
+                for prmttn_test in mtrx_test.prmmtn_tests:
+                    tests[prmttn_test.name] = tests.get(prmttn_test.name, prmttn_test)
 
         #  Handle exclusions
         for name in criteria.exclude_names:
@@ -268,22 +298,28 @@ class _XeetDriver:
             for test in self.test_by_group.get(group, []):
                 tests.pop(test.name, None)
 
-        remove = set()
+        remove: set[str] = set()
         for group in criteria.require_groups:
             for name, test in tests.items():
                 if group not in test.model.groups:
                     remove.add(name)
-        if not criteria.hidden_tests:
+
+        if not criteria.abstract_tests:
             for name, test in tests.items():
                 if test.model.abstract:
                     remove.add(name)
-            for name in remove:
-                tests.pop(name, None)
+
+        if not criteria.matrix_tests:
+            for name, test in tests.items():
+                if test.model.matrix:
+                    remove.add(name)
 
         for name in remove:
             tests.pop(name, None)
+
         ret = [test for test in tests.values()]
         ret.sort(key=lambda t: t.index)
+
         if setup:
             for test in ret:
                 test.setup()

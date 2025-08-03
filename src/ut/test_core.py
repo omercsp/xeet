@@ -537,12 +537,10 @@ def test_test_matrix_inheritance(xut: XeetUnittest):
     xut.add_test(TEST0, run=[step_desc], matrix={"m0": values})
     xut.add_test(TEST1, base=TEST0, save=True)
 
-    #  name = f"{TEST1}"
-    #  print(xut.get_test(name).)
-    test_res = xut.run_tests()
-    print(f"Test result: {test_res}")
-    #  expected_step = gen_dummy_step_result(step_desc)
-    #  expected = gen_test_result(test=xut.get_test(name), status=PASSED_TEST_STTS,
-    #                             main_results=[expected_step])
-    #  expected_step.dummy_val0 = str(values[1])
-    #  assert_test_results_equal(test_res, expected)
+    name = f"{TEST1}"
+    test_res = xut.run_tests().iter_results[0].mtrx_results[0].results[name]
+    expected_step = gen_dummy_step_result(step_desc)
+    expected = gen_test_result(test=xut.get_test(name), status=PASSED_TEST_STTS,
+                               main_results=[expected_step])
+    expected_step.dummy_val0 = str(values[1])
+    assert_test_results_equal(test_res, expected)

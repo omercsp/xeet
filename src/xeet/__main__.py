@@ -227,9 +227,9 @@ def _tests_criteria(args: argparse.Namespace, hidden: bool, mtrx: bool, prmttn: 
         include_groups=args.group,
         require_groups=set(args.require_group),
         exclude_groups=set(args.exclude_group),
-        hidden_tests=hidden,
+        abstract_tests=hidden,
         matrix_tests=mtrx,
-        prmttn_tests=prmttn)
+        implicit_prmttn_tests=prmttn)
 
 
 def _display_settings(args: argparse.Namespace) -> ConsoleDisplayOpts:

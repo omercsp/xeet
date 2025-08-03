@@ -192,7 +192,8 @@ class Test:
         self.xvars.set_vars({system_var_name("TEST_NAME"): self.name})
         self.output_dir = _EMPTY_STR
         self.stop_requested = False
-        self.prmttn: dict[str, Any] = dict()
+        self.prmttn_values: dict[str, Any] = dict()
+        self.prmmtn_tests: list[Test] = list()
 
     def _init_phase_steps(self, phase: Phase, steps: list[dict]) -> None:
         for index, step_desc in enumerate(steps):

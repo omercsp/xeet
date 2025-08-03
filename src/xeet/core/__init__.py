@@ -27,45 +27,52 @@ class TestsCriteria:
     include_groups: list[str] = field(default_factory=list)
     require_groups: set[str] = field(default_factory=set)
     exclude_groups: set[str] = field(default_factory=set)
-    hidden_tests: bool = False
     prmttn_idxs_inc: set[int] = field(default_factory=set)
     prmttn_idxs_exc: set[int] = field(default_factory=set)
-    valid_only: bool = False
-    #  Setting for tests with matrix
-    matrix_tests: bool = False  # If True, include tests with matrix (unrunabble)
-    prmttn_tests: bool = True  # If True, include matrix permutations tests (runnable)
+
+    abstract_tests: bool = False # If True, include abstract tests (unrunabble)
+    matrix_tests: bool = True  # If True, include tests with matrix (unrunabble)
+    implicit_prmttn_tests: bool = True  # If True, implicitly include permutations tests (runabble)
     __test__ = False
 
     def __str__(self) -> str:
-        lines = []
-        if self.names:
-            lines.append(f"Explicity included tests - " + ", ".join(self.names))
-        if self.include_groups:
-            lines.append(f"Included groups - " + ", ".join(self.include_groups))
-        if self.fuzzy_names:
-            lines.append(f"Fuzzy included tests - " + ", ".join(self.fuzzy_names))
-        if self.exclude_names:
-            lines.append(f"Explicity excluded tests - " + ", ".join(sorted(self.exclude_names)))
-        if self.fuzzy_exclude_names:
-            lines.append(f"Fuzzy excluded tests - " + ", ".join(sorted(self.fuzzy_exclude_names)))
-        if self.exclude_groups:
-            lines.append(f"Excluded groups - " + ", ".join(sorted(self.exclude_groups)))
-        if self.require_groups:
-            lines.append(f"Required groups - " + ", ".join(sorted(self.require_groups)))
-        if not lines:
-            ret = "Test criteria: All tests"
-            if self.hidden_tests:
-                ret += " (hidden included)"
-            return ret
-        lines.insert(0, "Test criteria:")
-        if self.hidden_tests:
-            lines.append("Hidden tests are included")
-        if self.prmttn_idxs_inc:
-            p_indexes = ", ".join(map(str, sorted(self.prmttn_idxs_exc)))
-            lines.append(f"Permutations indexes included: {p_indexes}")
-        if self.prmttn_idxs_exc:
-            p_indexes = ", ".join(map(str, sorted(self.prmttn_idxs_exc)))
-            lines.append(f"Permutations indexes excluded: {p_indexes}")
+        lines = ["Test criteria:"]
+        filter_str = ", ".join(sorted(self.names) if self.names else ["<none>"])
+        lines.append(f"Explicity included tests - {filter_str}")
+
+        filter_str = ", ".join(sorted(self.exclude_names)) if self.exclude_names else "<none>"
+        lines.append(f"Included groups - {filter_str}")
+
+        filter_str = ", ".join(sorted(self.fuzzy_names)) if self.fuzzy_names else "<none>"
+        lines.append(f"Fuzzy included tests - {filter_str}")
+
+        filter_str = ", ".join(sorted(self.fuzzy_exclude_names)) if self.fuzzy_exclude_names else \
+            "<none>"
+        lines.append(f"Explicity excluded tests - {filter_str}")
+
+        filter_str = ", ".join(sorted(self.fuzzy_exclude_names)) if self.fuzzy_exclude_names else \
+            "<none>"
+        lines.append(f"Fuzzy excluded tests - {filter_str}")
+
+        filter_str = ", ".join(sorted(self.include_groups)) if self.include_groups else "<none>"
+        lines.append(f"Excluded groups - {filter_str}")
+
+        filter_str = ", ".join(sorted(self.exclude_groups)) if self.exclude_groups else "<none>"
+        lines.append(f"Required groups - {filter_str}")
+
+        filter_str = ", ".join(map(str, sorted(self.prmttn_idxs_inc))) if self.prmttn_idxs_inc else \
+            "<none>"
+        lines.append(f"Permutations indexes included: {filter_str}")
+
+        filter_str = ", ".join(map(str, sorted(self.prmttn_idxs_exc))) if self.prmttn_idxs_exc else \
+            "<none>"
+        lines.append(f"Permutations indexes excluded: {filter_str}")
+
+        lines.append("Abstract tests are {}included".format("" if self.abstract_tests else "not "))
+        lines.append("Matrix tests are {}included".format("" if self.matrix_tests else "not "))
+        lines.append("Implicit permutations tests are{} included".format(
+            "" if self.implicit_prmttn_tests else " not"))
+
         return "\n" + "\n".join(lines)
 
 
