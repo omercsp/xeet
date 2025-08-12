@@ -133,9 +133,9 @@ class XeetUnittest(ConfigTestWrapper):
     def gen_xvars(self) -> XeetVars:
         return XeetVars(self.variables)
 
-    def run_tests(self, iterations: int = 1, **kwargs) -> RunResult:
+    def run_tests(self, iterations: int = 1, jobs: int = 1, **kwargs) -> RunResult:
         criteria = TestsCriteria(**kwargs)
-        run_sttings = XeetRunSettings(criteria, iterations)
+        run_sttings = XeetRunSettings(criteria=criteria, iterations=iterations, jobs=jobs)
         return self.driver().run(run_sttings)
 
     def run_test(self, name: str, **kwargs) -> TestResult:
