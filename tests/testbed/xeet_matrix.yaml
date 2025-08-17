@@ -1,0 +1,12 @@
+include: [xeet_base.yaml]
+matrix:
+  mvar0: ["1", "2"]
+  mvar1:
+    - ["a", "b", "c"]
+    - ["x", "y"]
+tests:
+  - name: 001_matrix_test
+    run:
+      - cmd: "{echo_cmd} {mvar0} {mvar1.[0]}"
+        shell: true
+    groups: [passing, matrix]
