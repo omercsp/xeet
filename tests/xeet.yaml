@@ -91,6 +91,12 @@ tests:
       - cmd: '{run_cmd} -c testbed/xeet_matrix.yaml --debug'
         base: settings.base_test_step
     groups: [matrix, run]
+  - name: 016_matrix_sepcific_permutations
+    short_desc: Validate matrix behavior
+    run:
+      - cmd: '{run_cmd} -c testbed/xeet_matrix.yaml --debug -p0'
+        base: settings.base_test_step
+    groups: [matrix, run]
   - name: 200_list_tests
     groups: [sanity, list]
     short_desc: Test list command
