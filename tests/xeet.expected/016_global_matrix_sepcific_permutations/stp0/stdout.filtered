@@ -1,0 +1,19 @@
+Starting run
+>>>>>>> Starting test '001_matrix_test@p0' <<<<<<<
+initializing main step 0
+using default step type 'exec'
+setting up output directory '__XEET_ROOT__/testbed/xeet_out/016_global_matrix_sepcific_permutations/p0/001_matrix_test'
+Starting main phase run, 1 step(s)
+Main step #0 (exec) - staring run
+running command (shell: True):
+python __XEET_ROOT__/testbed/../../scripts/testing/echo.py 1 a
+---------- output start ---------
+1 a
+----------- output end ----------
+command finished with return code 0
+return code is valid
+no output verification is required
+Main step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Main phase ended
+Test '001_matrix_test' ended. (status: TestPrimaryStatus.Passed, duration: X.XXXs)
+
