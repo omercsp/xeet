@@ -1,0 +1,16 @@
+>>>>>>> Starting test '001_matrix_test@p0' <<<<<<<
+1 a
+Test '001_matrix_test' ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Starting test '001_matrix_test@p1' <<<<<<<
+1 x
+Test '001_matrix_test' ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Starting test '001_matrix_test@p2' <<<<<<<
+2 a
+Test '001_matrix_test' ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Starting test '001_matrix_test@p3' <<<<<<<
+2 x
+Test '001_matrix_test' ended. (status: Passed, duration: X.XXXs)
+
