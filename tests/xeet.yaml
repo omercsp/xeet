@@ -88,13 +88,25 @@ tests:
     short_desc: Validate matrix behavior
     run:
         # Use debug here to see the output
-      - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --debug --concise'
+      - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --debug --concise -X test_matrix'
         base: settings.base_test_step
     groups: [matrix, run]
   - name: 016_global_matrix_sepcific_permutations
     short_desc: Validate matrix behavior
     run:
-      - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --debug --concise -p0'
+      - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --debug --concise -p0 -X test_matrix'
+        base: settings.base_test_step
+    groups: [matrix, run]
+  - name: 017_test_matrix
+    short_desc: Validate test matrix behavior
+    run:
+      - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --debug --concise -z 002'
+        base: settings.base_test_step
+    groups: [matrix, run]
+  - name: 018_test_matrix_specific_permutation
+    short_desc: Validate test matrix behavior
+    run:
+      - cmd: '{run_base_cmd} -c testbed/xeet_matrix.yaml --debug --concise -z 002 -p1,2'
         base: settings.base_test_step
     groups: [matrix, run]
   - name: 200_list_tests
