@@ -8,5 +8,12 @@ tests:
   - name: 001_matrix_test
     run:
       - cmd: "{echo_cmd} {mvar0} {mvar1.[0]}"
-        shell: true
-    groups: [passing, matrix]
+  - name: 002_test_matrix_test
+    matrix:
+      mvar0: ["m0", "m1"] # Overrides global mvar0
+      mvar2:
+        - ["m2", "m3"]
+        - ["m4", "m5"]
+    groups: [test_matrix]
+    run:
+      - cmd: "{echo_cmd} {mvar0} {mvar1.[0]} {mvar2.[1]}"
