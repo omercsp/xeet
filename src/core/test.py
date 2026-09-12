@@ -281,10 +281,26 @@ class Test:
     def debug_mode(self) -> bool:
         return self.rti.debug_mode
 
+    def set_matrix_prmttn(self, index: int, prmttn: dict, count: int | None = None) -> None:
+        self.permutation_index = index
+        self.model.prmttn = prmttn
+        self.xvars.set_vars(prmttn)
+        if count is None:
+            count = Matrix(self.model.matrix).prmttns_count if self.model.matrix else 1
+        self.xvars.set_vars({
+            system_var_name("MATRIX_INDEX"): index,
+            system_var_name("MATRIX_COUNT"): count,
+            system_var_name("MATRIX_PERMUTATION"): prmttn,
+        })
+
     def setup(self, setup_steps: bool) -> None:
         if self.error:
             self.notify(f"skipping setup due to error - {self.error}", dbg_pr=True)
             return
+        if self.model.matrix and not self.model.prmttn:
+            matrix = Matrix(self.model.matrix)
+            if matrix.prmttns_count:
+                self.set_matrix_prmttn(0, matrix.permutations_list()[0], matrix.prmttns_count)
         self.notify("setting up", dbg_pr=False)
         self.output_dir = f"{self.rti.output_dir}/{self.name}"
 

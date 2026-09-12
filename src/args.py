@@ -224,7 +224,7 @@ def parse_arguments() -> Args:
                              help='full details')
     info_parser.add_argument('-p', '--permutation', default=-1, metavar='IDX',
                              type=_non_negative_int_checker,
-                             help='matrix permutation to show info of (default to 0)')
+                             help='global matrix permutation to show info of (default to 0)')
 
     list_parser = subparsers.add_parser(XeetCliCmds.ListTests, help='list tests',
                                         parents=[common_parser, test_filter_parser,

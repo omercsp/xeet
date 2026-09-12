@@ -2,6 +2,7 @@ from ut import *
 from ut.ut_dummy_defs import *
 from ut.ut_exec_defs import gen_exec_step_desc, gen_sleep_cmd
 from xeet import XeetException
+from xeet.cli import show_test_info
 from xeet.core.result import (StepResult, TestResult, PhaseResult, TestStatus, TestPrimaryStatus,
                               TestSecondaryStatus)
 from xeet.core.test import StepsInheritType, TestModel
@@ -501,3 +502,44 @@ def test_thread_support(xut: XeetUnittest):
     for res in results:
         assert res.status.primary == TestPrimaryStatus.Passed
         assert res.duration >= 1
+
+
+def test_matrix_info_expansion(xut: XeetUnittest):
+    xut.add_test(TEST0, matrix={"param": ["val0", "val1"]},
+                 run=[{"cmd": "echo {param}", "type": "exec"}], save=True, reset=True)
+    crit = TestsCriteria(names=[TEST0], implicit_prmttn_tests=False)
+
+    # Without colon syntax, Test.setup() binds permutation 0
+    test = xut.driver().test_by_name[TEST0]
+    test.build_steps()
+    assert test.model.prmttn == {}
+    test.setup(setup_steps=True)
+    assert test.model.prmttn == {"param": "val0"}
+    assert test.main_phase.steps[0].cmd == "echo val0"
+
+    xut.save()
+    # Without colon syntax, show_test_info uses permutation 0
+    show_test_info(xut.file_path, crit, setup=True, full_details=False, permutation=-1)
+
+    # With colon syntax, specified permutation is used
+    crit_prmttn = TestsCriteria(names=[f"{TEST0}:1"])
+    show_test_info(xut.file_path, crit_prmttn, setup=True, full_details=False, permutation=-1)
+
+    # -p refers to global matrix; raises error when config has no global matrix
+    try:
+        show_test_info(xut.file_path, crit, setup=True, full_details=False, permutation=0)
+        assert False, "Should have raised XeetException for missing global matrix"
+    except XeetException as e:
+        assert "no global matrix" in str(e).lower()
+
+    # With global matrix, -p selects global permutation while test matrix defaults to 0
+    xut.add_matrix("gvar", ["g0", "g1"], reset=True)
+    xut.add_test(TEST0, matrix={"param": ["val0", "val1"]},
+                 run=[{"cmd": "echo {gvar} {param}", "type": "exec"}], save=True)
+    show_test_info(xut.file_path, crit, setup=True, full_details=False, permutation=1)
+
+    try:
+        show_test_info(xut.file_path, crit, setup=True, full_details=False, permutation=5)
+        assert False, "Should have raised XeetException for global matrix out of range"
+    except XeetException as e:
+        assert "out of range" in str(e).lower()
