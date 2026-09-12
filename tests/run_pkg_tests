@@ -34,7 +34,7 @@ _build_pkg_venv()
 	pip install --upgrade pip
 
 	# shellcheck disable=SC2102
-	pip install ${repo_flags} xeet
+	pip install --no-cache-dir  ${repo_flags} xeet
 }
 
 _fini_pkg_env()
