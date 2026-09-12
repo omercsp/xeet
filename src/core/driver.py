@@ -67,17 +67,20 @@ class _TestsPool:
                     continue
                 if i > 0:
                     busy_tests = self._tests[0:i]
-                    self._tests = self._tests[i:]
-                    if len(self._tests) < self.threads:
-                        self._tests.extend(busy_tests)
+                    remaining = self._tests[i + 1:]
+                    if len(remaining) < self.threads:
+                        self._tests = remaining + busy_tests
                     else:
-                        self._tests = self._tests[0:self.threads] + busy_tests + \
-                            self._tests[self.threads:]
+                        self._tests = remaining[0:self.threads] + busy_tests + \
+                            remaining[self.threads:]
+                else:
+                    self._tests.pop(0)
                 self.info(f"got '{test.name}'")
-                return self._tests.pop(i), False
+                return test, False
             except XeetException as e:
                 self.info(f"Error occurred getting test '{test.name}': {e}")
                 test.error = str(e)
+                self._tests.pop(i)
                 return test, False  # return the test with error, will become a runtime error
         return None, True
 

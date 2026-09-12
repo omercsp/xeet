@@ -160,3 +160,22 @@ def test_resource_inheritance(xut: XeetUnittest):
     for res in results:
         xut.update_test_res_test(expected, res.test.name)
         assert_test_results_equal(res, expected)
+
+
+def test_resource_deferral_queue_integrity(xut: XeetUnittest):
+    xut.add_resource("exclusive_res", "r0", "simple", reset=True)
+    res_req = gen_resouce_req("exclusive_res")
+
+    xut.add_test(TEST0, run=[gen_exec_step_desc(cmd=gen_sleep_cmd(0.3))], resources=[res_req])
+    xut.add_test(TEST1, run=[gen_exec_step_desc(cmd=gen_sleep_cmd(0.3))], resources=[res_req])
+    xut.add_test(TEST2, run=[gen_exec_step_desc(cmd=gen_sleep_cmd(0.05))], save=True)
+
+    start = timer()
+    run_res = xut.run_tests(jobs=2)
+    duration = timer() - start
+    assert duration >= 0.6
+
+    results = run_res.iter_results[0].mtrx_results[0].results
+    assert len(results) == 3
+    for res in results.values():
+        assert res.status.primary == TestPrimaryStatus.Passed
