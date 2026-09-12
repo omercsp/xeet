@@ -46,9 +46,9 @@ publish = [
 xeet = "xeet.__main__:xrun"
 
 [tool.setuptools]
-packages = ["xeet"]
-package-dir = {'' = "src"}
+packages = ["xeet", "xeet.core", "xeet.steps", "xeet.reporters"]
+package-dir = {"xeet" = "src"}
 
 [tool.setuptools_scm]
 local_scheme = "dirty-tag"
-version_file = "src/xeet/_version.py"
+version_file = "src/_version.py"

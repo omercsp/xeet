@@ -11,7 +11,7 @@ Packaged as `xeet` (PyPI), entry point `xeet.__main__:xrun`
 models/validation/schema generation), `pyyaml`, `jsonpath-ng` (config
 references), `rich` (console output), `argcomplete`.
 
-CLI surface (`src/xeet/args.py`): `run`, `list`, `groups`, `info`,
+CLI surface (`src/args.py`): `run`, `list`, `groups`, `info`,
 `dump {test,schema,config}`.
 
 ## Architecture
@@ -126,13 +126,13 @@ mode, save results to file, etc.).
 
 ## Testing
 
-### Unit tests (`src/ut/`)
+### Unit tests (`ut/`)
 
-pytest-based, run via `cd src/ut && ./utxeet` (auto-activates `.venv`, runs
+pytest-based, run via `cd ut && ./utxeet` (auto-activates `.venv`, runs
 with `pytest-xdist` at `nproc/2` workers; pass args through, e.g.
 `./utxeet -x test_core.py -k test_step_details`).
 
-Infrastructure lives in `src/ut/__init__.py` and `conftest.py`:
+Infrastructure lives in `ut/__init__.py` and `conftest.py`:
 - `conftest.py`'s `xeet_dir_setup` (session-scoped, autouse) creates one
   shared temp dir per process; the `xut` fixture hands back a
   process-cached `XeetUnittest("main.yaml")`, reset before each test.
@@ -185,5 +185,5 @@ the (filtered) captured output against golden files.
 ## Verification checklist before finishing a change
 
 1. `pycodestyle --max-line-length=100 <changed files>` — must be clean.
-2. `cd src/ut && ./utxeet` — unit suite must pass.
+2. `cd ut && ./utxeet` — unit suite must pass.
 3. `cd tests && ./runtests` — E2E suite must pass (run outside a venv).
