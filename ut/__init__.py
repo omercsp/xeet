@@ -214,7 +214,7 @@ class XeetUnittest(ConfigTestWrapper):
 
 
 def project_root() -> str:
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def ref_str(var_name: str) -> str:
