@@ -6,8 +6,10 @@ from xeet.core.driver import _RunAbort, _TestsPool, _TestRunner
 from xeet.core.events import EventReporter
 from xeet.core.result import MtrxResult, RunResult, TestResult
 from xeet.core.test import Test
+from xeet import XeetException
 from threading import Event, Thread
 from typing import Callable
+import signal
 
 
 _WAIT_TIMEOUT = 5
@@ -21,7 +23,11 @@ class _AbortReporter(EventReporter):
         self.iterations_started = 0
         self.mtrx_started = 0
         self.mtrx_ended = 0
+        self.run_ended = 0
         self.on_start: dict[str, Callable] = {}
+
+    def on_run_end(self) -> None:
+        self.run_ended += 1
 
     def on_iteration_start(self) -> None:
         self.iterations_started += 1
@@ -49,6 +55,16 @@ def _add_tests(xut: XeetUnittest, count: int) -> list[str]:
         xut.add_test(name, run=[DUMMY_OK_STEP_DESC])
     xut.save()
     return names
+
+
+#  Adds a test that makes a runner raise an exception, as abstract tests can't be run
+def _add_tests_with_runner_error(xut: XeetUnittest) -> None:
+    _add_tests(xut, 1)
+    xut.add_test("abstract_test", abstract=True, run=[DUMMY_OK_STEP_DESC], save=True)
+
+
+def _runner_error_settings() -> XeetRunSettings:
+    return XeetRunSettings(criteria=TestsCriteria(abstract_tests=True))
 
 
 def _reporter(xut: XeetUnittest) -> _AbortReporter:
@@ -189,3 +205,55 @@ def test_abort_wakes_waiting_runner():
     thread.join(_WAIT_TIMEOUT)
     assert not thread.is_alive()
     assert ret == [None]
+
+
+class _EndFailReporter(EventReporter):
+    def on_run_end(self) -> None:
+        raise RuntimeError("Reporter failure")
+
+
+def test_run_end_event(xut: XeetUnittest):
+    _add_tests(xut, 2)
+    reporter = _reporter(xut)
+    xut.driver().run(XeetRunSettings())
+    assert reporter.run_ended == 1
+
+
+def test_run_end_event_on_runner_error(xut: XeetUnittest):
+    _add_tests_with_runner_error(xut)
+    reporter = _reporter(xut)
+    with pytest.raises(XeetException, match="abstract"):
+        xut.driver().run(_runner_error_settings())
+    assert reporter.run_ended == 1
+
+
+def test_reporter_failure_on_run_end(xut: XeetUnittest):
+    _add_tests(xut, 1)
+    xut.driver().rti.add_run_reporter(_EndFailReporter())
+    with pytest.raises(RuntimeError, match="Reporter failure"):
+        xut.driver().run(XeetRunSettings())
+
+    #  A reporter failure doesn't hide the error that ended the run
+    xut.add_test("abstract_test", abstract=True, run=[DUMMY_OK_STEP_DESC], save=True)
+    reporter = _reporter(xut)
+    xut.driver().rti.add_run_reporter(_EndFailReporter())
+    with pytest.raises(XeetException, match="abstract"):
+        xut.driver().run(_runner_error_settings())
+    assert reporter.run_ended == 1
+
+
+def test_sigint_handler_restored(xut: XeetUnittest):
+    _add_tests_with_runner_error(xut)
+
+    def _handler(*_, **__) -> None:
+        ...
+
+    orig_handler = signal.signal(signal.SIGINT, _handler)
+    try:
+        xut.driver().run(XeetRunSettings())
+        assert signal.getsignal(signal.SIGINT) is _handler
+        with pytest.raises(XeetException):
+            xut.driver().run(_runner_error_settings())
+        assert signal.getsignal(signal.SIGINT) is _handler
+    finally:
+        signal.signal(signal.SIGINT, orig_handler)
