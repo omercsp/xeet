@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from .events import EventNotifier
 from xeet import XeetException
 from xeet.log import log_info
-from threading import Thread, Event, Condition
+from threading import Thread, Event, Condition, RLock
 from signal import signal, SIGINT
 from functools import cache, cached_property
 from typing import Callable
@@ -21,19 +21,41 @@ from random import shuffle
 _INIT_ERR_STTS = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
 
 
+#  A run wide abort request, shared by the driver, the tests pool and the runners. The first
+#  request wins, and its reason is kept. The lock is reentrant since set() can be called from a
+#  signal handler, which may interrupt another set() call on the main thread.
+class _RunAbort:
+    def __init__(self) -> None:
+        self._event = Event()
+        self._lock = RLock()
+        self.reason = ""
+
+    #  Returns True only for the call that actually requested the abort
+    def set(self, reason: str) -> bool:
+        with self._lock:
+            if self._event.is_set():
+                return False
+            self.reason = reason
+            self._event.set()
+            return True
+
+    def is_set(self) -> bool:
+        return self._event.is_set()
+
+
 class _TestsPool:
-    def __init__(self, tests: list[Test], threads: int) -> None:
+    def __init__(self, tests: list[Test], threads: int, abort: _RunAbort) -> None:
         self._base_tests = tests
         self.threads = threads
         self._tests: list[Test] = []
         self.condition = Condition()
-        self.abort = Event()
+        self.abort = abort
         self.reset(randomize=False)
         self.runner_id_str = ""
         self.info: Callable = log_info
 
+    #  Wakes up runners waiting for a test. Must be called after the abort was set.
     def stop(self) -> None:
-        self.abort.set()
         with self.condition:
             self.condition.notify_all()
 
@@ -102,8 +124,6 @@ class _TestsPool:
 
 
 class _TestRunner(Thread):
-    stop_event = Event()
-
     def __init__(self, index: int, pool: _TestsPool, notifier: EventNotifier,
                  mtrx_result: MtrxResult) -> None:
         super().__init__()
@@ -119,12 +139,18 @@ class _TestRunner(Thread):
 
     def run(self) -> None:
         while True:
-            if self.stop_event.is_set():
+            if self.pool.abort.is_set():
                 self.info(f"stopping")
                 break
             self.test = self.pool.next_test(self.info)
             if self.test is None:
                 self.info("No more tests, goodbye")
+                break
+            #  An abort requested after the test was handed out may have missed it, as it
+            #  wasn't yet assigned to the runner.
+            if self.pool.abort.is_set():
+                self.info(f"aborted before starting test '{self.test.name}'")
+                self.pool.release_test(self.test)
                 break
             self.notifier.on_test_start(test=self.test)
             try:
@@ -181,7 +207,7 @@ class _XeetDriver:
         self.rti.set_matrix(self.matrix)
 
         self.pool: _TestsPool = None  # type: ignore
-        self.stop_event: Event = None  # type: ignore
+        self.abort: _RunAbort = None  # type: ignore
         self.runners: list[_TestRunner] = []
 
         index = 0
@@ -228,14 +254,16 @@ class _XeetDriver:
                             criteria=run_settings.criteria)
         self.rti.set_run_settings(run_settings)
         tests = self.fetch_tests(run_settings.criteria)
-        self.pool = _TestsPool(tests, run_settings.jobs)
+        self.abort = _RunAbort()
+        self.pool = _TestsPool(tests, run_settings.jobs, self.abort)
         self.threads = run_settings.jobs
         self.runners: list[_TestRunner] = []
-        self.stop_event = Event()
         run_res.set_start_time()
         self.rti.notifier.on_run_start(run_res, tests, self.matrix, self.threads)
         signal(SIGINT, self._stop_runners)
         for iter_n in range(self.rti.iterations):
+            if self.abort.is_set():
+                break
             self._run_iter(run_res.iter_results[iter_n], run_settings)
         run_res.set_end_time()
         self.rti.notifier.on_run_end()
@@ -372,6 +400,8 @@ class _XeetDriver:
         self.rti.set_iteration(iter_res.iter_n)
         self.rti.notifier.on_iteration_start(iter_res)
         for mtrx_i, mtrx_prmmtn in enumerate(self.matrix.permutations()):
+            if self.abort.is_set():
+                break
             if (run_settings.criteria.prmttn_idxs_inc and mtrx_i not in
                 run_settings.criteria.prmttn_idxs_inc) or \
                 (run_settings.criteria.prmttn_idxs_exc and mtrx_i in
@@ -400,9 +430,9 @@ class _XeetDriver:
         return iter_res
 
     def _stop_runners(self, *_, **__) -> None:
-        if self.stop_event.is_set():
+        if not self.abort.set("Interrupted by user"):
             return
-        self.stop_event.set()
+        self.pool.stop()
         for runner in self.runners:
             runner.stop()
 
