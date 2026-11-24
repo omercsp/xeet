@@ -10,7 +10,7 @@ from xeet.common import pydantic_errmsg
 from pydantic import ValidationError
 from .events import EventNotifier
 from xeet import XeetException
-from xeet.log import log_info
+from xeet.log import log_info, log_error
 from threading import Thread, Event, Condition, RLock
 from signal import signal, SIGINT
 from functools import cache, cached_property
@@ -260,13 +260,24 @@ class _XeetDriver:
         self.runners: list[_TestRunner] = []
         run_res.set_start_time()
         self.rti.notifier.on_run_start(run_res, tests, self.matrix, self.threads)
-        signal(SIGINT, self._stop_runners)
-        for iter_n in range(self.rti.iterations):
-            if self.abort.is_set():
-                break
-            self._run_iter(run_res.iter_results[iter_n], run_settings)
-        run_res.set_end_time()
-        self.rti.notifier.on_run_end()
+        prev_handler = signal(SIGINT, self._stop_runners)
+        completed = False
+        try:
+            for iter_n in range(self.rti.iterations):
+                if self.abort.is_set():
+                    break
+                self._run_iter(run_res.iter_results[iter_n], run_settings)
+            completed = True
+        finally:
+            signal(SIGINT, prev_handler)
+            run_res.set_end_time()
+            try:
+                self.rti.notifier.on_run_end()
+            except Exception as e:
+                #  Don't let a reporter failure hide the error that ended the run
+                if completed:
+                    raise
+                log_error(f"error ending run - {e}")
         return run_res
 
     #  Returns a tuple of (is a permutation, parent test, permutation index)
