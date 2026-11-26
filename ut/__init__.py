@@ -124,6 +124,17 @@ class ConfigTestWrapper:
         self.settings[name] = value
 
     @config_set
+    def add_fixture(self, name: str, setup: list[dict] | None = None,
+                    teardown: list[dict] | None = None, **kwargs) -> dict:
+        desc = dict(kwargs)
+        if setup is not None:
+            desc["setup"] = setup
+        if teardown is not None:
+            desc["teardown"] = teardown
+        self.settings.setdefault("fixtures", {})[name] = desc
+        return desc
+
+    @config_set
     def add_resource(self, pool_name, name: str, value: Any, **_) -> None:
         if pool_name not in self.resources:
             self.resources[pool_name] = []
@@ -154,10 +165,12 @@ class XeetUnittest(ConfigTestWrapper):
     def gen_xvars(self) -> XeetVars:
         return XeetVars(self.variables)
 
-    def run_tests(self, iterations: int = 1, jobs: int = 1, **kwargs) -> RunResult:
+    def run_tests(self, iterations: int = 1, jobs: int = 1, randomize: bool = False,
+                  fixtures: bool = True, **kwargs) -> RunResult:
         xeet_Settings = XeetSettings(file_path=self.file_path)
         criteria = TestsCriteria(**kwargs)
-        run_sttings = XeetRunSettings(criteria=criteria, iterations=iterations, jobs=jobs)
+        run_sttings = XeetRunSettings(criteria=criteria, iterations=iterations, jobs=jobs,
+                                      randomize=randomize, fixtures=fixtures)
         return run_tests(xeet_Settings, run_sttings)
 
     def run_test(self, name: str, **kwargs) -> TestResult:
