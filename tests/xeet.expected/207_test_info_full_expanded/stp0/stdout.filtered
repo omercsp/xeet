@@ -1,15 +1,12 @@
 Name:                            031_for_info
 Short description:               Test for info command testing
-Description:                     This test is for testing the info command.
-                                 Inerits from another test, and has all kinds
-                                 of test attributes set.
+Description:                     This test is for testing the info command. Inerits from another test, and has all kinds of test attributes set.
 Groups:                          passing
 Pre-run steps:
  - [0] Name:                     '' <empty>
        Step type:                exec
        Base:                     '' <empty>
-       Command:                  python __XEET_ROOT__/testbed/..
-                                 /../scripts/testing/rc.py 0
+       Command:                  python __XEET_ROOT__/testbed/../../scripts/testing/rc.py 0
        Working directory:        None
        Use shell:                No
        Shell path:               None
@@ -18,8 +15,7 @@ Pre-run steps:
        Timeout:                  None
        Allowed return codes:     0
        Output behavior:          unify
-       Stdout file:              __XEET_ROOT__/testbed/xeet.out[
-                                 /iteration#]/031_for_info/pre0/stdout
+       Stdout file:              __XEET_ROOT__/testbed/xeet.out[/iteration#]/031_for_info/pre0/stdout
        Stderr file:              '' <empty>
        Expected stdout:          None
        Expected stdout file:     None
@@ -32,8 +28,7 @@ Run steps:
  - [0] Name:                     '' <empty>
        Step type:                exec
        Base:                     '' <empty>
-       Command:                  python __XEET_ROOT__/testbed/..
-                                 /../scripts/testing/pwd.py
+       Command:                  python __XEET_ROOT__/testbed/../../scripts/testing/pwd.py
        Working directory:        None
        Use shell:                No
        Shell path:               None
@@ -42,8 +37,7 @@ Run steps:
        Timeout:                  None
        Allowed return codes:     0
        Output behavior:          unify
-       Stdout file:              __XEET_ROOT__/testbed/xeet.out[
-                                 /iteration#]/031_for_info/stp0/stdout
+       Stdout file:              __XEET_ROOT__/testbed/xeet.out[/iteration#]/031_for_info/stp0/stdout
        Stderr file:              '' <empty>
        Expected stdout:          __XEET_ROOT__
        Expected stdout file:     None
@@ -55,8 +49,7 @@ Run steps:
  - [1] Name:                     '' <empty>
        Step type:                exec
        Base:                     '' <empty>
-       Command:                  python __XEET_ROOT__/testbed/..
-                                 /../scripts/testing/showenv.py TEST_ENV_VAR
+       Command:                  python __XEET_ROOT__/testbed/../../scripts/testing/showenv.py TEST_ENV_VAR
        Working directory:        None
        Use shell:                No
        Shell path:               None
@@ -65,8 +58,7 @@ Run steps:
        Timeout:                  None
        Allowed return codes:     0
        Output behavior:          unify
-       Stdout file:              __XEET_ROOT__/testbed/xeet.out[
-                                 /iteration#]/031_for_info/stp1/stdout
+       Stdout file:              __XEET_ROOT__/testbed/xeet.out[/iteration#]/031_for_info/stp1/stdout
        Stderr file:              '' <empty>
        Expected stdout:          test value
        Expected stdout file:     None
@@ -79,10 +71,7 @@ Post-run steps:
  - [0] Name:                     '' <empty>
        Step type:                exec
        Base:                     '' <empty>
-       Command:                  python __XEET_ROOT__/testbed/..
-                                 /../scripts/testing/echo.py Test output dir:
-                                 __XEET_ROOT__/testbed/xeet.out[
-                                 /iteration#]/031_for_info
+       Command:                  python __XEET_ROOT__/testbed/../../scripts/testing/echo.py Test output dir: __XEET_ROOT__/testbed/xeet.out[/iteration#]/031_for_info
        Working directory:        None
        Use shell:                No
        Shell path:               None
@@ -91,11 +80,9 @@ Post-run steps:
        Timeout:                  None
        Allowed return codes:     0
        Output behavior:          unify
-       Stdout file:              __XEET_ROOT__/testbed/xeet.out[
-                                 /iteration#]/031_for_info/pst0/stdout
+       Stdout file:              __XEET_ROOT__/testbed/xeet.out[/iteration#]/031_for_info/pst0/stdout
        Stderr file:              '' <empty>
-       Expected stdout:          Test output dir: __XEET_ROOT__/
-                                 testbed/xeet.out[/iteration#]/031_for_info
+       Expected stdout:          Test output dir: __XEET_ROOT__/testbed/xeet.out[/iteration#]/031_for_info
        Expected stdout file:     None
        Expected stderr:          None
        Expected stderr file:     None

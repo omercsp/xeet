@@ -15,16 +15,25 @@ from rich.live import Live
 from rich.markup import escape
 import textwrap
 import shutil
+import sys
 
 
 _DFLT_WIDTH = 78
 
 
-def _show_test(test: Test, full_details: bool) -> None:
+def _console_width() -> int:
+    # Wrap only when writing to a terminal. Piped or redirected output is never wrapped, so it
+    # doesn't depend on the terminal size or on the length of the printed paths.
+    if not sys.stdout.isatty():
+        return sys.maxsize
     try:
-        console_width = shutil.get_terminal_size().columns - 2
+        return shutil.get_terminal_size().columns - 2
     except (AttributeError, OSError):
-        console_width = _DFLT_WIDTH
+        return _DFLT_WIDTH
+
+
+def _show_test(test: Test, full_details: bool) -> None:
+    console_width = _console_width()
 
     def print_val(title: str, value, break_lines: bool = True) -> None:
         title = f"{title}:"
