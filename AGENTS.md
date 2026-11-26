@@ -33,20 +33,34 @@ args.py -> cli.py -> core/api.py -> core/driver.py -> core/test.py -> core/step.
 | `core/driver.py` | `_XeetDriver` — builds all `Test`s, resolves test inheritance, filters by criteria, drives iterations (distributing tests to `_TestRunner` worker threads via `_TestsPool`, synchronizing on shared resource pools). `xeet_driver()` is `@cache`d on `XeetSettings.__hash__` (= config file path) — clear/bypass the cache if a config is rewritten and re-driven within the same process |
 | `core/test.py` | `TestModel` (pydantic) + `Test` runtime + `Phase`; phase status logic |
 | `core/step.py` | `StepModel` + `Step` base class — the step plugin contract |
-| `core/result.py` | Result tree: `RunResult -> IterationResult -> MtrxResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator) |
+| `core/result.py` | Result tree: `RunResult -> IterationResult -> MtrxResult -> TestResult -> PhaseResult -> StepResult`, all `MeasuredResult` (timed via the `@time_result` decorator). `MtrxResult.fixture_results` holds `FixtureResult`s (setup/teardown `PhaseResult`s, fixture referenced by name) |
 | `core/events.py` | Observer pattern — `EventNotifier` fans out to `EventReporter`s |
 | `core/__init__.py` | `RuntimeInfo` — holds cwd/dirs/xvars/notifier/iteration state; `TestsCriteria` (test selection filter) |
 | `core/resource.py` | `ResourceModel`, `Resource`, `ResourcePool` — in-memory resource allocation pool (FIFO or by name) |
 | `core/matrix.py` | `Matrix`, `MatrixModel`, `MatrixPermutation` — cartesian product permutation generator |
+| `core/fixture.py` | `FixtureModel`, `Fixture` — named setup/teardown step lists defined under `settings.fixtures`, run by the driver around each permutation's tests |
+| `core/step.py` (`StepOwner`) | Protocol for whatever owns and runs steps (`Test`, `Fixture`): steps, phases and reporters may only use `step.owner`/`phase.owner` through it |
 | `steps/exec_step.py`, `steps/dummy_step.py` | The two built-in step types |
 | `reporters/` | `ConsolePrinter` (normal run output), `ConsoleDebugPrinter` (`--debug`) |
 
 ### Execution flow
 
-`xrun` -> `run_tests` -> `xeet_driver(settings)` -> for each iteration ->
-for each test -> obtain resources (defer if busy) -> `Test.run()` ->
-`setup()` -> three phases (`pre`/`main`/`post`) -> per step `Step.run()` ->
-release resources.
+`xrun` -> `run_tests` -> `xeet_driver(settings)` -> validate required
+fixtures -> for each iteration -> for each global matrix permutation ->
+fixtures setup pass -> for each test -> obtain resources (defer if busy) ->
+`Test.run()` -> `setup()` -> three phases (`pre`/`main`/`post`) -> per step
+`Step.run()` -> release resources -> fixtures teardown pass.
+
+Fixtures (`_XeetDriver._setup_fixtures`/`_teardown_fixtures`, driver
+thread, sequential): only fixtures required by tests that will run (not
+skipped, platform matches); set up in `settings.fixtures` definition order,
+torn down in reverse. Setup phase (output dir
+`@fixtures/<name>/su0`) stops on error; failure => requiring tests
+`NotRun/FixtureErr` (via `_TestsPool.blocked`). A fixture whose requiring
+tests are all blocked is skipped. Every activated fixture is torn down
+(`td0`, **not** stop-on-error); teardown failure is a warning only.
+Undefined/invalid required fixtures raise before the run starts.
+`--no-fixtures` (`XeetRunSettings.fixtures`) skips both passes.
 
 Phase semantics (`core/test.py`, `Test._exec_phase`):
 - `pre` (output dir `pre0`, stop-on-error) — failure => test
@@ -89,7 +103,10 @@ rejected at validation time): `XEET_CWD`, `XEET_ROOT`, `XEET_OUT_DIR`,
 `XEET_EXPECTED_DIR`, `XEET_TEST_NAME`, `XEET_TEST_BASE_NAME`,
 `XEET_TEST_OUT_DIR`, `XEET_STEP_OUT_DIR`, `XEET_STEP_INDEX`,
 `XEET_ITERATIONS`, `XEET_DEBUG`, `XEET_PLATFORM`, `XEET_MATRIX_INDEX`,
-`XEET_MATRIX_COUNT`, `XEET_MATRIX_PERMUTATION`.
+`XEET_MATRIX_COUNT`, `XEET_MATRIX_PERMUTATION`, `XEET_FIXTURES_DIR`, and in
+fixture steps only `XEET_FIXTURE_NAME`, `XEET_FIXTURE_DIR`. Fixture steps
+resolve variables from `RuntimeInfo.xvars` (no test scope), so test
+variables are unavailable to them by construction.
 
 ## Extension points
 
@@ -137,10 +154,11 @@ Infrastructure lives in `ut/__init__.py` and `conftest.py`:
   shared temp dir per process; the `xut` fixture hands back a
   process-cached `XeetUnittest("main.yaml")`, reset before each test.
 - `ConfigTestWrapper` builds an in-memory config via `add_test()`,
-  `add_var()`, `add_setting()`, `add_resource()`, `add_matrix()`, `add_include()` (each accepts
+  `add_var()`, `add_setting()`, `add_fixture()`, `add_resource()`, `add_matrix()`, `add_include()` (each accepts
   `reset=`, `save=`, `show=` kwargs) and writes it to disk with `.save()`.
 - `XeetUnittest` (extends `ConfigTestWrapper`) drives it: `run_test(name)`,
-  `run_tests(**TestsCriteria kwargs)`, `get_test(name)`, `driver()`. Any
+  `run_tests(iterations=, jobs=, randomize=, fixtures=, **TestsCriteria kwargs)`,
+  `get_test(name)`, `driver()`. Any
   time the config is rewritten, `.save()`/`.reset()` call
   `xeet_driver.cache_clear()` — required because `xeet_driver()` is
   `@cache`d on the config file path (see Architecture table above).
@@ -170,7 +188,8 @@ the (filtered) captured output against golden files.
   common_steps.*` step library; `inheritance.yaml` — abstract base tests
   for exercising `*_inheritance` modes; `xeet.yaml` — the ~31 inner tests
   covering pass/fail/skip/phases/inheritance; `xeet_debug.yaml` — tests for
-  `--debug` live output tailing.
+  `--debug` live output tailing; `xeet_fixtures.yaml` — fixtures setup,
+  teardown and failure scenarios (outer tests `4xx_*`).
 - Golden files live in `tests/xeet.expected/` (tracked); actual runs land
   in `tests/xeet.out/` (gitignored). `output_filters` on the outer steps
   scrub `{XEET_ROOT}` -> `__XEET_ROOT__` and durations -> `X.XXXs` for

@@ -22,6 +22,7 @@
 - **Platform-Specific Testing**: Target specific OS environments (`posix`, `nt`), inherit platform constraints, and load platform-specific config files dynamically via `{XEET_PLATFORM}`.
 - **Parallel Execution**: Execute tests concurrently across worker threads with `-j/--jobs` (defaults to auto-detecting core count).
 - **Resource Pools & Concurrency Control**: Define shared resource pools (ports, database instances, accounts) and allocate them to tests to prevent contention or serialize specific tests during parallel execution.
+- **Fixtures**: Define named setup and teardown steps once, and have them run once per iteration for the tests that require them.
 - **Parameter Matrix**: Define global matrix variables (lists of values) to automatically execute test suites across the full cartesian product of permutations.
 - **Test Randomization**: Shuffle test execution order per iteration with `--randomize` to expose hidden inter-test dependencies.
 - **Fine-Grained Filtering**: Select tests by exact name, fuzzy match, or tag groups with include/exclude rules.
@@ -147,6 +148,8 @@ settings:
       expected_stdout: "OK\n"
 ```
 
+Fixtures are also defined under `settings` (see [Fixtures](#fixtures-setup--teardown)).
+
 ### 4. `tests`
 A list of test descriptors.
 
@@ -163,6 +166,7 @@ A list of test descriptors.
 | `matrix` | `dict` | Test-scoped parameter matrix generating permutation variants. |
 | `platforms` | `list[string]` | List of supported platforms (`posix`, `nt`). If set, test only runs on matching OS. |
 | `resources` | `list[resource_req]` | Shared resources required by this test before execution. |
+| `fixtures` | `list[string]` | Names of the fixtures (defined under `settings.fixtures`) the test requires. |
 | `pre_run` | `list[step]` | Setup steps executed before the main phase. |
 | `run` | `list[step]` | Main test steps. |
 | `post_run` | `list[step]` | Tear-down steps executed after the main phase. |
@@ -492,6 +496,61 @@ xeet run -t db_stress_test:0
 
 ---
 
+## Fixtures (Setup & Teardown)
+
+Fixtures prepare shared environments (servers, databases, devices) for the tests that require them. Each fixture is defined once, by name, under `settings.fixtures`, with optional `setup` and `teardown` step lists:
+
+```yaml
+settings:
+  fixtures:
+    db:
+      short_desc: Test database
+      setup:
+        - cmd: "start_db.sh --pid-file {XEET_FIXTURE_DIR}/pid &"
+          use_shell: true
+          timeout: 30
+      teardown:
+        - cmd: "stop_db.sh --pid-file {XEET_FIXTURE_DIR}/pid"
+    logs:
+      teardown:                         # A teardown only fixture
+        - cmd: "collect_logs.sh"
+
+tests:
+  - name: test_query
+    fixtures: [db, logs]
+    run:
+      - cmd: "query.sh"
+```
+
+A fixture definition accepts `setup`, `teardown` (at least one of them) and `short_desc`. Fixture steps support everything test steps do, including step inheritance with `base`.
+
+### 1. When Fixtures Run
+
+- **Once per run unit**: Each required fixture is set up once before the tests of every iteration (and every global matrix permutation), and torn down once after all of them ended, no matter how many tests require it. Fixtures run one at a time, never concurrently with tests or with each other.
+- **Only when needed**: Only fixtures required by the tests that are going to run are set up. Skipped tests and tests targeting another platform don't require their fixtures.
+- **Order**: Fixtures are set up in their definition order, and torn down in reverse order. The order in which a test lists its fixtures doesn't matter. With `include`, fixtures of included files come first, and a fixture overridden by the including file keeps its original position.
+- **Inheritance**: A test that doesn't set `fixtures` inherits them from its base test.
+
+### 2. Failures
+
+- **Validation**: Before any test runs, the required fixtures must be defined and valid. Otherwise the run stops with an error. Errors in fixtures that no running test requires don't affect the run (`xeet info` shows them).
+- **Setup failure**: Setup steps stop on the first failure. Tests that require a failed fixture are not run (`Not run` / `Fixture error`); other tests run normally. A fixture whose requiring tests were all blocked by other failed fixtures is skipped.
+- **Teardown**: Every fixture whose setup was attempted is torn down, even if its setup failed or the run was interrupted. All teardown steps run, even if one of them fails. Teardown failures are reported as warnings, and don't change test results or the exit code.
+- **Interrupts**: The first `Ctrl-C` stops the tests and the fixture setup in progress, then tears the fixtures down. Another `Ctrl-C` during the teardowns stops the current one and skips the rest. Setting a `timeout` on fixture steps is recommended.
+
+### 3. Variables & Shared Files
+
+Fixtures aren't tied to any specific test, so their steps can't use test variables (such as `{XEET_TEST_NAME}` or a test's `variables`). They can use global variables, global matrix variables and the run wide system variables, plus:
+
+- `{XEET_FIXTURE_NAME}` — The fixture name.
+- `{XEET_FIXTURE_DIR}` — The fixture directory, `{XEET_OUT_DIR}/@fixtures/<name>`, shared by its setup and teardown. Use it to keep runtime data such as PID files or allocated ports.
+
+Tests can locate fixtures data using `{XEET_FIXTURES_DIR}` (`{XEET_OUT_DIR}/@fixtures`), e.g. `{XEET_FIXTURES_DIR}/db/port`.
+
+To run tests against an environment that's already set up, use `xeet run --no-fixtures`.
+
+---
+
 ## Command-Line Usage
 
 ### Running Tests
@@ -521,6 +580,9 @@ xeet run -j 4                        # Run with 4 concurrent worker threads
 
 # Test order randomization
 xeet run --randomize                 # Randomize test execution order per iteration
+
+# Run tests without setting up and tearing down fixtures
+xeet run --no-fixtures
 
 # Matrix permutation selection
 xeet run -p 0,1                      # Run only specific matrix permutations
@@ -578,7 +640,7 @@ xeet dump config -p "settings.common_steps"
 
 - `0` — All selected tests ran and passed.
 - `1` — One or more tests failed.
-- `2` — One or more tests could not be run (e.g. `pre_run` error or invalid command).
+- `2` — One or more tests could not be run (e.g. `pre_run` error, invalid command or a failed fixture setup).
 - `3` — Both test failures and unrunnable tests occurred (`1 + 2`).
 
 ---
