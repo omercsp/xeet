@@ -222,6 +222,9 @@ def parse_arguments() -> Args:
                              help='expand values')
     info_parser.add_argument('-f', '--full',  action='store_true', default=False,
                              help='full details')
+    info_parser.add_argument('--no-wrap', action='store_true', default=False,
+                             help='do not wrap long lines (never wrapped when not writing to a '
+                             'terminal)')
     info_parser.add_argument('-p', '--permutation', default=-1, metavar='IDX',
                              type=_non_negative_int_checker,
                              help='global matrix permutation to show info of (default to 0)')

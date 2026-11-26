@@ -21,10 +21,10 @@ import sys
 _DFLT_WIDTH = 78
 
 
-def _console_width() -> int:
+def _console_width(no_wrap: bool) -> int:
     # Wrap only when writing to a terminal. Piped or redirected output is never wrapped, so it
     # doesn't depend on the terminal size or on the length of the printed paths.
-    if not sys.stdout.isatty():
+    if no_wrap or not sys.stdout.isatty():
         return sys.maxsize
     try:
         return shutil.get_terminal_size().columns - 2
@@ -32,8 +32,8 @@ def _console_width() -> int:
         return _DFLT_WIDTH
 
 
-def _show_test(test: Test, full_details: bool) -> None:
-    console_width = _console_width()
+def _show_test(test: Test, full_details: bool, no_wrap: bool) -> None:
+    console_width = _console_width(no_wrap)
 
     def print_val(title: str, value, break_lines: bool = True) -> None:
         title = f"{title}:"
@@ -90,7 +90,7 @@ def _show_test(test: Test, full_details: bool) -> None:
 
 
 def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details: bool,
-                   permutation: int = -1) -> None:
+                   permutation: int = -1, no_wrap: bool = False) -> None:
     driver = core.xeet_driver(XeetSettings(conf))
     tests = driver.fetch_tests(criteria)
     if len(tests) == 0:
@@ -120,7 +120,7 @@ def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details
     for i, test in enumerate(tests):
         if i > 0:
             pr_info("-" * 80)
-        _show_test(test, full_details=full_details)
+        _show_test(test, full_details=full_details, no_wrap=no_wrap)
 
 
 def list_groups(conf: str) -> None:

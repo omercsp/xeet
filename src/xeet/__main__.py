@@ -88,7 +88,7 @@ def xrun() -> int:
             criteria = _tests_criteria(args, args.all, not args.no_matrix_tests,
                                        args.show_permutations_tests)
             actions.show_test_info(args.conf, criteria, args.expand, args.full,
-                                   args.permutation)
+                                   args.permutation, args.no_wrap)
         else:
             raise XeetException(f"Unknown command '{cmd_name}'")
         return 0

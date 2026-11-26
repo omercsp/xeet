@@ -2,7 +2,7 @@ from ut import *
 from ut.ut_dummy_defs import *
 from ut.ut_exec_defs import gen_exec_step_desc, gen_sleep_cmd
 from xeet import XeetException
-from xeet.cli import show_test_info
+from xeet.cli import show_test_info, _console_width
 from xeet.core.result import (StepResult, TestResult, PhaseResult, TestStatus, TestPrimaryStatus,
                               TestSecondaryStatus)
 from xeet.core.test import StepsInheritType, TestModel
@@ -11,6 +11,7 @@ from xeet.core import TestsCriteria
 from xeet.common import platform_path
 from timeit import default_timer as timer
 import os
+import sys
 
 
 def test_doc_inheritance(xut: XeetUnittest) -> None:
@@ -524,3 +525,23 @@ def test_matrix_info_expansion(xut: XeetUnittest):
     # With colon syntax, specified permutation is used
     crit_prmttn = TestsCriteria(names=[f"{TEST0}:1"])
     show_test_info(xut.file_path, crit_prmttn, setup=True, full_details=False, permutation=-1)
+
+
+def test_info_wrap_width(monkeypatch):
+    class _FakeStdout:
+        def __init__(self, tty: bool):
+            self.tty = tty
+
+        def isatty(self) -> bool:
+            return self.tty
+
+    monkeypatch.setattr("xeet.cli.shutil.get_terminal_size", lambda: os.terminal_size((100, 24)))
+
+    # Wrapping is done only on a terminal, and only if not disabled
+    monkeypatch.setattr(sys, "stdout", _FakeStdout(True))
+    assert _console_width(no_wrap=False) == 98
+    assert _console_width(no_wrap=True) == sys.maxsize
+
+    monkeypatch.setattr(sys, "stdout", _FakeStdout(False))
+    assert _console_width(no_wrap=False) == sys.maxsize
+    assert _console_width(no_wrap=True) == sys.maxsize
