@@ -24,11 +24,12 @@ def gen_step_model(owner: StepOwner, desc: dict, included: set[str] | None = Non
         included = set()
     base = desc.get("base")
     if base in included:
-        raise XeetStepInitException(f"Include loop detected - '{base}'")
+        raise XeetStepInitException(f"Base step loop detected - '{base}'")
 
     base_step_model = None
     base_type = None
     if base:
+        included.add(base)
         #  TODO: add refernce by name in addition to path
         base_desc, found = owner.rti.config_ref(base)
         if not found:
