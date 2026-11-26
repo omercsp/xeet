@@ -1,0 +1,67 @@
+using default step type 'exec'
+using default step type 'exec'
+using default step type 'exec'
+Starting run
+>>>>>>> Setting up fixture 'db' <<<<<<<
+Starting setup phase run, 1 step(s)
+Setup step #0 (exec) - staring run
+running command (shell: False):
+python __XEET_ROOT__/testbed/../../scripts/testing/echo.py db up at __XEET_ROOT__/testbed/xeet_out/406_fixtures_debug/@fixtures/db
+---------- output start ---------
+db up at __XEET_ROOT__/testbed/xeet_out/406_fixtures_debug/@fixtures/db
+----------- output end ----------
+command finished with return code 0
+return code is valid
+no output verification is required
+Setup step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Setup phase ended
+Fixture 'db' setup ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Starting test '001_db' <<<<<<<
+initializing main step 0
+using default step type 'exec'
+setting up output directory '__XEET_ROOT__/testbed/xeet_out/406_fixtures_debug/001_db'
+Starting main phase run, 1 step(s)
+Main step #0 (exec) - staring run
+running command (shell: False):
+python __XEET_ROOT__/testbed/../../scripts/testing/echo.py fixtures at __XEET_ROOT__/testbed/xeet_out/406_fixtures_debug/@fixtures
+---------- output start ---------
+fixtures at __XEET_ROOT__/testbed/xeet_out/406_fixtures_debug/@fixtures
+----------- output end ----------
+command finished with return code 0
+return code is valid
+no output verification is required
+Main step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Main phase ended
+Test '001_db' ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Tearing down fixture 'logs' <<<<<<<
+Starting teardown phase run, 1 step(s)
+Teardown step #0 (exec) - staring run
+running command (shell: False):
+python __XEET_ROOT__/testbed/../../scripts/testing/echo.py collecting logs
+---------- output start ---------
+collecting logs
+----------- output end ----------
+command finished with return code 0
+return code is valid
+no output verification is required
+Teardown step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Teardown phase ended
+Fixture 'logs' teardown ended. (status: Passed, duration: X.XXXs)
+
+>>>>>>> Tearing down fixture 'db' <<<<<<<
+Starting teardown phase run, 1 step(s)
+Teardown step #0 (exec) - staring run
+running command (shell: False):
+python __XEET_ROOT__/testbed/../../scripts/testing/echo.py db down
+---------- output start ---------
+db down
+----------- output end ----------
+command finished with return code 0
+return code is valid
+no output verification is required
+Teardown step #0 (exec) - run ended (completed, passed, duration: X.XXXs)
+Teardown phase ended
+Fixture 'db' teardown ended. (status: Passed, duration: X.XXXs)
+

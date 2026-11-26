@@ -1,0 +1,25 @@
+
+Starting Xeet
+=============
+Running tests: 004_broken_teardown
+Fixtures: broken_teardown
+
+
+Iteration #0/0
+Setup fixture 'broken_teardown'              [Passed]
+004_broken_teardown                          [Passed]
+Teardown fixture 'broken_teardown'           [Failed]
+Teardown step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+
+
+Summary:
+========
+Total iterations: 1
+Threads used per iteration: 1
+Passed (1): 004_broken_teardown
+Duration: X.XXXs
+
+NOTICE: fixtures teardowns failed: broken_teardown
+

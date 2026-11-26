@@ -1,0 +1,14 @@
+Name:                            001_db
+Groups:                          passing
+Fixtures:                        db, logs
+Run steps:
+ - [0] Step type:                exec
+       Command:                  {echo_cmd} fixtures at {XEET_FIXTURES_DIR}
+--------------------------------------------------------------------------------
+Name:                            005_undefined
+Groups:                          undefined
+Fixtures:                        no_such_fixture <undefined>
+Run steps:
+ - [0] Step type:                exec
+       Base:                     settings.common_steps._true
+       Command:                  {rc_cmd} 0

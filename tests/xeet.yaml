@@ -11,6 +11,7 @@ variables:
   list_cmd: '{base_cmd} list -c testbed/xeet.yaml'
   info_cmd: '{base_cmd} info -c testbed/xeet.yaml'
   run_output_base_cmd: '{run_base_cmd} -c testbed/xeet.yaml -g passing -X inheritance -z 004,008 -Z 003,031'
+  fixtures_run_cmd: '{run_base_cmd} -c testbed/xeet_fixtures.yaml'
 settings:
   base_test_step:
     type: exec
@@ -239,3 +240,51 @@ tests:
       - base: settings.base_test_step
         allowed_rc: [1]
         cmd: '{run_base_cmd} -c testbed/xeet_debug.yaml --debug --concise'
+  - name: 400_fixtures
+    short_desc: Fixtures set up and torn down around the tests that require them
+    groups: [fixtures, run]
+    run:
+      - cmd: '{fixtures_run_cmd} -g passing'
+        base: settings.base_test_step
+  - name: 401_fixtures_setup_failure
+    short_desc: Tests requiring a failed fixture don't run
+    groups: [fixtures, run, not_running]
+    run:
+      - cmd: '{fixtures_run_cmd} -g passing,setup_failure'
+        base: settings.base_test_step
+        allowed_rc: [2]
+  - name: 402_fixtures_teardown_failure
+    short_desc: Fixture teardown failures are only reported
+    groups: [fixtures, run]
+    run:
+      - cmd: '{fixtures_run_cmd} -g teardown_failure'
+        base: settings.base_test_step
+  - name: 403_fixtures_undefined
+    short_desc: Undefined fixtures stop the run
+    groups: [fixtures, run]
+    run:
+      - cmd: '{fixtures_run_cmd} -g undefined'
+        base: settings.base_test_step
+        allowed_rc: [255]
+  - name: 404_no_fixtures
+    short_desc: Run tests without setting up fixtures
+    groups: [fixtures, run]
+    run:
+      - cmd: '{fixtures_run_cmd} -g passing,setup_failure --no-fixtures'
+        base: settings.base_test_step
+  - name: 405_fixtures_r2
+    short_desc: Fixtures run once per iteration
+    groups: [fixtures, run, iteration]
+    run:
+      - cmd: '{fixtures_run_cmd} -t 002_net_db -r 2'
+        base: settings.base_test_step
+  - name: 406_fixtures_debug
+    groups: [fixtures, debug, output]
+    run:
+      - cmd: '{fixtures_run_cmd} -t 001_db --debug'
+        base: settings.base_test_step
+  - name: 407_fixtures_info
+    groups: [fixtures, info]
+    run:
+      - cmd: '{base_cmd} info -c testbed/xeet_fixtures.yaml -t 001_db,005_undefined'
+        base: settings.base_test_step

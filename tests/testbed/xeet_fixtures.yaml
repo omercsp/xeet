@@ -1,0 +1,57 @@
+include: [xeet_base.yaml]
+settings:
+  fixtures:
+    db:
+      short_desc: Fake database
+      setup:
+        - cmd: "{echo_cmd} db up at {XEET_FIXTURE_DIR}"
+      teardown:
+        - cmd: "{echo_cmd} db down"
+    net:
+      setup:
+        - cmd: "{echo_cmd} net up"
+      teardown:
+        - cmd: "{echo_cmd} net down"
+    logs:
+      teardown:
+        - cmd: "{echo_cmd} collecting logs"
+    broken_setup:
+      setup:
+        - base: settings.common_steps._false
+      teardown:
+        - cmd: "{echo_cmd} broken setup torn down"
+    broken_teardown:
+      setup:
+        - cmd: "{echo_cmd} up"
+      teardown:
+        - base: settings.common_steps._false
+        - cmd: "{echo_cmd} teardown continues"
+    unused:
+      setup:
+        - base: settings.common_steps.hello
+tests:
+  - name: 001_db
+    fixtures: [db, logs]
+    run:
+      - cmd: "{echo_cmd} fixtures at {XEET_FIXTURES_DIR}"
+    groups: [passing]
+  - name: 002_net_db
+    fixtures: [net, db]
+    run:
+      - base: settings.common_steps._true
+    groups: [passing]
+  - name: 003_broken_setup
+    fixtures: [broken_setup, net]
+    run:
+      - base: settings.common_steps._true
+    groups: [setup_failure]
+  - name: 004_broken_teardown
+    fixtures: [broken_teardown]
+    run:
+      - base: settings.common_steps._true
+    groups: [teardown_failure]
+  - name: 005_undefined
+    fixtures: [no_such_fixture]
+    run:
+      - base: settings.common_steps._true
+    groups: [undefined]

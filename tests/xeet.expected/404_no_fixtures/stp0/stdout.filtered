@@ -1,0 +1,20 @@
+
+Starting Xeet
+=============
+Running tests: 001_db, 002_net_db, 003_broken_setup
+Fixtures: db, net, logs, broken_setup (disabled)
+
+
+Iteration #0/0
+001_db                                       [Passed]
+002_net_db                                   [Passed]
+003_broken_setup                             [Passed]
+
+
+Summary:
+========
+Total iterations: 1
+Threads used per iteration: 1
+Passed (3): 001_db, 002_net_db, 003_broken_setup
+Duration: X.XXXs
+

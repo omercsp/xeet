@@ -1,0 +1,34 @@
+
+Starting Xeet
+=============
+Running tests: 001_db, 002_net_db, 003_broken_setup
+Fixtures: db, net, logs, broken_setup
+
+
+Iteration #0/0
+Setup fixture 'db'                           [Passed]
+Setup fixture 'net'                          [Passed]
+Setup fixture 'broken_setup'                 [Failed]
+Setup step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+001_db                                       [Passed]
+002_net_db                                   [Passed]
+003_broken_setup                             [Not run] Fixture error
+Fixture 'broken_setup' setup failed: Setup step #0 failed: retrun code 1 not in allowed return codes (0)
+empty output
+
+Teardown fixture 'broken_setup'              [Passed]
+Teardown fixture 'logs'                      [Passed]
+Teardown fixture 'net'                       [Passed]
+Teardown fixture 'db'                        [Passed]
+
+
+Summary:
+========
+Total iterations: 1
+Threads used per iteration: 1
+Fixture error (1): 003_broken_setup
+Passed (2): 001_db, 002_net_db
+Duration: X.XXXs
+

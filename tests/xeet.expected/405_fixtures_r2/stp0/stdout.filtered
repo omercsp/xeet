@@ -1,0 +1,30 @@
+
+Starting Xeet
+=============
+Running tests: 002_net_db
+Fixtures: db, net
+
+
+Iteration #0/1
+Setup fixture 'db'                           [Passed]
+Setup fixture 'net'                          [Passed]
+002_net_db                                   [Passed]
+Teardown fixture 'net'                       [Passed]
+Teardown fixture 'db'                        [Passed]
+
+
+Iteration #1/1
+Setup fixture 'db'                           [Passed]
+Setup fixture 'net'                          [Passed]
+002_net_db                                   [Passed]
+Teardown fixture 'net'                       [Passed]
+Teardown fixture 'db'                        [Passed]
+
+
+Summary:
+========
+Total iterations: 2
+Threads used per iteration: 1
+Passed (2): 002_net_db, 002_net_db
+Duration: X.XXXs
+
