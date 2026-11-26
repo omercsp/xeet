@@ -96,7 +96,7 @@ class _Reporter(EventReporter):
         if phase is None:
             self.errors.append(f"{fname}: empty phase")
             return False
-        if not self._std_test_check(phase.test, fname):
+        if not self._std_test_check(phase.owner, fname):
             return False
         return True
 
@@ -104,13 +104,13 @@ class _Reporter(EventReporter):
         if not self._std_phase_check(phase):
             return
         assert phase is not None
-        self.tests_acc[phase.test.name].phases_started.append(phase.name)
+        self.tests_acc[phase.owner.name].phases_started.append(phase.name)
 
     def on_phase_end(self, phase_res: PhaseResult) -> None:
         phase = phase_res.phase
         if not self._std_phase_check(phase_res.phase):
             return
-        self.tests_acc[phase.test.name].phases_ended.append(phase.name)
+        self.tests_acc[phase.owner.name].phases_ended.append(phase.name)
 
     # Step events
     def _std_step_check(self, step) -> bool:
@@ -126,13 +126,13 @@ class _Reporter(EventReporter):
         if not self._std_step_check(step):
             return
         assert step is not None
-        self.tests_acc[step.phase.test.name].steps_started += 1
+        self.tests_acc[step.phase.owner.name].steps_started += 1
 
     def on_step_end(self, step_res: StepResult) -> None:
         step = step_res.step
         if not self._std_step_check(step):
             return
-        self.tests_acc[step.phase.test.name].steps_ended += 1
+        self.tests_acc[step.phase.owner.name].steps_ended += 1
 
 
 def test_run_events(xut: XeetUnittest):

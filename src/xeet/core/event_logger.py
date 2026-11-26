@@ -3,7 +3,7 @@ from .events import EventReporter
 from xeet.pr import *
 from xeet.log import log_info, log_warn, log_general, log_depth
 from xeet.core.test import Test, Phase
-from xeet.core.step import Step
+from xeet.core.step import Step, StepOwner
 from xeet.core.result import PhaseResult, StepResult
 from dataclasses import dataclass
 from functools import cache
@@ -14,15 +14,15 @@ class EventLogger(EventReporter):
 
     @cache
     def _step_prefix(self, step: Step) -> str:
-        return f"{step.phase.name}{step.step_index}.{self._test_prefix(step.test)}"
+        return f"{step.phase.name}{step.step_index}.{self._owner_prefix(step.owner)}"
 
     @cache
-    def _test_prefix(self, test: Test) -> str:
+    def _owner_prefix(self, owner: StepOwner) -> str:
         #  Messages issued before the run starts will occur before run result and iteration result
         #  are set
         if self.run_res is None or self.iter_res is None or self.run_res.iterations == 1:
-            return test.name
-        return f"{test.name}@i{self.iter_res.iter_n}"
+            return owner.name
+        return f"{owner.name}@i{self.iter_res.iter_n}"
 
     def __hash__(self):
         return hash(id(self))
@@ -83,7 +83,7 @@ class EventLogger(EventReporter):
         msg += ",".join([f"{k}={len(v)}" for k, v in self.mtrx_res.status_results_summary.items()])
         self._log_info(msg)
         self._step_prefix.cache_clear()
-        self._test_prefix.cache_clear()
+        self._owner_prefix.cache_clear()
 
     # Test events
     def on_test_start(self, test: Test | None = None, runner_id: int = 0, **_) -> None:
@@ -96,11 +96,11 @@ class EventLogger(EventReporter):
             f"test '{test.name}' completed - {test_res.status} ({test_res.duration_str})")
 
     def on_phase_start(self, phase: Phase) -> None:
-        self._log_info(f"{phase.test.name}: running {phase.name} phase ({len(phase.steps)})")
+        self._log_info(f"{phase.owner.name}: running {phase.name} phase ({len(phase.steps)})")
 
     def on_phase_end(self, phase_res: PhaseResult) -> None:
         phase = phase_res.phase
-        test_name = phase.test.name
+        test_name = phase.owner.name
         if phase_res.completed and not phase_res.failed:
             msg = (f"{test_name}: phase {phase.name} completed")
         else:
@@ -130,7 +130,7 @@ class EventLogger(EventReporter):
     def on_test_message(self, test: Test, msg: str, *args, **kwargs) -> None:
         if kwargs.pop("dbg_pr", False):
             return
-        prefix = self._test_prefix(test)
+        prefix = self._owner_prefix(test)
         log_general(f"{prefix}: {msg}", *args, **kwargs)
 
     @log_depth(3)

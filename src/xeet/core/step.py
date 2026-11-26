@@ -3,12 +3,12 @@ from . import system_var_name, RuntimeInfo
 from .result import StepResult, time_result
 from xeet.common import XeetVars, XeetException, yes_no_str, platform_path
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Any, TYPE_CHECKING
+from typing import Any, Protocol, TYPE_CHECKING
 from threading import Lock
 import os
 
 if TYPE_CHECKING:
-    from .test import Test, Phase
+    from .test import Phase
 
 
 class StepModel(BaseModel):
@@ -33,6 +33,24 @@ class StepModel(BaseModel):
         return ret
 
 
+#  The entity that owns and runs steps (e.g. a test). Steps, phases and event reporters may
+#  only rely on the members listed here, as the owner isn't necessarily a test.
+class StepOwner(Protocol):
+    name: str
+    rti: RuntimeInfo
+    stop_requested: bool
+
+    @property
+    def debug_mode(self) -> bool:
+        ...
+
+    def notify(self, *args, **kwargs) -> None:
+        ...
+
+    def warn(self, *args, **kwargs) -> None:
+        ...
+
+
 class XeetStepException(XeetException):
     ...
 
@@ -50,9 +68,9 @@ class Step:
     def result_class() -> type[StepResult]:
         return StepResult
 
-    def __init__(self, model: StepModel, test: "Test", phase: "Phase", step_index) -> None:
+    def __init__(self, model: StepModel, owner: StepOwner, phase: "Phase", step_index) -> None:
         self.model = model
-        self.test = test
+        self.owner = owner
         self.phase = phase
         self.step_index = step_index
         self.xvars: XeetVars = None  # type: ignore
@@ -62,7 +80,7 @@ class Step:
 
     @property
     def rti(self) -> RuntimeInfo:
-        return self.test.rti
+        return self.owner.rti
 
     def setup(self, xvars: XeetVars, base_dir: str):
         self.xvars = xvars
@@ -109,7 +127,7 @@ class Step:
 
     @property
     def debug_mode(self) -> bool:
-        return self.test.rti.debug_mode
+        return self.owner.debug_mode
 
     def _run(self, _: StepResult) -> bool:
         raise NotImplementedError

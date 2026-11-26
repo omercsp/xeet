@@ -2,7 +2,7 @@ from .resource import Resource
 from .import RuntimeInfo, system_var_name, is_system_var_name
 from .result import (TestResult, TestPrimaryStatus, TestSecondaryStatus, PhaseResult, TestStatus,
                      time_result)
-from .step import Step, StepModel, XeetStepInitException
+from .step import Step, StepModel, StepOwner, XeetStepInitException
 from xeet.common import (XeetException, XeetVars, pydantic_errmsg, XeetToken, XeetVarsModel)
 from xeet.steps import get_xstep_class
 from xeet.core.matrix import Matrix, MatrixModel
@@ -182,7 +182,7 @@ class TestModel(BaseModel):
 @dataclass
 class Phase:
     name: str
-    test: "Test"
+    owner: StepOwner
     short_name: str
     stop_on_err: bool
     steps: list[Step] = field(default_factory=list)
@@ -201,9 +201,9 @@ class Test:
         self.model = model
         self.rti = rti
         self.name: str = model.name
-        self.pre_phase = Phase(name="pre", test=self, short_name="pre", stop_on_err=True)
-        self.main_phase = Phase(name="main", test=self, short_name="stp", stop_on_err=True)
-        self.post_phase = Phase(name="post", test=self, short_name="pst", stop_on_err=False)
+        self.pre_phase = Phase(name="pre", owner=self, short_name="pre", stop_on_err=True)
+        self.main_phase = Phase(name="main", owner=self, short_name="stp", stop_on_err=True)
+        self.post_phase = Phase(name="post", owner=self, short_name="pst", stop_on_err=False)
         self.index = index
         self.obtained_resources: list[Resource] = []
         self.obtained_vars: list[str] = []
@@ -272,7 +272,7 @@ class Test:
                 step_class = get_xstep_class(step_model.step_type)
                 if step_class is None:  # Shouldn't happen
                     raise XeetStepInitException(f"Unknown step type '{step_model.step_type}'")
-                step = step_class(model=step_model, test=self, phase=phase, step_index=index)
+                step = step_class(model=step_model, owner=self, phase=phase, step_index=index)
                 phase.steps.append(step)
             except XeetStepInitException as e:
                 self.error = f"error initializing {phase.name} step {index}: {e}"
