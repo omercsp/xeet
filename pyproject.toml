@@ -46,8 +46,10 @@ publish = [
 xeet = "xeet.__main__:xrun"
 
 [tool.setuptools]
-packages = ["xeet"]
 package-dir = {'' = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools_scm]
 local_scheme = "dirty-tag"
