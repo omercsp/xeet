@@ -4,7 +4,8 @@ from xeet.common import locked
 from xeet.pr import *
 from xeet.core.test import TestPrimaryStatus, TestResult, TestStatus, TestSecondaryStatus, Test
 from xeet.common import short_str, underline
-from xeet.core.result import TestPrimaryStatus, StatusTestsDict
+from xeet.core.result import TestPrimaryStatus, StatusTestsDict, FixtureResult, PhaseResult
+from xeet.core.fixture import Fixture
 from rich.live import Live
 from rich.markup import escape as rich_escape
 from dataclasses import dataclass, field
@@ -110,7 +111,9 @@ class ConsolePrinter(LockableEventReporter):
         self._print_criteria()
         if self.display.pre_run_tests_list:
             if self.tests:
-                pr_info("Running tests: {}\n".format(", ".join([x.name for x in self.tests])))
+                pr_info("Running tests: {}".format(", ".join([x.name for x in self.tests])))
+                self._print_fixtures()
+                pr_info()
             else:
                 pr_info("No tests to run\n")
         if self.display.threads_header:
@@ -119,6 +122,14 @@ class ConsolePrinter(LockableEventReporter):
             pr_info("Matrix values:")
             for k, v in self.mtrx.values.items():
                 pr_info(f"  {k}: {', '.join(map(str, v))}")
+
+    def _print_fixtures(self) -> None:
+        if not self.fixtures:
+            return
+        fixtures_str = ", ".join(self.fixtures)
+        if not self.rti.fixtures_enabled:
+            fixtures_str += " (disabled)"
+        pr_info(f"Fixtures: {fixtures_str}")
 
     def _print_criteria(self) -> None:
         if not self.display.criteria:
@@ -214,6 +225,48 @@ class ConsolePrinter(LockableEventReporter):
         self.curr_tests.remove(test.name)
         pr_info(msg)
 
+    @staticmethod
+    def _fixture_title(stage: str, name: str) -> str:
+        return f"{stage} fixture '{name}'"
+
+    @locked
+    def on_fixture_setup_start(self, fixture: Fixture) -> None:
+        self.curr_tests.append(self._fixture_title("Setup", fixture.name))
+        self._print_curr_tests()
+
+    @locked
+    def on_fixture_setup_end(self, fixture_res: FixtureResult) -> None:
+        self._print_fixture_res("Setup", fixture_res, fixture_res.setup_status,
+                                fixture_res.setup_res, fixture_res.setup_error_summary())
+
+    @locked
+    def on_fixture_teardown_start(self, fixture: Fixture) -> None:
+        self.curr_tests.append(self._fixture_title("Teardown", fixture.name))
+        self._print_curr_tests()
+
+    @locked
+    def on_fixture_teardown_end(self, fixture_res: FixtureResult) -> None:
+        self._print_fixture_res("Teardown", fixture_res, fixture_res.teardown_status,
+                                fixture_res.teardown_res, fixture_res.teardown_error_summary())
+
+    def _print_fixture_res(self, stage: str, fixture_res: FixtureResult,
+                           status: TestPrimaryStatus, phase_res: PhaseResult, details: str) -> None:
+        title = self._fixture_title(stage, fixture_res.name)
+        if title in self.curr_tests:
+            self.curr_tests.remove(title)
+            self._print_curr_tests()
+        if not self.display.tests:
+            return
+        msg = colorize_str(f"{short_str(title, 40):<45}", XColors.Bold)
+        msg += f"[{colorize_str(str(TestStatus(status)), _status_color(status))}]"
+        if self.display.test_timing and status != TestPrimaryStatus.Skipped:
+            msg += f" ({phase_res.duration_str})"
+        if status == TestPrimaryStatus.Skipped:
+            msg += f" {details}"
+        elif details and self.display.result_details:
+            msg += f"\n{rich_escape(details)}\n"
+        pr_info(msg)
+
     def on_matrix_start(self) -> None:
         if not self.display.tests:
             return
@@ -306,3 +359,16 @@ class ConsolePrinter(LockableEventReporter):
         pr_info(f"Threads used per iteration: {self.threads}")
         detailed = self.display.detailed_summary and not show_iteration_summary
         self._summarize_result_names(total_summary, detailed, self.run_res.duration)
+        self._summarize_teardowns()
+
+    def _summarize_teardowns(self) -> None:
+        assert self.run_res is not None
+        if not self.run_res.teardown_failed:
+            return
+        names: dict[str, None] = {}  # Ordered set
+        for iter_res in self.run_res.iter_results:
+            for mtrx_res in iter_res.mtrx_results:
+                for fixture_res in mtrx_res.fixture_results:
+                    if fixture_res.teardown_failed:
+                        names[fixture_res.name] = None
+        pr_warn(f"NOTICE: fixtures teardowns failed: {', '.join(names)}\n")

@@ -4,7 +4,8 @@ from xeet.core.events import LockableEventReporter
 from xeet.pr import pr_warn, pr_error, pr_info, pr_generic, create_print_func, LogLevel
 from xeet.core.test import TestPrimaryStatus, TestResult, Test, Phase
 from xeet.core.step import Step
-from xeet.core.result import PhaseResult, TestPrimaryStatus, StepResult
+from xeet.core.result import PhaseResult, TestPrimaryStatus, StepResult, FixtureResult, TestStatus
+from xeet.core.fixture import Fixture
 from dataclasses import dataclass, field
 from xeet.common import locked
 
@@ -36,16 +37,19 @@ class ConsoleDebugPrinter(LockableEventReporter):
             return
         _pr_debug_title("Starting run")
 
-    @locked
-    def on_test_start(self, test: Test) -> None:
-        title = test.name
+    def _run_title(self, name: str) -> str:
+        title = name
         if self.rti.iterations > 1 or self.rti.matrix.prmttns_count > 1:
             title += "@"
             if self.rti.iterations > 1:
                 title += f"i{self.rti.iteration}"
             if self.rti.matrix.prmttns_count > 1:
                 title += f"p{self.rti.prmttn_index}"
-        _pr_debug_title(f">>>>>>> Starting test '{title}' <<<<<<<")
+        return title
+
+    @locked
+    def on_test_start(self, test: Test) -> None:
+        _pr_debug_title(f">>>>>>> Starting test '{self._run_title(test.name)}' <<<<<<<")
 
     @locked
     def on_test_end(self, test_res: TestResult) -> None:
@@ -99,9 +103,45 @@ class ConsoleDebugPrinter(LockableEventReporter):
         text = phase.name[0].upper() + phase.name[1:]
         _pr_debug_title(f"{text} phase ended")
 
+    @locked
+    def on_fixture_setup_start(self, fixture: Fixture) -> None:
+        _pr_debug_title(f">>>>>>> Setting up fixture '{self._run_title(fixture.name)}' <<<<<<<")
+
+    @locked
+    def on_fixture_setup_end(self, fixture_res: FixtureResult) -> None:
+        self._fixture_end("setup", fixture_res, fixture_res.setup_status, fixture_res.setup_res,
+                          fixture_res.setup_error_summary())
+
+    @locked
+    def on_fixture_teardown_start(self, fixture: Fixture) -> None:
+        _pr_debug_title(f">>>>>>> Tearing down fixture '{self._run_title(fixture.name)}' <<<<<<<")
+
+    @locked
+    def on_fixture_teardown_end(self, fixture_res: FixtureResult) -> None:
+        self._fixture_end("teardown", fixture_res, fixture_res.teardown_status,
+                          fixture_res.teardown_res, fixture_res.teardown_error_summary())
+
+    def _fixture_end(self, stage: str, fixture_res: FixtureResult, status: TestPrimaryStatus,
+                     phase_res: PhaseResult, details: str) -> None:
+        if status == TestPrimaryStatus.Skipped:
+            _pr_debug_title(f"Fixture '{fixture_res.name}' {stage} skipped: {details}")
+            pr_info()
+            return
+        _pr_debug_title(f"Fixture '{fixture_res.name}' {stage} ended. (status: "
+                        f"{TestStatus(status)}, duration: {phase_res.duration:.3f}s)")
+        if not self.concise and details:
+            pr_warn(details)
+        pr_info()
+
     # General event message
     @locked
     def on_test_message(self, _: Test, msg: str, *args, **kwargs) -> None:
+        if self.concise:
+            return
+        self._print(msg, *args, **kwargs)
+
+    @locked
+    def on_fixture_message(self, _: Fixture, msg: str, *args, **kwargs) -> None:
         if self.concise:
             return
         self._print(msg, *args, **kwargs)
