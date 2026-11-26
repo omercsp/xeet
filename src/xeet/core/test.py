@@ -71,6 +71,9 @@ class TestModel(BaseModel):
     #  Resource requirements
     resources: list[_ResouceRequiremnt] = Field(default_factory=list)
 
+    #  Names of the fixtures the test requires (defined under 'settings.fixtures')
+    fixtures: list[XeetToken] = Field(default_factory=list)
+
     # Inheritance behavior
     inherit_variables: bool = True
     inherit_matrix: bool = True
@@ -98,6 +101,9 @@ class TestModel(BaseModel):
         if intersection:
             raise ValueError(f"User variables {intersection} are also used in matrix. "
                              "This is not allowed, as it may lead to unexpected results.")
+
+        if len(set(self.fixtures)) != len(self.fixtures):
+            raise ValueError("Fixture names must be unique")
 
         groups = []
         for g in self.groups:
@@ -163,6 +169,9 @@ class TestModel(BaseModel):
 
     def resource_list(self) -> list[_ResouceRequiremnt]:
         return self._inherited_value("resources")
+
+    def fixture_list(self) -> list[str]:
+        return self._inherited_value("fixtures")
 
     def matrix_permutations(self) -> list["TestModel"]:
         models = []

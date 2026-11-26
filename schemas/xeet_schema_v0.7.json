@@ -141,6 +141,15 @@
                     "title": "Resources",
                     "type": "array"
                 },
+                "fixtures": {
+                    "items": {
+                        "minLength": 1,
+                        "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+                        "type": "string"
+                    },
+                    "title": "Fixtures",
+                    "type": "array"
+                },
                 "inherit_variables": {
                     "default": true,
                     "title": "Inherit Variables",

@@ -62,10 +62,16 @@ class XeetRunSettings:
     output_dir: str = ""
     jobs: int = 1
     randomize: bool = False
+    fixtures: bool = True  # If False, fixtures setups and teardowns aren't executed
 
 
 _UNINITIALIZED = "#UNINITIALIZED#"
 _ITERATION_ADDENDUM = "[/iteration#]"
+FIXTURES_DIR_NAME = "@fixtures"  # '@' isn't valid in test names, so no collision with tests
+
+
+def _fixtures_dir(output_dir: str) -> str:
+    return f"{output_dir}/{FIXTURES_DIR_NAME}"
 
 
 class RuntimeInfo:
@@ -84,6 +90,7 @@ class RuntimeInfo:
         self.defs_dict = {}
         self.resources: dict[str, ResourcePool] = {}
         self.debug_mode = False
+        self.fixtures_enabled = True
         self.notifier = EventNotifier()
         self.iterations = 0
         self.iteration = 0
@@ -108,6 +115,7 @@ class RuntimeInfo:
             system_var_name("ROOT"): self.root_dir,
             system_var_name("EXPECTED_DIR"): self.expected_output_dir,
             system_var_name("OUT_DIR"): self.output_dir,
+            system_var_name("FIXTURES_DIR"): _fixtures_dir(self.output_dir),
         })
         self.xvars.set_vars(variables)
 
@@ -130,6 +138,7 @@ class RuntimeInfo:
     def set_run_settings(self, run_settings: XeetRunSettings) -> None:
         self.iterations = run_settings.iterations
         self.debug_mode = run_settings.debug
+        self.fixtures_enabled = run_settings.fixtures
         if run_settings.output_dir:
             self.base_output_dir = os.path.abspath(run_settings.output_dir)
 
@@ -148,6 +157,7 @@ class RuntimeInfo:
         self.output_dir = f"{self.base_output_dir}[/i#iteration][/p#permutation]"
         self.xvars.set_vars(XeetVarsModel({
             system_var_name("OUT_DIR"): self.output_dir,
+            system_var_name("FIXTURES_DIR"): _fixtures_dir(self.output_dir),
             system_var_name("ITERATIONS"): str(self.iterations),
             system_var_name("DEBUG"): "1" if self.debug_mode else "0"
         }))
@@ -172,6 +182,7 @@ class RuntimeInfo:
             system_var_name("MATRIX_COUNT"): self.matrix.prmttns_count,
             system_var_name("MATRIX_PERMUTATION"): prmttn,
             system_var_name("OUT_DIR"): self.output_dir,
+            system_var_name("FIXTURES_DIR"): _fixtures_dir(self.output_dir),
         }))
 
     @cache

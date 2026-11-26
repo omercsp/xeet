@@ -4,7 +4,8 @@ from xeet.pr import *
 from xeet.log import log_info, log_warn, log_general, log_depth
 from xeet.core.test import Test, Phase
 from xeet.core.step import Step, StepOwner
-from xeet.core.result import PhaseResult, StepResult
+from xeet.core.fixture import Fixture
+from xeet.core.result import PhaseResult, StepResult, FixtureResult
 from dataclasses import dataclass
 from functools import cache
 
@@ -125,6 +126,35 @@ class EventLogger(EventReporter):
         msg += f" ({step_res.duration_str})"
         self._log_info(msg)
 
+    # Fixture events
+    def on_fixture_setup_start(self, fixture: Fixture) -> None:
+        self._log_info(f"fixture '{fixture.name}': setting up")
+
+    def on_fixture_setup_end(self, fixture_res: FixtureResult) -> None:
+        msg = f"fixture '{fixture_res.name}': "
+        if fixture_res.skipped:
+            msg += f"skipped - {fixture_res.skip_reason}"
+        elif fixture_res.setup_failed:
+            msg += f"setup failed - {fixture_res.setup_error_summary()}"
+        else:
+            msg += "setup completed"
+        msg += f" ({fixture_res.setup_res.duration_str})"
+        self._log_info(msg)
+
+    def on_fixture_teardown_start(self, fixture: Fixture) -> None:
+        self._log_info(f"fixture '{fixture.name}': tearing down")
+
+    def on_fixture_teardown_end(self, fixture_res: FixtureResult) -> None:
+        msg = f"fixture '{fixture_res.name}': "
+        if fixture_res.teardown_skip_reason:
+            msg += f"teardown skipped - {fixture_res.teardown_skip_reason}"
+        elif fixture_res.teardown_failed:
+            msg += f"teardown failed - {fixture_res.teardown_error_summary()}"
+        else:
+            msg += "teardown completed"
+        msg += f" ({fixture_res.teardown_res.duration_str})"
+        self._log_info(msg)
+
     # General event message
     @log_depth(3)
     def on_test_message(self, test: Test, msg: str, *args, **kwargs) -> None:
@@ -140,6 +170,13 @@ class EventLogger(EventReporter):
         kwargs.pop("end", None)
         prefix = self._step_prefix(step)
         log_general(f"{prefix}: {msg}", *args, **kwargs)
+
+    @log_depth(3)
+    def on_fixture_message(self, fixture: Fixture, msg: str, *args, **kwargs) -> None:
+        if kwargs.pop("dbg_pr", False):
+            return
+        prefix = self._owner_prefix(fixture)
+        log_general(f"fixture '{prefix}': {msg}", *args, **kwargs)
 
     @log_depth(3)
     def on_run_message(self, msg: str, *args, **kwargs) -> None:

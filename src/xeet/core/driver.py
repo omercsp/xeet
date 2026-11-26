@@ -1,9 +1,10 @@
 from . import RuntimeInfo, XeetSettings, TestsCriteria, XeetRunSettings
 from .result import (IterationResult, TestResult, TestPrimaryStatus, TestSecondaryStatus, RunResult,
-                     MtrxResult, TestStatus, time_result)
+                     MtrxResult, TestStatus, FixtureResult, time_result)
 from .conf import xeet_conf
 from .event_logger import EventLogger
 from .test import TestModel, Test
+from .fixture import Fixture, FIXTURES_SETTINGS_KEY
 from .matrix import Matrix
 from xeet.log import logging_enabled
 from xeet.common import pydantic_errmsg
@@ -16,9 +17,12 @@ from signal import signal, SIGINT
 from functools import cache, cached_property
 from typing import Callable
 from random import shuffle
+import logging
+import os
 
 
 _INIT_ERR_STTS = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.InitErr)
+_FIXTURE_ERR_STTS = TestStatus(TestPrimaryStatus.NotRun, TestSecondaryStatus.FixtureErr)
 
 
 #  A run wide abort request, shared by the driver, the tests pool and the runners. The first
@@ -53,6 +57,8 @@ class _TestsPool:
         self.reset(randomize=False)
         self.runner_id_str = ""
         self.info: Callable = log_info
+        #  Tests that can't run because a fixture they require failed, mapped to the reason
+        self.blocked: dict[str, str] = {}
 
     #  Wakes up runners waiting for a test. Must be called after the abort was set.
     def stop(self) -> None:
@@ -84,7 +90,8 @@ class _TestsPool:
             try:
                 #  if test.error is set, it means that the test is not runnable
                 #  and should be skipped. No need to check for resources.
-                if not test.error and not test.obtain_resources():
+                if not test.error and test.name not in self.blocked and \
+                        not test.obtain_resources():
                     self.info(f"resources not available for '{test.name}'")
                     continue
                 if i > 0:
@@ -176,6 +183,10 @@ class _TestRunner(Thread):
         self.test.build_steps()
         if self.test.error:
             return TestResult(test=self.test, status=_INIT_ERR_STTS, status_reason=self.test.error)
+        blocked_reason = self.pool.blocked.get(self.test.name)
+        if blocked_reason:
+            return TestResult(test=self.test, status=_FIXTURE_ERR_STTS,
+                              status_reason=blocked_reason)
 
         return self.test.run()
 
@@ -209,6 +220,13 @@ class _XeetDriver:
         self.pool: _TestsPool = None  # type: ignore
         self.abort: _RunAbort = None  # type: ignore
         self.runners: list[_TestRunner] = []
+
+        self.fixtures: dict[str, Fixture] = {}  # Fixtures built so far, by name
+        self.run_fixtures: list[Fixture] = []  # Fixtures required by the run, in setup order
+        self.fixture_users: dict[str, list[str]] = {}  # Fixture name -> names of requiring tests
+        self.curr_fixture: Fixture | None = None
+        self.in_teardowns = False
+        self.skip_teardowns = False
 
         index = 0
         for d in self.conf.descs():
@@ -254,12 +272,17 @@ class _XeetDriver:
                             criteria=run_settings.criteria)
         self.rti.set_run_settings(run_settings)
         tests = self.fetch_tests(run_settings.criteria)
+        self.run_fixtures = self._required_fixtures(tests)
+        self.curr_fixture = None
+        self.in_teardowns = False
+        self.skip_teardowns = False
         self.abort = _RunAbort()
         self.pool = _TestsPool(tests, run_settings.jobs, self.abort)
         self.threads = run_settings.jobs
         self.runners: list[_TestRunner] = []
         run_res.set_start_time()
-        self.rti.notifier.on_run_start(run_res, tests, self.matrix, self.threads)
+        self.rti.notifier.on_run_start(run_res, tests, self.matrix, self.threads,
+                                       [f.name for f in self.run_fixtures])
         prev_handler = signal(SIGINT, self._stop_runners)
         completed = False
         try:
@@ -424,12 +447,18 @@ class _XeetDriver:
             self.rti.notifier.on_matrix_start(mtrx_prmmtn, mtrx_res)
 
             mtrx_res.set_start_time()
-            self.runners = [_TestRunner(i, self.pool, self.rti.notifier, mtrx_res) for i in
-                            range(self.threads)]
-            for runner in self.runners:
-                runner.start()
-            for runner in self.runners:
-                runner.join()
+            activated: list[tuple[Fixture, FixtureResult]] = []
+            try:
+                self.runners = []
+                self._setup_fixtures(mtrx_res, activated)
+                self.runners = [_TestRunner(i, self.pool, self.rti.notifier, mtrx_res) for i in
+                                range(self.threads)]
+                for runner in self.runners:
+                    runner.start()
+                for runner in self.runners:
+                    runner.join()
+            finally:
+                self._teardown_fixtures(activated)
             mtrx_res.set_end_time()
             first_error = next((runner.error for runner in self.runners if runner.error), None)
             if first_error:
@@ -440,12 +469,146 @@ class _XeetDriver:
         self.rti.notifier.on_iteration_end()
         return iter_res
 
+    #  The first interrupt stops the tests and the fixture setup in progress, then the activated
+    #  fixtures are torn down. Another interrupt during the teardowns skips the remaining ones.
     def _stop_runners(self, *_, **__) -> None:
         if not self.abort.set("Interrupted by user"):
+            self._skip_teardowns()
             return
         self.pool.stop()
         for runner in self.runners:
             runner.stop()
+        if self.curr_fixture and not self.in_teardowns:
+            self.curr_fixture.stop()
+
+    def _skip_teardowns(self) -> None:
+        if not self.in_teardowns or self.skip_teardowns:
+            return
+        self.skip_teardowns = True
+        if self.curr_fixture:
+            self.curr_fixture.stop()
+
+    @property
+    def fixture_names(self) -> list[str]:
+        return list(self.conf.model.settings.get(FIXTURES_SETTINGS_KEY, {}).keys())
+
+    #  Returns the named fixture, or None if it isn't defined. Fixtures are built on first use, so
+    #  errors in unused fixtures don't affect the run.
+    def fixture(self, name: str) -> Fixture | None:
+        if name in self.fixtures:
+            return self.fixtures[name]
+        descs = self.conf.model.settings.get(FIXTURES_SETTINGS_KEY, {})
+        if name not in descs:
+            return None
+        fixture = Fixture(name, descs[name], self.rti)
+        self.fixtures[name] = fixture
+        return fixture
+
+    #  Only tests that are going to run require their fixtures. Skipped tests, or tests that
+    #  can't run on this platform, don't.
+    @staticmethod
+    def _requires_fixtures(test: Test) -> bool:
+        if test.error or test.model.skip:
+            return False
+        platforms = test.model.platform_list()
+        return not platforms or os.name in platforms
+
+    #  Returns the fixtures required by the given tests, in definition order. Raises an exception
+    #  if a required fixture isn't defined or is invalid.
+    def _required_fixtures(self, tests: list[Test]) -> list[Fixture]:
+        self.fixture_users = {}
+        for test in tests:
+            if not self._requires_fixtures(test):
+                continue
+            for name in test.model.fixture_list():
+                self.fixture_users.setdefault(name, []).append(test.name)
+
+        defined = self.fixture_names
+        undefined = [name for name in self.fixture_users if name not in defined]
+        if undefined:
+            details = ", ".join(f"'{name}' (required by {', '.join(self.fixture_users[name])})"
+                                for name in undefined)
+            raise XeetException(f"Undefined fixtures: {details}")
+
+        ret = []
+        for name in defined:
+            if name not in self.fixture_users:
+                continue
+            fixture = self.fixture(name)
+            assert fixture is not None
+            if fixture.error:
+                raise XeetException(f"Fixture '{name}' error: {fixture.error}")
+            ret.append(fixture)
+        return ret
+
+    #  Sets up the fixtures required by the run, in order. A fixture is activated (its setup is
+    #  attempted) only if some test that requires it can still run. A failed setup blocks the
+    #  tests that require the fixture.
+    def _setup_fixtures(self, mtrx_res: MtrxResult,
+                        activated: list[tuple[Fixture, FixtureResult]]) -> None:
+        self.pool.blocked = {}
+        if not self.rti.fixtures_enabled:
+            return
+        notifier = self.rti.notifier
+        for fixture in self.run_fixtures:
+            fixture_res = FixtureResult(name=fixture.name)
+            fixture_res.set_start_time()
+            mtrx_res.add_fixture_result(fixture_res)
+            users = [name for name in self.fixture_users[fixture.name]
+                     if name not in self.pool.blocked]
+            if self.abort.is_set():
+                fixture_res.skip_reason = "Run aborted"
+            elif not users:
+                fixture_res.skip_reason = "No runnable test requires it"
+            if fixture_res.skipped:
+                fixture_res.set_end_time()
+                notifier.on_fixture_setup_end(fixture_res)
+                continue
+
+            activated.append((fixture, fixture_res))
+            fixture.prepare()
+            if not fixture.setup_phase.steps:
+                continue
+            self.curr_fixture = fixture
+            notifier.on_fixture_setup_start(fixture)
+            fixture.run_setup(fixture_res)
+            self.curr_fixture = None
+            notifier.on_fixture_setup_end(fixture_res)
+            if not fixture_res.setup_failed:
+                continue
+            reason = f"Fixture '{fixture.name}' setup failed: {fixture_res.setup_error_summary()}"
+            for name in users:
+                self.pool.blocked[name] = reason
+
+    #  Tears down the activated fixtures, in reverse activation order
+    def _teardown_fixtures(self, activated: list[tuple[Fixture, FixtureResult]]) -> None:
+        notifier = self.rti.notifier
+        self.in_teardowns = True
+        skipped = []
+        try:
+            for fixture, fixture_res in reversed(activated):
+                if not fixture.teardown_phase.steps:
+                    fixture_res.set_end_time()
+                    continue
+                if self.skip_teardowns:
+                    fixture_res.teardown_skip_reason = "Skipped by user interrupt"
+                    fixture_res.set_end_time()
+                    skipped.append(fixture.name)
+                    notifier.on_fixture_teardown_end(fixture_res)
+                    continue
+                fixture.reset_stop()  # The fixture's setup might have been stopped
+                self.curr_fixture = fixture
+                notifier.on_fixture_teardown_start(fixture)
+                fixture.run_teardown(fixture_res)
+                self.curr_fixture = None
+                fixture_res.set_end_time()
+                notifier.on_fixture_teardown_end(fixture_res)
+        finally:
+            self.in_teardowns = False
+            self.curr_fixture = None
+        if skipped:
+            notifier.on_run_message(f"Skipped fixtures teardowns: {', '.join(skipped)}",
+                                    severity=logging.WARN)
 
 
 @cache

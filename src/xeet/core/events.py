@@ -6,7 +6,8 @@ if TYPE_CHECKING:
     from . import RuntimeInfo
     from .test import Test, Phase
     from .step import Step
-    from .result import TestResult, PhaseResult, StepResult
+    from .fixture import Fixture
+    from .result import TestResult, PhaseResult, StepResult, FixtureResult
     from .matrix import Matrix, MatrixPermutation
 from dataclasses import dataclass, field
 
@@ -17,6 +18,7 @@ class EventReporter:
     run_res: "RunResult | None" = None
     iter_res: "IterationResult | None" = None
     tests: list["Test"] = field(default_factory=list)
+    fixtures: list[str] = field(default_factory=list)  # Names of the fixtures used by the run
     threads: int = 1
     mtrx: "Matrix" = None  # type: ignore
     mtrx_prmttn: "MatrixPermutation" = None  # type: ignore
@@ -90,11 +92,28 @@ class EventReporter:
     def on_step_end(self, step_res: "StepResult") -> None:
         assert step_res is not None
 
+    # Fixture events. A fixture that isn't activated, or whose teardown is skipped, only gets
+    # the matching end event, with the skip reason set in the result.
+    def on_fixture_setup_start(self, fixture: "Fixture") -> None:
+        assert fixture is not None
+
+    def on_fixture_setup_end(self, fixture_res: "FixtureResult") -> None:
+        assert fixture_res is not None
+
+    def on_fixture_teardown_start(self, fixture: "Fixture") -> None:
+        assert fixture is not None
+
+    def on_fixture_teardown_end(self, fixture_res: "FixtureResult") -> None:
+        assert fixture_res is not None
+
     # General event message
     def on_run_message(self, *_, **__) -> None:
         ...
 
     def on_test_message(self, *_, **__) -> None:
+        ...
+
+    def on_fixture_message(self, *_, **__) -> None:
         ...
 
     def on_step_message(self, *_, **__) -> None:
@@ -112,7 +131,7 @@ class EventNotifier:
         self._reporters: list[EventReporter] = []
         for m in dir(self):
             if m.startswith("on_test") or m.startswith("on_phase") or m.startswith("on_step") or \
-                    m == "on_run_message":
+                    m.startswith("on_fixture") or m == "on_run_message":
                 setattr(self, m, self._test_event(m))
 
     def _test_event(self, method_name: str) -> Callable[[EventReporter,], None]:
@@ -136,11 +155,12 @@ class EventNotifier:
             r.on_conf_load()
 
     #  Global events
-    def on_run_start(self, run_res: "RunResult", tests: list["Test"], mtrx: "Matrix", threads: int
-                     ) -> None:
+    def on_run_start(self, run_res: "RunResult", tests: list["Test"], mtrx: "Matrix", threads: int,
+                     fixtures: list[str] | None = None) -> None:
         for r in self._reporters:
             r.run_res = run_res
             r.tests = tests
+            r.fixtures = fixtures or []
             r.threads = threads
             r.mtrx = mtrx
             r.on_run_start()
@@ -191,12 +211,28 @@ class EventNotifier:
     def on_step_end(self, step_res: "StepResult") -> None:
         assert step_res is not None
 
+    # Fixture events
+    def on_fixture_setup_start(self, fixture: "Fixture") -> None:
+        assert fixture is not None
+
+    def on_fixture_setup_end(self, fixture_res: "FixtureResult") -> None:
+        assert fixture_res is not None
+
+    def on_fixture_teardown_start(self, fixture: "Fixture") -> None:
+        assert fixture is not None
+
+    def on_fixture_teardown_end(self, fixture_res: "FixtureResult") -> None:
+        assert fixture_res is not None
+
     # General event message
     def on_run_message(self, *_, **__) -> None:
         ...
 
     def on_test_message(self, test: "Test", *_, **__) -> None:
         assert test is not None
+
+    def on_fixture_message(self, fixture: "Fixture", *_, **__) -> None:
+        assert fixture is not None
 
     def on_step_message(self, step: "Step", *_, **__) -> None:
         assert step is not None
