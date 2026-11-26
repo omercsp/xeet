@@ -184,6 +184,8 @@ def parse_arguments() -> Args:
     run_parser.add_argument('-j', '--jobs', metavar='NUMBER', nargs='?', default=1, type=int,
                             help='number of jobs to use')
     run_parser.add_argument('--randomize', action='store_true', default=False)
+    run_parser.add_argument('--no-fixtures', action='store_true', default=False,
+                            help='do not set up and tear down fixtures')
     run_parser.add_argument('-p', '--permutations', default=set(), metavar='IDX',
                             type=_index_list_type_checker, help='matrix permutations to run')
     run_parser.add_argument('-P', '--no-permutations',  default=set(), metavar='IDX',

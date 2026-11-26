@@ -1,7 +1,7 @@
 from xeet.core.test import Test
 from xeet.core.step import Step
 from xeet.core import TestsCriteria
-from xeet.core.driver import XeetSettings
+from xeet.core.driver import XeetSettings, _XeetDriver
 from xeet.core.matrix import Matrix
 from xeet.pr import stdout
 from xeet.log import log_verbose
@@ -32,7 +32,21 @@ def _console_width(no_wrap: bool) -> int:
         return _DFLT_WIDTH
 
 
-def _show_test(test: Test, full_details: bool, no_wrap: bool) -> None:
+#  Returns the test's fixtures names, marking undefined or invalid ones
+def _fixtures_info(driver: _XeetDriver, test: Test) -> str:
+    ret = []
+    for name in test.model.fixture_list():
+        fixture = driver.fixture(name)
+        if fixture is None:
+            ret.append(f"{name} <undefined>")
+        elif fixture.error:
+            ret.append(f"{name} <error: {fixture.error}>")
+        else:
+            ret.append(name)
+    return ", ".join(ret)
+
+
+def _show_test(test: Test, full_details: bool, no_wrap: bool, fixtures: str = "") -> None:
     console_width = _console_width(no_wrap)
 
     def print_val(title: str, value, break_lines: bool = True) -> None:
@@ -75,6 +89,8 @@ def _show_test(test: Test, full_details: bool, no_wrap: bool) -> None:
         print_val("Abstract", yes_no_str(test.model.abstract))
     if test.model.groups:
         print_val("Groups", ", ".join(test.model.groups))
+    if fixtures:
+        print_val("Fixtures", fixtures)
     if test.model.matrix:
         print("Matrix:")
         for k, v in test.model.matrix.items():
@@ -120,7 +136,8 @@ def show_test_info(conf: str, criteria: TestsCriteria, setup: bool, full_details
     for i, test in enumerate(tests):
         if i > 0:
             pr_info("-" * 80)
-        _show_test(test, full_details=full_details, no_wrap=no_wrap)
+        _show_test(test, full_details=full_details, no_wrap=no_wrap,
+                   fixtures=_fixtures_info(driver, test))
 
 
 def list_groups(conf: str) -> None:
