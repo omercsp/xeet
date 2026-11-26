@@ -78,6 +78,24 @@ def test_step_model_inheritance(xut: XeetUnittest):
     assert model.dummy_val0 == "other_from_base"
 
 
+def test_step_base_loop(xut: XeetUnittest):
+    steps_path = "settings.my_steps"
+    xut.add_setting("my_steps", {
+        "self_based": gen_dummy_step_desc(base=f"{steps_path}.self_based"),
+        "step0": gen_dummy_step_desc(base=f"{steps_path}.step1"),
+        "step1": gen_dummy_step_desc(base=f"{steps_path}.step2"),
+        "step2": gen_dummy_step_desc(base=f"{steps_path}.step0"),
+    }, reset=True)
+    xut.add_test(TEST0, run=[gen_dummy_step_desc(base=f"{steps_path}.self_based")])
+    xut.add_test(TEST1, run=[gen_dummy_step_desc(base=f"{steps_path}.step0")], save=True)
+
+    for name in (TEST0, TEST1):
+        assert "Base step loop detected" in xut.get_test(name).error
+        res = xut.run_test(name)
+        assert res.status.primary == TestPrimaryStatus.NotRun
+        assert res.status.secondary == TestSecondaryStatus.InitErr
+
+
 def test_bad_test_desc(xut: XeetUnittest):
     xut.add_test(TEST0, bad_setting="text", long_desc="text")
     xut.add_test(TEST1, long_desc="text", variables={"ba d": "value"})
